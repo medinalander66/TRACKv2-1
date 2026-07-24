@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { generateUniqueCode } = require('../utils/codeGenerator');
 const { sendAccountCodeEmail } = require('../services/emailService');
 
-// ─── Public – Create request (with Google SSO) ────────
+// ─── Public – Create request ──────────────────────────
 exports.createRequest = async (req, res) => {
   try {
     const { email, full_name, department_id, office_id, role_id, position_id, description } = req.body;
@@ -56,15 +56,9 @@ exports.listRequests = async (req, res) => {
       ];
     }
 
+    // ✅ Removed includes to avoid association errors
     const requests = await AccountCodeRequest.findAll({
       where,
-      include: [
-        { model: Department, attributes: ['id', 'name'] },
-        { model: Office, attributes: ['id', 'name'] },
-        { model: Role, attributes: ['id', 'name'] },
-        { model: Position, attributes: ['id', 'name'] },
-        { model: Admin, attributes: ['id'] }
-      ],
       order: [['created_at', 'DESC']]
     });
 
@@ -79,19 +73,11 @@ exports.listRequests = async (req, res) => {
 exports.getRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const request = await AccountCodeRequest.findByPk(id, {
-      include: [
-        { model: Department, attributes: ['id', 'name'] },
-        { model: Office, attributes: ['id', 'name'] },
-        { model: Role, attributes: ['id', 'name'] },
-        { model: Position, attributes: ['id', 'name'] }
-      ]
-    });
-
+    // ✅ Removed includes
+    const request = await AccountCodeRequest.findByPk(id);
     if (!request) {
       return res.status(404).json({ ok: false, message: 'Request not found.' });
     }
-
     res.json({ ok: true, request });
   } catch (error) {
     console.error('Get code request error:', error);
@@ -113,7 +99,6 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Request already reviewed.' });
     }
 
-    // Generate account code
     const code = await generateUniqueCode({
       department_id: request.department_id,
       office_id: request.office_id,
