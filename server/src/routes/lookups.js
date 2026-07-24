@@ -33,4 +33,18 @@ router.get('/roles', async (req, res) => {
   }
 });
 
+router.get('/positions', async (req, res) => {
+  try {
+    const positions = await Position.findAll({
+      where: { is_active: true },
+      attributes: ['id', 'name'],
+      order: [['name', 'ASC']]
+    });
+    res.json({ ok: true, positions });
+  } catch (err) {
+    console.error('Lookup positions error:', err);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;
