@@ -1,7 +1,10 @@
 import apiClient from './client';
 
-export const getGoogleUrl = async (redirectUrl) => {
-  const params = redirectUrl ? { redirect: redirectUrl } : {};
+export const getGoogleUrl = async (redirectUrl, mode = 'login') => {
+  const params = {};
+  if (redirectUrl) params.redirect = redirectUrl;
+  if (mode) params.mode = mode; // 'login' or 'request'
+  
   const { data } = await apiClient.get('/auth/google', { params });
   return data;
 };
