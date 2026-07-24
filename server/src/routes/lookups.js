@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Department, Office, Role } = require('../models');
+const { Position, Department, Office, Role } = require('../models');
 
 // Public lookups for client-side selects
 router.get('/departments', async (req, res) => {
