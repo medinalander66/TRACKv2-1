@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs'); 
+const bcrypt = require('bcryptjs');
 const { login, register } = require('../controllers/authController');
 const {
   googleLoginUrl,
@@ -37,11 +37,11 @@ router.get('/me', authenticate, async (req, res) => {
       departmentId = null,
       officeId = null,
       roleId = null,
-      displayPicture = null; 
+      displayPicture = null;
 
     if (profile) {
       fullName = profile.full_name;
-      displayPicture = profile.display_picture; 
+      displayPicture = profile.display_picture;
       departmentId = profile.department_id;
       officeId = profile.office_id;
       roleId = profile.role_id;
@@ -164,7 +164,7 @@ router.get('/users', authenticate, async (req, res) => {
   }
 });
 
-// ─── NEW: Update Profile (Full Name) ───
+// ─── Update Profile (Full Name) ───
 router.put('/profile', authenticate, async (req, res) => {
   try {
     const { full_name } = req.body;
@@ -188,7 +188,7 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
-// ─── NEW: Change Password ───
+// ─── Change Password ───
 router.put('/password', authenticate, async (req, res) => {
   try {
     const { current_password, new_password } = req.body;
@@ -204,13 +204,11 @@ router.put('/password', authenticate, async (req, res) => {
       return res.status(404).json({ ok: false, message: 'User not found.' });
     }
 
-    // Verify current password
     const valid = await bcrypt.compare(current_password, user.password_hash);
     if (!valid) {
       return res.status(401).json({ ok: false, message: 'Current password is incorrect.' });
     }
 
-    // Hash new password
     const hashed = await bcrypt.hash(new_password, 10);
     user.password_hash = hashed;
     await user.save();
@@ -222,7 +220,7 @@ router.put('/password', authenticate, async (req, res) => {
   }
 });
 
-// ─── NEW: Update Profile Picture ───
+// ─── Update Profile Picture ───
 router.put('/profile-picture', authenticate, async (req, res) => {
   try {
     const { picture_url } = req.body;

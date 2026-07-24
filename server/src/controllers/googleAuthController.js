@@ -9,16 +9,25 @@ const client = new OAuth2Client(
   process.env.GOOGLE_REDIRECT_URI
 );
 
+// ─── Generate Google Login URL ────────────────────────
 exports.googleLoginUrl = (req, res) => {
+  const { redirect, mode } = req.query;
+  const state = mode || 'login'; // 'login' or 'request'
+  
   const url = client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['email', 'profile']
+    scope: ['email', 'profile'],
+    state: state, // ← Pass mode as state
   });
+  
   res.json({ url });
 };
 
+// ─── Google Callback ──────────────────────────────────
 exports.googleCallback = async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+  const mode = state || 'login';
+  
   if (!code) {
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=missing_code`);
   }
@@ -46,15 +55,19 @@ exports.googleCallback = async (req, res) => {
     }
 
     let user = await User.findOne({ where: { email } });
+    
+    // ─── Existing User ──────────────────────────────
     if (user) {
       if (user.status === 'blocked' || user.status === 'suspended') {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=blocked`);
       }
+      
       const token = jwt.sign(
         { userId: user.id, isAdmin: false },
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
+      
       await UserSession.create({
         id: uuidv4(),
         user_id: user.id,
@@ -62,14 +75,28 @@ exports.googleCallback = async (req, res) => {
         status: 'active',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
       });
+
+      if (mode === 'request') {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/request-account-code?token=${token}`
+        );
+      }
       return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
     }
 
+    // ─── New User ─────────────────────────────────────
     const regToken = jwt.sign(
       { email, name, purpose: 'google-registration' },
       process.env.JWT_SECRET,
       { expiresIn: '5m' }
     );
+
+    if (mode === 'request') {
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/request-account-code?registration_token=${regToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
+      );
+    }
+
     return res.redirect(
       `${process.env.FRONTEND_URL}/register?registration_token=${regToken}&email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
     );
@@ -79,6 +106,7 @@ exports.googleCallback = async (req, res) => {
   }
 };
 
+// ─── Complete Google Registration ─────────────────────
 exports.completeGoogleRegistration = async (req, res) => {
   try {
     const { registration_token, account_code } = req.body;
@@ -122,7 +150,6 @@ exports.completeGoogleRegistration = async (req, res) => {
         status: 'active'
       }, { transaction: t });
 
-      // Save full_name from Google
       await UserProfile.create({
         user_id: user.id,
         department_id: code.department_id,
@@ -153,6 +180,7 @@ exports.completeGoogleRegistration = async (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
+      
       await UserSession.create({
         id: uuidv4(),
         user_id: user.id,
