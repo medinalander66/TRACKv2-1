@@ -56,18 +56,16 @@ exports.listRequests = async (req, res) => {
       ];
     }
 
-    // Fetch requests without includes
     const requests = await AccountCodeRequest.findAll({
       where,
       order: [['created_at', 'DESC']]
     });
 
-    // ─── Manually fetch department, office, role, position names ───
+    // Manually fetch department, office, role, position names
     const enrichedRequests = await Promise.all(
       requests.map(async (req) => {
-        const enriched = req.toJSON(); // get plain object
+        const enriched = req.toJSON();
 
-        // Fetch department name
         if (req.department_id) {
           const dept = await Department.findByPk(req.department_id, { attributes: ['name'] });
           enriched.department_name = dept ? dept.name : null;
@@ -75,7 +73,6 @@ exports.listRequests = async (req, res) => {
           enriched.department_name = null;
         }
 
-        // Fetch office name
         if (req.office_id) {
           const office = await Office.findByPk(req.office_id, { attributes: ['name'] });
           enriched.office_name = office ? office.name : null;
@@ -83,7 +80,6 @@ exports.listRequests = async (req, res) => {
           enriched.office_name = null;
         }
 
-        // Fetch role name
         if (req.role_id) {
           const role = await Role.findByPk(req.role_id, { attributes: ['name'] });
           enriched.role_name = role ? role.name : null;
@@ -91,7 +87,6 @@ exports.listRequests = async (req, res) => {
           enriched.role_name = null;
         }
 
-        // Fetch position name
         if (req.position_id) {
           const position = await Position.findByPk(req.position_id, { attributes: ['name'] });
           enriched.position_name = position ? position.name : null;
@@ -114,7 +109,6 @@ exports.listRequests = async (req, res) => {
 exports.getRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    // ✅ Removed includes
     const request = await AccountCodeRequest.findByPk(id);
     if (!request) {
       return res.status(404).json({ ok: false, message: 'Request not found.' });
@@ -140,6 +134,7 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Request already reviewed.' });
     }
 
+    // Generate account code
     const code = await generateUniqueCode({
       department_id: request.department_id,
       office_id: request.office_id,
@@ -153,6 +148,9 @@ exports.approveRequest = async (req, res) => {
     request.reviewed_at = new Date();
     request.generated_code = code.code;
     await request.save();
+
+    // Do NOT pre-fill the generate form automatically
+    // The admin can click "Send" on the request card to email the code
 
     res.json({
       ok: true,
@@ -207,6 +205,7 @@ exports.sendCodeEmail = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'No code to send.' });
     }
 
+    // Send email with timeout
     await sendAccountCodeEmail({
       email: request.email,
       full_name: request.full_name,
@@ -219,6 +218,10 @@ exports.sendCodeEmail = async (req, res) => {
     res.json({ ok: true, message: 'Code sent successfully.' });
   } catch (error) {
     console.error('Send code email error:', error);
-    res.status(500).json({ ok: false, message: 'Server error.' });
+    // Return meaningful error message
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Failed to send email. Please check SMTP configuration.'
+    });
   }
 };
