@@ -56,13 +56,54 @@ exports.listRequests = async (req, res) => {
       ];
     }
 
-    // ✅ Removed includes to avoid association errors
+    // Fetch requests without includes
     const requests = await AccountCodeRequest.findAll({
       where,
       order: [['created_at', 'DESC']]
     });
 
-    res.json({ ok: true, requests });
+    // ─── Manually fetch department, office, role, position names ───
+    const enrichedRequests = await Promise.all(
+      requests.map(async (req) => {
+        const enriched = req.toJSON(); // get plain object
+
+        // Fetch department name
+        if (req.department_id) {
+          const dept = await Department.findByPk(req.department_id, { attributes: ['name'] });
+          enriched.department_name = dept ? dept.name : null;
+        } else {
+          enriched.department_name = null;
+        }
+
+        // Fetch office name
+        if (req.office_id) {
+          const office = await Office.findByPk(req.office_id, { attributes: ['name'] });
+          enriched.office_name = office ? office.name : null;
+        } else {
+          enriched.office_name = null;
+        }
+
+        // Fetch role name
+        if (req.role_id) {
+          const role = await Role.findByPk(req.role_id, { attributes: ['name'] });
+          enriched.role_name = role ? role.name : null;
+        } else {
+          enriched.role_name = null;
+        }
+
+        // Fetch position name
+        if (req.position_id) {
+          const position = await Position.findByPk(req.position_id, { attributes: ['name'] });
+          enriched.position_name = position ? position.name : null;
+        } else {
+          enriched.position_name = null;
+        }
+
+        return enriched;
+      })
+    );
+
+    res.json({ ok: true, requests: enrichedRequests });
   } catch (error) {
     console.error('List code requests error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
