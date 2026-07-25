@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Configure transporter
+// Configure transporter with timeout
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT) || 587,
@@ -8,10 +8,19 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
-  }
+  },
+  // Add timeout to prevent hanging
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 exports.sendAccountCodeEmail = async ({ email, full_name, code }) => {
+  // Validate SMTP config before sending
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    throw new Error('SMTP credentials not configured. Please check environment variables.');
+  }
+
   const subject = 'Your TRACK Account Code';
   const html = `
     <h2>Hello ${full_name || 'User'},</h2>
@@ -27,14 +36,17 @@ exports.sendAccountCodeEmail = async ({ email, full_name, code }) => {
   `;
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || 'noreply@trackv2.com',
       to: email,
       subject,
       html
     });
+    console.log('Email sent:', info.messageId);
+    return info;
   } catch (error) {
     console.error('Email send error:', error);
-    throw error;
+    // Throw error with meaningful message
+    throw new Error(`Failed to send email: ${error.message}`);
   }
 };
