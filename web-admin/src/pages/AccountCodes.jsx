@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   generateCode,
   listCodes,
@@ -7,6 +7,8 @@ import {
   getRoles,
   getAvailablePositions,
 } from "../api/admin";
+import apiClient from "../api/client";
+import { FiRefreshCw, FiCheck, FiX, FiMail, FiSearch } from "react-icons/fi";
 import styles from "./AccountCodes.module.css";
 
 // ── Simple searchable dropdown ──────────────────────────
@@ -15,7 +17,6 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
   const [search, setSearch] = useState("");
   const wrapperRef = useRef(null);
 
-  // close on outside click
   useEffect(() => {
     const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -74,6 +75,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
 
 // ── Main component ──────────────────────────────────────
 export default function AccountCodes() {
+  // ─── Account Codes State ──────────────────────────────
   const [codes, setCodes] = useState([]);
   const [depts, setDepts] = useState([]);
   const [offices, setOffices] = useState([]);
@@ -89,7 +91,17 @@ export default function AccountCodes() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const loadData = async () => {
+  // ─── Account Code Requests State ──────────────────────
+  const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestFilter, setRequestFilter] = useState("pending");
+  const [requestSearch, setRequestSearch] = useState("");
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+
+  // ─── Load Account Codes ──────────────────────────────
+  const loadCodes = async () => {
     try {
       const [codesRes, deptsRes, officesRes, rolesRes, posRes] =
         await Promise.all([
@@ -109,10 +121,34 @@ export default function AccountCodes() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // ─── Load Account Code Requests ──────────────────────
+  const loadRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (requestFilter !== "all") params.append("status", requestFilter);
+      if (requestSearch) params.append("search", requestSearch);
 
+      const res = await apiClient.get(
+        `/account-code-requests?${params.toString()}`,
+      );
+      if (res.data.ok) {
+        setRequests(res.data.requests);
+      }
+    } catch (err) {
+      console.error("Failed to fetch requests:", err);
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, [requestFilter, requestSearch]);
+
+  // ─── Initial Load ──────────────────────────────────────
+  useEffect(() => {
+    loadCodes();
+    loadRequests();
+  }, [loadRequests]);
+
+  // ─── Handle Generate Code ─────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -127,7 +163,7 @@ export default function AccountCodes() {
       }
       const res = await generateCode(payload);
       setMessage(`Code generated: ${res.account_code.code}`);
-      loadData();
+      loadCodes();
       setForm({
         is_admin: false,
         department_id: "",
@@ -142,7 +178,91 @@ export default function AccountCodes() {
     }
   };
 
-  // Prepare option arrays for searchable selects
+  // ─── Pre-fill form from approved request ──────────────
+  const prefillFromRequest = (request) => {
+    setForm({
+      is_admin: false,
+      department_id: request.department_id || "",
+      office_id: request.office_id || "",
+      role_id: request.role_id || "",
+      position_id: request.position_id || "",
+      _requestId: request.id,
+    });
+    document
+      .querySelector(`.${styles.div2}`)
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // ─── Approve Request ──────────────────────────────────
+  const handleApprove = async (requestId) => {
+    try {
+      const res = await apiClient.post(
+        `/account-code-requests/${requestId}/approve`,
+      );
+      if (res.data.ok) {
+        loadRequests();
+        const request = res.data.request;
+        setSelectedRequest({
+          ...request,
+          generated_code: res.data.generated_code,
+        });
+        setShowEmailModal(true);
+        prefillFromRequest(request);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to approve.");
+    }
+  };
+
+  // ─── Reject Request ──────────────────────────────────
+  const handleReject = async (requestId) => {
+    const notes = prompt("Enter rejection reason (optional):");
+    try {
+      const res = await apiClient.post(
+        `/account-code-requests/${requestId}/reject`,
+        { admin_notes: notes },
+      );
+      if (res.data.ok) {
+        loadRequests();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to reject.");
+    }
+  };
+
+  // ─── Send Code Email ──────────────────────────────────
+  const handleSendCode = async () => {
+    if (!selectedRequest) return;
+    setEmailSending(true);
+    try {
+      const res = await apiClient.post(
+        `/account-code-requests/${selectedRequest.id}/send-code`,
+      );
+      if (res.data.ok) {
+        setShowEmailModal(false);
+        setSelectedRequest(null);
+        loadRequests();
+        alert("Code sent successfully!");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to send code.");
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  // ─── Get Status Badge ─────────────────────────────────
+  const getStatusBadge = (status) => {
+    const map = {
+      pending: { class: styles.badgePending, label: "Pending" },
+      approved: { class: styles.badgeApproved, label: "Approved" },
+      rejected: { class: styles.badgeRejected, label: "Rejected" },
+    };
+    const s = map[status] || map.pending;
+    return <span className={s.class}>{s.label}</span>;
+  };
+
+  // ─── Prepare Options ──────────────────────────────────
   const positionOpts = positions.map((p) => ({
     value: p.id,
     label: `${p.name}${!p.allow_multiple ? " (single holder)" : ""}`,
@@ -151,111 +271,330 @@ export default function AccountCodes() {
   const officeOpts = offices.map((o) => ({ value: o.id, label: o.name }));
 
   return (
-    <div>
-      <h1>Account Codes</h1>
-
-      {/* Generate Form */}
-      <div className={styles.card}>
-        <h2>Generate New Code</h2>
-        <form onSubmit={handleSubmit}>
-          <label className={styles.checkLabel}>
-            <input
-              type="checkbox"
-              checked={form.is_admin}
-              onChange={(e) => setForm({ ...form, is_admin: e.target.checked })}
-            />
-            Admin Code
-          </label>
-
-          {!form.is_admin && (
-            <>
-              {/* Position – searchable */}
-              <SearchableSelect
-                options={positionOpts}
-                value={form.position_id}
-                onChange={(val) => setForm({ ...form, position_id: val })}
-                placeholder="-- Select Position (if on the list) --"
-              />
-
-              {/* Department – searchable */}
-              <SearchableSelect
-                options={deptOpts}
-                value={form.department_id}
-                onChange={(val) => setForm({ ...form, department_id: val })}
-                placeholder="-- Select Department (if have) --"
-              />
-
-              {/* Office – searchable */}
-              <SearchableSelect
-                options={officeOpts}
-                value={form.office_id}
-                onChange={(val) => setForm({ ...form, office_id: val })}
-                placeholder="-- Select Office --"
-              />
-
-              {/* Role – simple select (only 3 items) */}
-              <select
-                className={styles.select}
-                value={form.role_id}
-                onChange={(e) => setForm({ ...form, role_id: e.target.value })}
-                required={!form.is_admin}
-              >
-                <option value="">-- Select Role --</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
-          <button type="submit" disabled={loading} className={styles.btn}>
-            {loading ? "Generating..." : "Generate Code"}
-          </button>
-        </form>
-        {message && <p className={styles.msg}>{message}</p>}
+    <div className={styles.parent}>
+      {/* ─── DIV 1: Title ────────────────────────────────── */}
+      <div className={styles.div1}>
+        <h1 className={styles.pageTitle}>Account Code Management</h1>
+        <p className={styles.pageSubtitle}>
+          Generate account codes and manage code requests
+        </p>
       </div>
 
-      {/* Codes Table */}
-      <div className={styles.card}>
-        <h2>Generated Codes</h2>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Generated By</th>
-              <th>Type</th>
-              <th>Department</th>
-              <th>Office</th>
-              <th>Role</th>
-              <th>Position</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {codes.map((code) => (
-              <tr key={code.id}>
-                <td>{code.code}</td>
-                <td>{code.generated_by || "—"}</td>
-                <td>{code.is_admin ? "Admin" : "User"}</td>
-                <td>{code.department || "—"}</td>
-                <td>{code.office || "—"}</td>
-                <td>{code.role || "—"}</td>
-                <td>{code.position || "—"}</td>
-                <td>{code.status}</td>
-                <td>{new Date(code.created_at).toLocaleDateString()}</td>
-              </tr>
-            ))}
-            {codes.length === 0 && (
-              <tr>
-                <td colSpan="8">No codes yet.</td>
-              </tr>
+      {/* ─── DIV 2: Generate New Code Form ──────────────── */}
+      <div className={styles.div2}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>
+            Generate New Code
+            {form._requestId && (
+              <span className={styles.requestBadge}>
+                From Request #{form._requestId.slice(0, 8)}
+              </span>
             )}
-          </tbody>
-        </table>
+          </h2>
+          <form onSubmit={handleSubmit}>
+            <label className={styles.checkLabel}>
+              <input
+                type="checkbox"
+                checked={form.is_admin}
+                onChange={(e) =>
+                  setForm({ ...form, is_admin: e.target.checked })
+                }
+              />
+              Admin Code
+            </label>
+
+            {!form.is_admin && (
+              <>
+                <SearchableSelect
+                  options={positionOpts}
+                  value={form.position_id}
+                  onChange={(val) => setForm({ ...form, position_id: val })}
+                  placeholder="-- Select Position (if on the list) --"
+                />
+                <SearchableSelect
+                  options={deptOpts}
+                  value={form.department_id}
+                  onChange={(val) => setForm({ ...form, department_id: val })}
+                  placeholder="-- Select Department (if have) --"
+                />
+                <SearchableSelect
+                  options={officeOpts}
+                  value={form.office_id}
+                  onChange={(val) => setForm({ ...form, office_id: val })}
+                  placeholder="-- Select Office --"
+                />
+                <select
+                  className={styles.select}
+                  value={form.role_id}
+                  onChange={(e) =>
+                    setForm({ ...form, role_id: e.target.value })
+                  }
+                  required={!form.is_admin}
+                >
+                  <option value="">-- Select Role --</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            <button type="submit" disabled={loading} className={styles.btn}>
+              {loading ? "Generating..." : "Generate Code"}
+            </button>
+          </form>
+          {message && <p className={styles.msg}>{message}</p>}
+        </div>
       </div>
+
+      {/* ─── DIV 3: Generated Codes Table ──────────────── */}
+      <div className={styles.div3}>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>Generated Codes</h2>
+            <button className={styles.refreshBtn} onClick={loadCodes}>
+              <FiRefreshCw size={16} /> Refresh
+            </button>
+          </div>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Type</th>
+                  <th>Department</th>
+                  <th>Office</th>
+                  <th>Role</th>
+                  <th>Position</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {codes.map((code) => (
+                  <tr key={code.id}>
+                    <td className={styles.codeCell}>{code.code}</td>
+                    <td>{code.is_admin ? "Admin" : "User"}</td>
+                    <td>{code.department || "—"}</td>
+                    <td>{code.office || "—"}</td>
+                    <td>{code.role || "—"}</td>
+                    <td>{code.position || "—"}</td>
+                    <td>
+                      <span
+                        className={`${styles.statusBadge} ${
+                          code.status === "used"
+                            ? styles.statusUsed
+                            : styles.statusUnused
+                        }`}
+                      >
+                        {code.status}
+                      </span>
+                    </td>
+                    <td>{new Date(code.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {codes.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className={styles.noData}>
+                      No codes yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── DIV 4: Account Code Requests ──────────────── */}
+      <div className={styles.div4}>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>Account Code Requests</h2>
+            <button className={styles.refreshBtn} onClick={loadRequests}>
+              <FiRefreshCw size={16} /> Refresh
+            </button>
+          </div>
+
+          {/* ── Request Filters ── */}
+          <div className={styles.requestFilters}>
+            <div className={styles.searchBar}>
+              <FiSearch className={styles.searchIcon} />
+              <input
+                type="text"
+                placeholder="Search by email or name..."
+                value={requestSearch}
+                onChange={(e) => setRequestSearch(e.target.value)}
+              />
+            </div>
+            <select
+              className={styles.statusFilter}
+              value={requestFilter}
+              onChange={(e) => setRequestFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* ── Request Cards ── */}
+          {requestsLoading ? (
+            <p className={styles.loading}>Loading requests...</p>
+          ) : (
+            <div className={styles.requestGrid}>
+              {requests.length === 0 ? (
+                <p className={styles.noData}>No requests found.</p>
+              ) : (
+                requests.map((req) => (
+                  <div key={req.id} className={styles.requestCard}>
+                    <div className={styles.requestHeader}>
+                      <div className={styles.requestUser}>
+                        <span className={styles.requestName}>
+                          {req.full_name || "N/A"}
+                        </span>
+                        <span className={styles.requestEmail}>{req.email}</span>
+                      </div>
+                      {getStatusBadge(req.status)}
+                    </div>
+
+                    <div className={styles.requestDetails}>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Department:</span>
+                        <span>{req.department_name || "—"}</span>
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Office:</span>
+                        <span>{req.office_name || "—"}</span>
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Role:</span>
+                        <span>{req.role_name || "—"}</span>
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Position:</span>
+                        <span>{req.position_name || "—"}</span>
+                      </div>
+                      {req.description && (
+                        <div className={styles.detailRow}>
+                          <span className={styles.detailLabel}>Note:</span>
+                          <span className={styles.requestDesc}>
+                            {req.description}
+                          </span>
+                        </div>
+                      )}
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Requested:</span>
+                        <span>
+                          {new Date(req.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ── Actions ── */}
+                    {req.status === "pending" && (
+                      <div className={styles.requestActions}>
+                        <button
+                          className={styles.approveBtn}
+                          onClick={() => handleApprove(req.id)}
+                        >
+                          <FiCheck /> Approve
+                        </button>
+                        <button
+                          className={styles.rejectBtn}
+                          onClick={() => handleReject(req.id)}
+                        >
+                          <FiX /> Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {req.status === "approved" && req.generated_code && (
+                      <div className={styles.codeDisplay}>
+                        <span className={styles.codeLabel}>Code:</span>
+                        <span className={styles.codeValue}>
+                          {req.generated_code}
+                        </span>
+                        {!req.code_sent_at ? (
+                          <button
+                            className={styles.sendBtn}
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setShowEmailModal(true);
+                            }}
+                          >
+                            <FiMail /> Send
+                          </button>
+                        ) : (
+                          <span className={styles.codeSent}>
+                            ✓ Sent{" "}
+                            {new Date(req.code_sent_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Email Modal ─── */}
+      {showEmailModal && selectedRequest && (
+        <div
+          className={styles.modalOverlay}
+          onClick={() => setShowEmailModal(false)}
+        >
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>Send Account Code</h3>
+              <button
+                className={styles.modalClose}
+                onClick={() => setShowEmailModal(false)}
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            <div className={styles.modalContent}>
+              <p>Send the generated account code to:</p>
+              <div className={styles.recipientInfo}>
+                <strong>{selectedRequest.full_name || "User"}</strong>
+                <span>{selectedRequest.email}</span>
+              </div>
+              <div className={styles.codePreview}>
+                <span className={styles.codeLabel}>Code:</span>
+                <span className={styles.codeValue}>
+                  {selectedRequest.generated_code}
+                </span>
+              </div>
+              <p className={styles.modalNote}>
+                The user will receive an email with their account code and
+                registration link.
+              </p>
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                className={styles.cancelBtn}
+                onClick={() => setShowEmailModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.sendBtn}
+                onClick={handleSendCode}
+                disabled={emailSending}
+              >
+                {emailSending ? "Sending..." : "Send Code"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
