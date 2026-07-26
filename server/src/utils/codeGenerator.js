@@ -2,7 +2,26 @@ const { AccountCode } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 const { Sequelize } = require('sequelize');
 
-exports.generateUniqueCode = async ({ department_id, office_id, role_id, position_id, is_admin }) => {
+/**
+ * Generate a unique account code
+ * @param {Object} params
+ * @param {string} params.department_id - UUID of department
+ * @param {string} params.office_id - UUID of office
+ * @param {string} params.role_id - UUID of role
+ * @param {string} params.position_id - UUID of position
+ * @param {boolean} params.is_admin - Whether this is an admin code
+ * @param {string} params.source_type - 'admin_generated' or 'request_approved'
+ * @param {string} params.account_code_request_id - UUID of the associated request (if any)
+ */
+exports.generateUniqueCode = async ({
+  department_id,
+  office_id,
+  role_id,
+  position_id,
+  is_admin,
+  source_type = 'admin_generated',           // default
+  account_code_request_id = null             // default
+}) => {
   // Get names for prefix
   const { Department, Office, Role, Position } = require('../models');
 
@@ -47,7 +66,9 @@ exports.generateUniqueCode = async ({ department_id, office_id, role_id, positio
         role_id: role_id || null,
         position_id: position_id || null,
         is_admin: !!is_admin,
-        status: 'unused'
+        status: 'unused',
+        source_type: source_type,                          // new
+        account_code_request_id: account_code_request_id || null // new
       });
       break;
     } catch (err) {
