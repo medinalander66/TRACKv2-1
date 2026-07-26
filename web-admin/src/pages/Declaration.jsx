@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import {
   getDepartments,
   createDepartment,
@@ -16,11 +17,12 @@ import {
   deletePosition,
   getPositionAssignments,
   removeAssignment,
+  reorderPositions, // ← NEW API call
 } from "../api/admin";
 import styles from "./Declaration.module.css";
 
 export default function Declaration() {
-  const [tab, setTab] = useState("departments"); // departments | offices | domains | positions
+  const [tab, setTab] = useState("departments");
   const [departments, setDepartments] = useState([]);
   const [offices, setOffices] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -30,10 +32,10 @@ export default function Declaration() {
   const [newDomain, setNewDomain] = useState("");
   const [newPosition, setNewPosition] = useState({
     name: "",
-    weight: 1,
     allow_multiple: false,
   });
   const [message, setMessage] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   const load = async () => {
     try {
@@ -90,8 +92,11 @@ export default function Declaration() {
   const addPositionItem = async () => {
     if (!newPosition.name.trim()) return;
     try {
-      await createPosition(newPosition);
-      setNewPosition({ name: "", weight: 1, allow_multiple: false });
+      await createPosition({
+        name: newPosition.name.trim(),
+        allow_multiple: newPosition.allow_multiple,
+      });
+      setNewPosition({ name: "", allow_multiple: false });
       load();
       setMessage("Position added.");
     } catch (err) {
@@ -142,6 +147,34 @@ export default function Declaration() {
     }
   };
 
+  // ─── Drag and Drop Handler ────────────────────────────
+  const handleDragEnd = async (result) => {
+    setIsDragging(false);
+    if (!result.destination) return;
+
+    const items = Array.from(positions);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update order numbers
+    const updatedItems = items.map((item, index) => ({
+      id: item.id,
+      order: index,
+    }));
+
+    setPositions(items);
+    setMessage("Updating order...");
+
+    try {
+      await reorderPositions(updatedItems);
+      setMessage("Positions reordered successfully.");
+      load(); // Refresh to get latest from server
+    } catch (err) {
+      setMessage("Failed to reorder positions.");
+      load(); // Revert
+    }
+  };
+
   return (
     <div>
       <h1>Declaration</h1>
@@ -172,7 +205,7 @@ export default function Declaration() {
         </button>
       </div>
 
-      {/* ── Departments / Offices ── */}
+      {/* ─── Departments / Offices (same as before) ─── */}
       {(tab === "departments" || tab === "offices") && (
         <div className={styles.card}>
           <div className={styles.addForm}>
@@ -218,7 +251,7 @@ export default function Declaration() {
         </div>
       )}
 
-      {/* ── Domains ── */}
+      {/* ─── Domains (same as before) ─── */}
       {tab === "domains" && (
         <div className={styles.card}>
           <div className={styles.addForm}>
@@ -253,15 +286,7 @@ export default function Declaration() {
                     </button>
                     <button
                       onClick={() => handleDeleteDomain(d.id)}
-                      style={{
-                        marginLeft: 8,
-                        background: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        padding: "4px 8px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                      }}
+                      className={styles.dangerBtn}
                     >
                       Delete
                     </button>
@@ -278,7 +303,7 @@ export default function Declaration() {
         </div>
       )}
 
-      {/* ── Positions ── */}
+      {/* ─── Positions (New Card Layout with Drag & Drop) ─── */}
       {tab === "positions" && (
         <>
           <div className={styles.card}>
@@ -292,21 +317,6 @@ export default function Declaration() {
                   setNewPosition({ ...newPosition, name: e.target.value })
                 }
                 className={styles.input}
-              />
-              <input
-                type="number"
-                placeholder="Weight (1-5)"
-                value={newPosition.weight}
-                min="1"
-                max="5"
-                onChange={(e) =>
-                  setNewPosition({
-                    ...newPosition,
-                    weight: parseInt(e.target.value) || 1,
-                  })
-                }
-                className={styles.input}
-                style={{ width: 80 }}
               />
               <label className={styles.checkboxRow}>
                 <input
@@ -328,57 +338,98 @@ export default function Declaration() {
             {message && <p className={styles.msg}>{message}</p>}
           </div>
 
-          {/* Positions list */}
+          {/* ─── Position Cards with Drag & Drop ─── */}
           <div className={styles.card}>
-            <h3>All Positions</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Weight</th>
-                  <th>Multiple</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((pos) => (
-                  <tr key={pos.id}>
-                    <td>{pos.name}</td>
-                    <td>{pos.weight}</td>
-                    <td>{pos.allow_multiple ? "Yes" : "No"}</td>
-                    <td>{pos.is_active ? "Active" : "Inactive"}</td>
-                    <td>
-                      <button onClick={() => toggleItem(pos.id, pos.is_active)}>
-                        {pos.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => handleDeletePosition(pos.id)}
-                        style={{
-                          marginLeft: 8,
-                          background: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                        }}
+            <div className={styles.cardHeader}>
+              <h3>All Positions</h3>
+              <span className={styles.hint}>
+                ↕ Drag to reorder (top = highest priority)
+              </span>
+            </div>
+
+            <DragDropContext
+              onDragStart={() => setIsDragging(true)}
+              onDragEnd={handleDragEnd}
+            >
+              <Droppable droppableId="positions">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={styles.positionList}
+                  >
+                    {positions.map((pos, index) => (
+                      <Draggable
+                        key={pos.id}
+                        draggableId={pos.id}
+                        index={index}
                       >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {positions.length === 0 && (
-                  <tr>
-                    <td colSpan="5">No positions defined.</td>
-                  </tr>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`${styles.positionCard} ${
+                              snapshot.isDragging ? styles.dragging : ""
+                            }`}
+                          >
+                            <div
+                              className={styles.cardDragHandle}
+                              {...provided.dragHandleProps}
+                            >
+                              <span className={styles.dragIcon}>⠿</span>
+                              <span className={styles.positionOrder}>
+                                #{index + 1}
+                              </span>
+                            </div>
+                            <div className={styles.cardContent}>
+                              <span className={styles.positionName}>
+                                {pos.name}
+                              </span>
+                              <span className={styles.positionBadge}>
+                                {pos.allow_multiple ? "Multiple" : "Single"}
+                              </span>
+                              <span
+                                className={
+                                  pos.is_active
+                                    ? styles.statusActive
+                                    : styles.statusInactive
+                                }
+                              >
+                                {pos.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <div className={styles.cardActions}>
+                              <button
+                                onClick={() =>
+                                  toggleItem(pos.id, pos.is_active)
+                                }
+                                className={styles.toggleBtn}
+                              >
+                                {pos.is_active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePosition(pos.id)}
+                                className={styles.dangerBtn}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </Droppable>
+            </DragDropContext>
+
+            {positions.length === 0 && (
+              <p className={styles.noData}>No positions defined.</p>
+            )}
           </div>
 
-          {/* Assignments list */}
+          {/* ─── Assignments list ─── */}
           <div className={styles.card}>
             <h3>Current Assignments</h3>
             <table className={styles.table}>
@@ -399,14 +450,7 @@ export default function Declaration() {
                     <td>
                       <button
                         onClick={() => handleRemoveAssignment(ass.id)}
-                        style={{
-                          background: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                        }}
+                        className={styles.dangerBtn}
                       >
                         Remove
                       </button>
