@@ -12,6 +12,7 @@ const { Sequelize } = require('sequelize');
  * @param {boolean} params.is_admin - Whether this is an admin code
  * @param {string} params.source_type - 'admin_generated' or 'request_approved'
  * @param {string} params.account_code_request_id - UUID of the associated request (if any)
+ * @param {string} params.generated_by_admin_id - UUID of the admin who generated/approved the code
  */
 exports.generateUniqueCode = async ({
   department_id,
@@ -19,10 +20,10 @@ exports.generateUniqueCode = async ({
   role_id,
   position_id,
   is_admin,
-  source_type = 'admin_generated',           // default
-  account_code_request_id = null             // default
+  source_type = 'admin_generated',
+  account_code_request_id = null,
+  generated_by_admin_id = null
 }) => {
-  // Get names for prefix
   const { Department, Office, Role, Position } = require('../models');
 
   let dept = null, office = null, role = null, pos = null;
@@ -67,8 +68,9 @@ exports.generateUniqueCode = async ({
         position_id: position_id || null,
         is_admin: !!is_admin,
         status: 'unused',
-        source_type: source_type,                          // new
-        account_code_request_id: account_code_request_id || null // new
+        source_type: source_type,
+        account_code_request_id: account_code_request_id || null,
+        generated_by_admin_id: generated_by_admin_id || null  
       });
       break;
     } catch (err) {
