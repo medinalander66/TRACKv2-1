@@ -43,6 +43,15 @@ const AccountCode = sequelize.define('account_codes', {
     type: DataTypes.ENUM('unused','used','revoked','expired'),
     defaultValue: 'unused'
   },
+  source_type: {
+    type: DataTypes.ENUM('admin_generated', 'request_approved'),
+    allowNull: false,
+    defaultValue: 'admin_generated'
+  },
+  account_code_request_id: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
