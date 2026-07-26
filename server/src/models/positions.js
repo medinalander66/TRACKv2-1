@@ -10,12 +10,11 @@ const Position = sequelize.define('positions', {
   name: {
     type: DataTypes.STRING(100),
     allowNull: false
-    // NO unique: true
   },
-  weight: {
+  order: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    defaultValue: 1
+    defaultValue: 0
   },
   allow_multiple: {
     type: DataTypes.BOOLEAN,
