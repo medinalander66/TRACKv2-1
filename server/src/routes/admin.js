@@ -22,14 +22,16 @@ const {
   toggle: togglePosition,
   delete: deletePosition,
   available: availablePositions,
-  reorder: reorderPositions
+  reorder: reorderPositions,
+  update: updatePosition,       
+  combine: combinePositions 
 } = require('../controllers/positionsController');
 const {
   listAssignments,
   removeAssignment
 } = require('../controllers/positionAssignmentsController');
 
-// ─── User Management (NEW) ────────────────────────────
+// ─── User Management ────────────────────────────
 const { getAllUsers } = require('../controllers/adminUserController');
 
 // --- Test ---
@@ -64,12 +66,14 @@ router.put('/positions/:id/toggle', requireAdmin, togglePosition);
 router.delete('/positions/:id', requireAdmin, deletePosition);
 router.get('/positions/available', requireAdmin, availablePositions);
 router.put('/positions/reorder', requireAdmin, reorderPositions);
+router.put('/positions/:id', requireAdmin, updatePosition);
+router.post('/positions/:id/combine', requireAdmin, combinePositions);
 
 // --- Position Assignments ---
 router.get('/position-assignments', requireAdmin, listAssignments);
 router.put('/position-assignments/:id/remove', requireAdmin, removeAssignment);
 
-// ─── User Management Routes (NEW) ─────────────────────
+// ─── User Management Routes ─────────────────────
 router.get('/users', requireAdmin, getAllUsers);
 
 module.exports = router;
