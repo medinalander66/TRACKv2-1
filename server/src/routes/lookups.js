@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Position, Department, Office, Role } = require('../models');
+const { Position, Department, Office, Role, AllowedDomain } = require('../models');
 
 // Public lookups for client-side selects
 router.get('/departments', async (req, res) => {
@@ -43,6 +43,20 @@ router.get('/positions', async (req, res) => {
     res.json({ ok: true, positions });
   } catch (err) {
     console.error('Lookup positions error:', err);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
+});
+
+router.get('/domains', async (req, res) => {
+  try {
+    const domains = await AllowedDomain.findAll({
+      where: { is_active: true },
+      attributes: ['domain'],
+      order: [['domain', 'ASC']]
+    });
+    res.json({ ok: true, domains: domains.map(d => d.domain) });
+  } catch (err) {
+    console.error('Lookup domains error:', err);
     res.status(500).json({ ok: false, message: 'Server error' });
   }
 });
