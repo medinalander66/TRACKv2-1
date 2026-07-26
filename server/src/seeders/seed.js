@@ -10,9 +10,8 @@ async function seed() {
   // Lookups
   const [dept] = await Department.findOrCreate({ where: { name: 'SYSTEM' }, defaults: { id: uuidv4(), is_active: true } });
   const [office] = await Office.findOrCreate({ where: { name: 'SYSTEM' }, defaults: { id: uuidv4(), is_active: true } });
-  const [role] = await Role.findOrCreate({ where: { name: 'SYSTEM' }, defaults: { id: uuidv4(), is_active: true } });
+  const [role] = await Role.findOrCreate({ where: { name: 'officials' }, defaults: { id: uuidv4(), is_active: true } });
 
-  await Role.findOrCreate({ where: { name: 'officials' }, defaults: { id: uuidv4(), is_active: true } });
   await Role.findOrCreate({ where: { name: 'staff' }, defaults: { id: uuidv4(), is_active: true } });
   await Role.findOrCreate({ where: { name: 'faculty' }, defaults: { id: uuidv4(), is_active: true } });
 
