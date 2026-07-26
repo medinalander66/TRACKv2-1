@@ -16,7 +16,6 @@ import {
   FiSearch,
   FiCopy,
   FiFileText,
-  FiUsers,
   FiCode,
   FiClock,
 } from "react-icons/fi";
@@ -610,22 +609,33 @@ export default function AccountCodes() {
                     <div className={styles.requestDetails}>
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Department:</span>
-                        <span>{req.department_name || "—"}</span>
+                        <span className={styles.detailValue}>
+                          {req.department_name || "—"}
+                        </span>
                       </div>
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Office:</span>
-                        <span>{req.office_name || "—"}</span>
+                        <span className={styles.detailValue}>
+                          {req.office_name || "—"}
+                        </span>
                       </div>
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Role:</span>
-                        <span>{req.role_name || "—"}</span>
+                        <span className={styles.detailValue}>
+                          {req.role_name || "—"}
+                        </span>
                       </div>
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Position:</span>
-                        <span>{req.position_name || "—"}</span>
+                        <span className={styles.detailValue}>
+                          {req.position_name || "—"}
+                        </span>
                       </div>
                       {req.description && (
-                        <div className={styles.detailRow}>
+                        <div
+                          className={styles.detailRow}
+                          style={{ gridColumn: "1 / -1" }}
+                        >
                           <span className={styles.detailLabel}>Note:</span>
                           <span className={styles.requestDesc}>
                             {req.description}
@@ -634,13 +644,12 @@ export default function AccountCodes() {
                       )}
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Requested:</span>
-                        <span>
+                        <span className={styles.detailValue}>
                           {new Date(req.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
 
-                    {/* ── Actions ── */}
                     {req.status === "pending" && (
                       <div className={styles.requestActions}>
                         <button
