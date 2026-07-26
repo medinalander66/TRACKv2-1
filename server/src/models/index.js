@@ -25,6 +25,7 @@ const DailyMetric = require('./daily_metrics');
 // Requests
 const AccountCodeRequest = require('./account_code_requests');
 
+
 // User side
 const Venue = require('./venues');
 const Event = require('./events');
@@ -53,6 +54,7 @@ AccountCode.belongsTo(Role, { foreignKey: 'role_id' });
 AccountCode.belongsTo(Admin, { foreignKey: 'generated_by_admin_id', onDelete: 'SET NULL' });
 AccountCode.belongsTo(User, { foreignKey: 'used_by_user_id', onDelete: 'SET NULL' });
 AccountCode.belongsTo(Position, { foreignKey: 'position_id', onDelete: 'SET NULL' });
+AccountCode.belongsTo(AccountCodeRequest, { foreignKey: 'account_code_request_id', as: 'request' });
 
 // --- users ---
 User.belongsTo(AccountCode, { foreignKey: 'account_code_id', onDelete: 'SET NULL' });
@@ -90,6 +92,7 @@ AccountCodeRequest.belongsTo(Department, { foreignKey: 'department_id', onDelete
 AccountCodeRequest.belongsTo(Office, { foreignKey: 'office_id', onDelete: 'SET NULL' });
 AccountCodeRequest.belongsTo(Role, { foreignKey: 'role_id', onDelete: 'SET NULL' });
 AccountCodeRequest.belongsTo(Admin, { foreignKey: 'reviewed_by_admin_id', onDelete: 'SET NULL' });
+
 
 // --- venues ---
 Venue.belongsTo(User, { foreignKey: 'created_by' });
