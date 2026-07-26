@@ -49,9 +49,9 @@ export default function App() {
           {/* Protected layout */}
           <Route
             element={
-              // <RequireAuth>
+              <RequireAuth>
                 <AppLayout />
-              // {/* </RequireAuth> */}
+              </RequireAuth>
             }
           >
             <Route index element={<RoleRedirect />} />
