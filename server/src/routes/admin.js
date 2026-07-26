@@ -21,7 +21,8 @@ const {
   create: createPosition,
   toggle: togglePosition,
   delete: deletePosition,
-  available: availablePositions
+  available: availablePositions,
+  reorder: reorderPositions
 } = require('../controllers/positionsController');
 const {
   listAssignments,
@@ -62,6 +63,7 @@ router.post('/positions', requireAdmin, createPosition);
 router.put('/positions/:id/toggle', requireAdmin, togglePosition);
 router.delete('/positions/:id', requireAdmin, deletePosition);
 router.get('/positions/available', requireAdmin, availablePositions);
+router.put('/positions/reorder', requireAdmin, reorderPositions);
 
 // --- Position Assignments ---
 router.get('/position-assignments', requireAdmin, listAssignments);
