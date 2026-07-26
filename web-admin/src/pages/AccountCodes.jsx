@@ -8,7 +8,18 @@ import {
   getAvailablePositions,
 } from "../api/admin";
 import apiClient from "../api/client";
-import { FiRefreshCw, FiCheck, FiX, FiMail, FiSearch } from "react-icons/fi";
+import {
+  FiRefreshCw,
+  FiCheck,
+  FiX,
+  FiMail,
+  FiSearch,
+  FiCopy,
+  FiFileText,
+  FiUsers,
+  FiCode,
+  FiClock,
+} from "react-icons/fi";
 import styles from "./AccountCodes.module.css";
 
 // ── Simple searchable dropdown ──────────────────────────
@@ -101,6 +112,15 @@ export default function AccountCodes() {
   const [emailSending, setEmailSending] = useState(false);
   const [approvingIds, setApprovingIds] = useState(new Set());
 
+  // ─── Summary stats ─────────────────────────────────────
+  const summaryStats = {
+    totalCodes: codes.length,
+    usedCodes: codes.filter((c) => c.status === "used").length,
+    unusedCodes: codes.filter((c) => c.status === "unused").length,
+    pendingRequests: requests.filter((r) => r.status === "pending").length,
+    totalRequests: requests.length,
+  };
+
   // ─── Load Account Codes ──────────────────────────────
   const loadCodes = async () => {
     try {
@@ -180,21 +200,28 @@ export default function AccountCodes() {
     }
   };
 
-  // ─── Approve Request ──────────────────────────────────
+  // ─── Approve Request with confirmation ──────────────
   const handleApprove = async (requestId) => {
     if (approvingIds.has(requestId)) return;
+
+    const request = requests.find((r) => r.id === requestId);
+    if (!request) return;
+
+    const confirmMsg = `Approve request from ${request.full_name || "User"} (${request.email})?`;
+    if (!window.confirm(confirmMsg)) return;
+
     setApprovingIds((prev) => new Set(prev).add(requestId));
     try {
       const res = await apiClient.post(
         `/account-code-requests/${requestId}/approve`,
       );
       if (res.data.ok) {
-        const request = res.data.request;
+        const req = res.data.request;
         setSelectedRequest({
-          ...request,
+          ...req,
           generated_code: res.data.generated_code,
-          email: request.email,
-          full_name: request.full_name,
+          email: req.email,
+          full_name: req.full_name,
         });
         setShowEmailModal(true);
         loadRequests();
@@ -210,13 +237,27 @@ export default function AccountCodes() {
     }
   };
 
-  // ─── Reject Request ──────────────────────────────────
+  // ─── Reject Request with confirmation ────────────────
   const handleReject = async (requestId) => {
-    const notes = prompt("Enter rejection reason (optional):");
+    const request = requests.find((r) => r.id === requestId);
+    if (!request) return;
+
+    const notes = prompt(
+      `Reject request from ${request.full_name || "User"} (${request.email}). Enter reason (optional):`,
+    );
+    if (notes === null) return; // cancel
+
+    if (
+      !window.confirm(
+        `Confirm rejection for ${request.full_name || request.email}?`,
+      )
+    )
+      return;
+
     try {
       const res = await apiClient.post(
         `/account-code-requests/${requestId}/reject`,
-        { admin_notes: notes },
+        { admin_notes: notes || null },
       );
       if (res.data.ok) {
         loadRequests();
@@ -252,6 +293,14 @@ export default function AccountCodes() {
     }
   };
 
+  // ─── Copy code to clipboard ──────────────────────────
+  const copyToClipboard = (code) => {
+    navigator.clipboard.writeText(code).then(
+      () => alert(`Copied: ${code}`),
+      () => alert("Failed to copy code."),
+    );
+  };
+
   // ─── Get Status Badge ─────────────────────────────────
   const getStatusBadge = (status) => {
     const map = {
@@ -273,16 +322,91 @@ export default function AccountCodes() {
 
   return (
     <div className={styles.parent}>
-      {/* ─── DIV 1: Title ────────────────────────────────── */}
-      <div className={styles.div1}>
+      {/* ─── TITLE SECTION ──────────────────────────────── */}
+      <div className={styles.titleSection}>
         <h1 className={styles.pageTitle}>Account Code Management</h1>
         <p className={styles.pageSubtitle}>
           Generate account codes and manage code requests
         </p>
       </div>
 
-      {/* ─── DIV 2: Generate New Code Form ──────────────── */}
-      <div className={styles.div2}>
+      {/* ─── GENERATE SECTION ───────────────────────────── */}
+      <div className={styles.generateSection}>
+        {/* ── Summary Cards ── */}
+        <div className={styles.summaryGrid}>
+          <div className={styles.summaryCard}>
+            <div
+              className={styles.summaryIcon}
+              style={{ background: "#dbeafe", color: "#2563eb" }}
+            >
+              <FiCode size={20} />
+            </div>
+            <div className={styles.summaryInfo}>
+              <span className={styles.summaryValue}>
+                {summaryStats.totalCodes}
+              </span>
+              <span className={styles.summaryLabel}>Total Codes</span>
+            </div>
+          </div>
+          <div className={styles.summaryCard}>
+            <div
+              className={styles.summaryIcon}
+              style={{ background: "#d1fae5", color: "#059669" }}
+            >
+              <FiCheck size={20} />
+            </div>
+            <div className={styles.summaryInfo}>
+              <span className={styles.summaryValue}>
+                {summaryStats.usedCodes}
+              </span>
+              <span className={styles.summaryLabel}>Used</span>
+            </div>
+          </div>
+          <div className={styles.summaryCard}>
+            <div
+              className={styles.summaryIcon}
+              style={{ background: "#fef3c7", color: "#d97706" }}
+            >
+              <FiClock size={20} />
+            </div>
+            <div className={styles.summaryInfo}>
+              <span className={styles.summaryValue}>
+                {summaryStats.unusedCodes}
+              </span>
+              <span className={styles.summaryLabel}>Unused</span>
+            </div>
+          </div>
+          <div className={styles.summaryCard}>
+            <div
+              className={styles.summaryIcon}
+              style={{ background: "#fce7f3", color: "#db2777" }}
+            >
+              <FiMail size={20} />
+            </div>
+            <div className={styles.summaryInfo}>
+              <span className={styles.summaryValue}>
+                {summaryStats.pendingRequests}
+              </span>
+              <span className={styles.summaryLabel}>Pending Requests</span>
+            </div>
+          </div>
+          <div className={styles.summaryCard}>
+            <div
+              className={styles.summaryIcon}
+              style={{ background: "#e0e7ff", color: "#4f46e5" }}
+            >
+              <FiFileText size={20} />
+            </div>
+            <div className={styles.summaryInfo}>
+              <span className={styles.summaryValue}>
+                {summaryStats.totalRequests}
+              </span>
+              <span className={styles.summaryLabel}>Total Requests</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Generate Form ── */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>
             Generate New Code
@@ -293,16 +417,18 @@ export default function AccountCodes() {
             )}
           </h2>
           <form onSubmit={handleSubmit}>
-            <label className={styles.checkLabel}>
-              <input
-                type="checkbox"
-                checked={form.is_admin}
-                onChange={(e) =>
-                  setForm({ ...form, is_admin: e.target.checked })
-                }
-              />
-              Admin Code
-            </label>
+            <div className={styles.checkboxWrapper}>
+              <label className={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={form.is_admin}
+                  onChange={(e) =>
+                    setForm({ ...form, is_admin: e.target.checked })
+                  }
+                />
+                <span>Admin Code</span>
+              </label>
+            </div>
 
             {!form.is_admin && (
               <>
@@ -350,8 +476,8 @@ export default function AccountCodes() {
         </div>
       </div>
 
-      {/* ─── DIV 3: Generated Codes Table ──────────────── */}
-      <div className={styles.div3}>
+      {/* ─── CODES SECTION ──────────────────────────────── */}
+      <div className={styles.codesSection}>
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Generated Codes</h2>
@@ -379,7 +505,16 @@ export default function AccountCodes() {
               <tbody>
                 {codes.map((code) => (
                   <tr key={code.id}>
-                    <td className={styles.codeCell}>{code.code}</td>
+                    <td className={styles.codeCell}>
+                      <span className={styles.hiddenCode}>••••••••</span>
+                      <button
+                        className={styles.copyBtn}
+                        onClick={() => copyToClipboard(code.code)}
+                        title="Copy code"
+                      >
+                        <FiCopy size={16} />
+                      </button>
+                    </td>
                     <td>{code.is_admin ? "Admin" : "User"}</td>
                     <td>{code.department || "—"}</td>
                     <td>{code.office || "—"}</td>
@@ -419,8 +554,8 @@ export default function AccountCodes() {
         </div>
       </div>
 
-      {/* ─── DIV 4: Account Code Requests ──────────────── */}
-      <div className={styles.div4}>
+      {/* ─── REQUESTS SECTION ───────────────────────────── */}
+      <div className={styles.requestsSection}>
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Account Code Requests</h2>
@@ -469,7 +604,7 @@ export default function AccountCodes() {
                         </span>
                         <span className={styles.requestEmail}>{req.email}</span>
                       </div>
-                      {getStatusBadge(req.status)}
+                      <div>{getStatusBadge(req.status)}</div>
                     </div>
 
                     <div className={styles.requestDetails}>
