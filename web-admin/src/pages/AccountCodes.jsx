@@ -99,6 +99,7 @@ export default function AccountCodes() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
+  const [approvingIds, setApprovingIds] = useState(new Set());
 
   // ─── Load Account Codes ──────────────────────────────
   const loadCodes = async () => {
@@ -170,6 +171,7 @@ export default function AccountCodes() {
         office_id: "",
         role_id: "",
         position_id: "",
+        _requestId: undefined,
       });
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to generate code.");
@@ -178,39 +180,34 @@ export default function AccountCodes() {
     }
   };
 
-  // ─── Pre-fill form from approved request ──────────────
-  const prefillFromRequest = (request) => {
-    setForm({
-      is_admin: false,
-      department_id: request.department_id || "",
-      office_id: request.office_id || "",
-      role_id: request.role_id || "",
-      position_id: request.position_id || "",
-      _requestId: request.id,
-    });
-    document
-      .querySelector(`.${styles.div2}`)
-      ?.scrollIntoView({ behavior: "smooth" });
-  };
-
   // ─── Approve Request ──────────────────────────────────
   const handleApprove = async (requestId) => {
+    if (approvingIds.has(requestId)) return;
+    setApprovingIds((prev) => new Set(prev).add(requestId));
     try {
       const res = await apiClient.post(
         `/account-code-requests/${requestId}/approve`,
       );
       if (res.data.ok) {
-        loadRequests();
+        // ✅ After approval, show the email modal with the generated code
         const request = res.data.request;
         setSelectedRequest({
           ...request,
           generated_code: res.data.generated_code,
+          email: request.email,
+          full_name: request.full_name,
         });
-        setShowEmailModal(true);
-        prefillFromRequest(request);
+        setShowEmailModal(true); // ✅ Show modal automatically
+        loadRequests();
       }
     } catch (err) {
       alert(err.response?.data?.message || "Failed to approve.");
+    } finally {
+      setApprovingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(requestId);
+        return newSet;
+      });
     }
   };
 
@@ -243,9 +240,14 @@ export default function AccountCodes() {
         setSelectedRequest(null);
         loadRequests();
         alert("Code sent successfully!");
+      } else {
+        alert(res.data.message || "Failed to send code.");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to send code.");
+      alert(
+        err.response?.data?.message ||
+          "Failed to send code. Check SMTP configuration.",
+      );
     } finally {
       setEmailSending(false);
     }
@@ -500,8 +502,12 @@ export default function AccountCodes() {
                         <button
                           className={styles.approveBtn}
                           onClick={() => handleApprove(req.id)}
+                          disabled={approvingIds.has(req.id)}
                         >
-                          <FiCheck /> Approve
+                          <FiCheck />{" "}
+                          {approvingIds.has(req.id)
+                            ? "Approving..."
+                            : "Approve"}
                         </button>
                         <button
                           className={styles.rejectBtn}
@@ -522,7 +528,11 @@ export default function AccountCodes() {
                           <button
                             className={styles.sendBtn}
                             onClick={() => {
-                              setSelectedRequest(req);
+                              setSelectedRequest({
+                                ...req,
+                                email: req.email,
+                                full_name: req.full_name,
+                              });
                               setShowEmailModal(true);
                             }}
                           >
