@@ -221,3 +221,220 @@
   color: #6b7280;
   padding: 20px 0;
 }
+
+/* ─── Edit Mode ───────────────────────────────────────── */
+.editForm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.editInput {
+  padding: 6px 10px;
+  border: 2px solid var(--primary-color, #800000);
+  border-radius: 6px;
+  font-size: 14px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.editInput:focus {
+  outline: none;
+}
+
+.editActions {
+  display: flex;
+  gap: 6px;
+}
+
+.saveEditBtn {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.saveEditBtn:hover {
+  background: #15803d;
+}
+
+.cancelEditBtn {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #6b7280;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cancelEditBtn:hover {
+  background: #4b5563;
+}
+
+.editBtn {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+}
+
+.editBtn:hover {
+  background: #f3f4f6;
+}
+
+.combineBtn {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #7c3aed;
+}
+
+.combineBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #7c3aed;
+}
+
+.combineBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Combine Modal ───────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  animation: modalIn 0.2s ease;
+}
+
+@keyframes modalIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modalHeader h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.modalBody {
+  margin-bottom: 20px;
+}
+
+.modalBody p {
+  margin: 8px 0;
+  color: #374151;
+}
+
+.modalNote {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.modalWarning {
+  color: #dc2626;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.modalSelect {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-top: 12px;
+  background: #fff;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+}
+
+.cancelBtn {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.cancelBtn:hover {
+  background: #f3f4f6;
+}
+
+.combineConfirmBtn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #7c3aed;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.combineConfirmBtn:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.combineConfirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
