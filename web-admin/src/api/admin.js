@@ -108,3 +108,8 @@ export const getAvailablePositions = async () => {
   const { data } = await apiClient.get('/admin/positions/available');
   return data;
 };
+
+export const reorderPositions = async (positions) => {
+  const { data } = await apiClient.put('/admin/positions/reorder', { positions });
+  return data;
+};
