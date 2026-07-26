@@ -72,7 +72,6 @@ export const deleteDomain = async (id) => {
   return data;
 };
 
-// ── Positions ──
 export const getPositions = async () => {
   const { data } = await apiClient.get('/admin/positions');
   return data;
@@ -93,7 +92,6 @@ export const deletePosition = async (id) => {
   return data;
 };
 
-// ── Position Assignments ──
 export const getPositionAssignments = async () => {
   const { data } = await apiClient.get('/admin/position-assignments');
   return data;
@@ -111,5 +109,17 @@ export const getAvailablePositions = async () => {
 
 export const reorderPositions = async (positions) => {
   const { data } = await apiClient.put('/admin/positions/reorder', { positions });
+  return data;
+};
+
+export const updatePosition = async (id, payload) => {
+  const { data } = await apiClient.put(`/admin/positions/${id}`, payload);
+  return data;
+};
+
+export const combinePositions = async (sourceId, targetId) => {
+  const { data } = await apiClient.post(`/admin/positions/${sourceId}/combine`, {
+    target_position_id: targetId,
+  });
   return data;
 };
