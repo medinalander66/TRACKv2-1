@@ -18,6 +18,8 @@ import {
   FiFileText,
   FiCode,
   FiClock,
+  FiFilter,
+  FiChevronDown,
 } from "react-icons/fi";
 import styles from "./AccountCodes.module.css";
 
@@ -100,6 +102,10 @@ export default function AccountCodes() {
   });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ─── Code Table Search & Sort ──────────────────────────
+  const [codeSearch, setCodeSearch] = useState("");
+  const [codeSort, setCodeSort] = useState("newest");
 
   // ─── Account Code Requests State ──────────────────────
   const [requests, setRequests] = useState([]);
@@ -311,6 +317,40 @@ export default function AccountCodes() {
     return <span className={s.class}>{s.label}</span>;
   };
 
+  // ─── Filter and Sort Codes ────────────────────────────
+  const filteredCodes = codes.filter((code) => {
+    const search = codeSearch.toLowerCase();
+    if (!search) return true;
+    return (
+      code.code?.toLowerCase().includes(search) ||
+      code.department?.toLowerCase().includes(search) ||
+      code.office?.toLowerCase().includes(search) ||
+      code.role?.toLowerCase().includes(search) ||
+      code.position?.toLowerCase().includes(search) ||
+      code.requested_by?.toLowerCase().includes(search) ||
+      code.generated_by?.toLowerCase().includes(search)
+    );
+  });
+
+  const sortedCodes = [...filteredCodes].sort((a, b) => {
+    switch (codeSort) {
+      case "newest":
+        return new Date(b.created_at) - new Date(a.created_at);
+      case "oldest":
+        return new Date(a.created_at) - new Date(b.created_at);
+      case "code_asc":
+        return a.code.localeCompare(b.code);
+      case "code_desc":
+        return b.code.localeCompare(a.code);
+      case "status_used":
+        return a.status === "used" ? -1 : 1;
+      case "status_unused":
+        return a.status === "unused" ? -1 : 1;
+      default:
+        return 0;
+    }
+  });
+
   // ─── Prepare Options ──────────────────────────────────
   const positionOpts = positions.map((p) => ({
     value: p.id,
@@ -416,17 +456,16 @@ export default function AccountCodes() {
             )}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className={styles.checkboxWrapper}>
-              <label className={styles.checkLabel}>
-                <input
-                  type="checkbox"
-                  checked={form.is_admin}
-                  onChange={(e) =>
-                    setForm({ ...form, is_admin: e.target.checked })
-                  }
-                />
-                <span>Admin Code</span>
-              </label>
+            {/* Admin Code Toggle Button */}
+            <div className={styles.toggleWrapper}>
+              <button
+                type="button"
+                className={`${styles.toggleBtn} ${form.is_admin ? styles.toggleActive : ""}`}
+                onClick={() => setForm({ ...form, is_admin: !form.is_admin })}
+              >
+                <span className={styles.toggleIndicator} />
+                <span>{form.is_admin ? "Admin Code" : "User Code"}</span>
+              </button>
             </div>
 
             {!form.is_admin && (
@@ -484,6 +523,36 @@ export default function AccountCodes() {
               <FiRefreshCw size={16} /> Refresh
             </button>
           </div>
+
+          {/* Search & Sort */}
+          <div className={styles.tableControls}>
+            <div className={styles.searchBar}>
+              <FiSearch className={styles.searchIcon} />
+              <input
+                type="text"
+                placeholder="Search codes..."
+                value={codeSearch}
+                onChange={(e) => setCodeSearch(e.target.value)}
+              />
+            </div>
+            <div className={styles.sortWrapper}>
+              <FiFilter className={styles.filterIcon} />
+              <select
+                className={styles.sortSelect}
+                value={codeSort}
+                onChange={(e) => setCodeSort(e.target.value)}
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="code_asc">Code A→Z</option>
+                <option value="code_desc">Code Z→A</option>
+                <option value="status_used">Used First</option>
+                <option value="status_unused">Unused First</option>
+              </select>
+              <FiChevronDown className={styles.sortChevron} />
+            </div>
+          </div>
+
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
               <thead>
@@ -502,7 +571,7 @@ export default function AccountCodes() {
                 </tr>
               </thead>
               <tbody>
-                {codes.map((code) => (
+                {sortedCodes.map((code) => (
                   <tr key={code.id}>
                     <td className={styles.codeCell}>
                       <span className={styles.hiddenCode}>••••••••</span>
@@ -540,10 +609,12 @@ export default function AccountCodes() {
                     <td>{new Date(code.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
-                {codes.length === 0 && (
+                {sortedCodes.length === 0 && (
                   <tr>
                     <td colSpan="11" className={styles.noData}>
-                      No codes yet.
+                      {codeSearch
+                        ? "No matching codes found."
+                        : "No codes yet."}
                     </td>
                   </tr>
                 )}
