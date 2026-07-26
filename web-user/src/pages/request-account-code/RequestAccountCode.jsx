@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FcGoogle } from "react-icons/fc";
 import apiClient from "../../api/client";
 import {
   getDepartments,
   getOffices,
   getRoles,
   getPositions,
+  getDomains, // ← new
 } from "../../api/lookups";
 import BrandHeader from "../../components/common/BrandHeader";
 import Footer from "../../components/layout/Footer";
@@ -28,30 +28,63 @@ export default function RequestAccountCode() {
   const [offices, setOffices] = useState([]);
   const [roles, setRoles] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [allowedDomains, setAllowedDomains] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  // ─── Fetch lookups ──────────────────────────────────
+  // ─── Email validation state ──────────────────────────
+  const [emailError, setEmailError] = useState("");
+
+  // ─── Fetch lookups and domains ───────────────────────
   useEffect(() => {
     (async () => {
       try {
-        const [dRes, oRes, rRes, pRes] = await Promise.all([
+        const [dRes, oRes, rRes, pRes, domRes] = await Promise.all([
           getDepartments(),
           getOffices(),
           getRoles(),
           getPositions(),
+          getDomains(),
         ]);
         if (dRes.ok) setDepartments(dRes.items || []);
         if (oRes.ok) setOffices(oRes.items || []);
         if (rRes.ok) setRoles(rRes.items || []);
         if (pRes.ok) setPositions(pRes.positions || []);
+        if (domRes.ok) setAllowedDomains(domRes.domains || []);
       } catch (err) {
         console.warn("Failed to load lookups", err);
       }
     })();
   }, []);
+
+  // ─── Validate email domain ───────────────────────────
+  const validateEmailDomain = (emailValue) => {
+    if (!emailValue) {
+      setEmailError("");
+      return true;
+    }
+    const domain = emailValue.split("@")[1];
+    if (!domain) {
+      setEmailError("Please enter a valid email address.");
+      return false;
+    }
+    if (allowedDomains.length > 0 && !allowedDomains.includes(domain)) {
+      setEmailError(
+        `Email domain "${domain}" is not allowed. Allowed domains: ${allowedDomains.join(", ")}`,
+      );
+      return false;
+    }
+    setEmailError("");
+    return true;
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    validateEmailDomain(value);
+  };
 
   // ─── Submit Request ─────────────────────────────────
   const handleSubmit = async (e) => {
@@ -60,8 +93,31 @@ export default function RequestAccountCode() {
     setError("");
     setSuccess("");
 
-    if (!email || !fullName || !department || !office || !role) {
-      setError("Please fill in all required fields.");
+    // ── Basic validation ──
+    if (!fullName.trim()) {
+      setError("Please enter your full name.");
+      setLoading(false);
+      return;
+    }
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      setLoading(false);
+      return;
+    }
+    // Validate email domain again
+    if (!validateEmailDomain(email)) {
+      setError(emailError);
+      setLoading(false);
+      return;
+    }
+    // At least one of department or office must be selected
+    if (!department && !office) {
+      setError("Please select at least one: Department or Office.");
+      setLoading(false);
+      return;
+    }
+    if (!role) {
+      setError("Please select a role.");
       setLoading(false);
       return;
     }
@@ -70,8 +126,8 @@ export default function RequestAccountCode() {
       const payload = {
         email: email.trim(),
         full_name: fullName.trim(),
-        department_id: department,
-        office_id: office,
+        department_id: department || null,
+        office_id: office || null,
         role_id: role,
         position_id: position || null,
         description: description || null,
@@ -89,6 +145,7 @@ export default function RequestAccountCode() {
         setRole("");
         setPosition("");
         setDescription("");
+        setEmailError("");
       } else {
         setError(res.data?.message || "Submission failed.");
       }
@@ -132,44 +189,54 @@ export default function RequestAccountCode() {
                 type="email"
                 placeholder="Enter your email address"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 required
+                style={{ borderColor: emailError ? "#dc2626" : "" }}
               />
+              {emailError && (
+                <span className={styles.fieldError}>{emailError}</span>
+              )}
             </label>
 
-            <label className={styles.field}>
-              <span className={styles.label}>DEPARTMENT *</span>
-              <select
-                className={styles.input}
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                required
-              >
-                <option value="">Select Department</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className={styles.fieldGroup}>
+              <span className={styles.labelGroup}>DEPARTMENT OR OFFICE *</span>
+              <div className={styles.row}>
+                <label className={styles.fieldHalf}>
+                  <span className={styles.subLabel}>Department</span>
+                  <select
+                    className={styles.input}
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <label className={styles.field}>
-              <span className={styles.label}>OFFICE *</span>
-              <select
-                className={styles.input}
-                value={office}
-                onChange={(e) => setOffice(e.target.value)}
-                required
-              >
-                <option value="">Select Office</option>
-                {offices.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <label className={styles.fieldHalf}>
+                  <span className={styles.subLabel}>Office</span>
+                  <select
+                    className={styles.input}
+                    value={office}
+                    onChange={(e) => setOffice(e.target.value)}
+                  >
+                    <option value="">Select Office</option>
+                    {offices.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <span className={styles.hintText}>
+                At least one of Department or Office must be selected.
+              </span>
+            </div>
 
             <label className={styles.field}>
               <span className={styles.label}>ROLE *</span>
