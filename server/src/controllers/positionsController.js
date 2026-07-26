@@ -2,10 +2,12 @@ const Position = require('../models').Position;
 const PositionAssignment = require('../models').PositionAssignment;
 const User = require('../models').User;
 
-// List all positions
+// ─── List all positions (sorted by order) ──────────────
 exports.list = async (req, res) => {
   try {
-    const positions = await Position.findAll({ order: [['name', 'ASC']] });
+    const positions = await Position.findAll({
+      order: [['order', 'ASC'], ['created_at', 'ASC']]
+    });
     res.json({ ok: true, positions });
   } catch (error) {
     console.error('List positions error:', error);
@@ -13,18 +15,27 @@ exports.list = async (req, res) => {
   }
 };
 
-// Create position
+// ─── Create position ────────────────────────────────────
 exports.create = async (req, res) => {
   try {
-    const { name, weight, allow_multiple } = req.body;
+    const { name, allow_multiple } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ ok: false, message: 'Position name required.' });
     }
+
+    // Get the highest order number
+    const lastPosition = await Position.findOne({
+      order: [['order', 'DESC']]
+    });
+    const newOrder = lastPosition ? lastPosition.order + 1 : 0;
+
     const pos = await Position.create({
       name: name.trim(),
-      weight: weight || 1,
-      allow_multiple: allow_multiple || false
+      order: newOrder,
+      allow_multiple: allow_multiple || false,
+      is_active: true
     });
+
     res.status(201).json({ ok: true, position: pos });
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
@@ -35,7 +46,7 @@ exports.create = async (req, res) => {
   }
 };
 
-// Toggle active/inactive
+// ─── Toggle active/inactive ────────────────────────────
 exports.toggle = async (req, res) => {
   try {
     const { id } = req.params;
@@ -50,7 +61,7 @@ exports.toggle = async (req, res) => {
   }
 };
 
-// Delete position
+// ─── Delete position ────────────────────────────────────
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,20 +75,45 @@ exports.delete = async (req, res) => {
   }
 };
 
-// Get available positions (for dropdown when generating account code)
+// ─── Reorder positions (drag and drop) ─────────────────
+exports.reorder = async (req, res) => {
+  try {
+    const { positions } = req.body; // Array of { id, order }
+
+    if (!positions || !Array.isArray(positions)) {
+      return res.status(400).json({ ok: false, message: 'Positions array required.' });
+    }
+
+    // Update each position's order
+    for (const item of positions) {
+      await Position.update(
+        { order: item.order },
+        { where: { id: item.id } }
+      );
+    }
+
+    res.json({ ok: true, message: 'Positions reordered successfully.' });
+  } catch (error) {
+    console.error('Reorder positions error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Get available positions ────────────────────────────
 exports.available = async (req, res) => {
   try {
-    // Get all active positions
-    const positions = await Position.findAll({ where: { is_active: true } });
-    // Get currently assigned positions (active assignments)
+    const positions = await Position.findAll({
+      where: { is_active: true },
+      order: [['order', 'ASC']]
+    });
     const assignments = await PositionAssignment.findAll({
       where: { status: 'active' },
       attributes: ['position_id']
     });
     const assignedIds = assignments.map(a => a.position_id);
-    
+
     const available = positions.filter(p => p.allow_multiple || !assignedIds.includes(p.id));
-    
+
     res.json({ ok: true, positions: available });
   } catch (error) {
     console.error('Available positions error:', error);
