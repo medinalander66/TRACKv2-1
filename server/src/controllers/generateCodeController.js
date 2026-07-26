@@ -1,12 +1,12 @@
 const { v4: uuidv4 } = require('uuid');
 const { Sequelize } = require('sequelize');
 const {
-  AccountCode, Department, Office, Role, Position, PositionAssignment,
+  AccountCode, AccountCodeRequest, Department, Office, Role, Position, PositionAssignment,
   Admin, User
 } = require('../models');
 
 function makePrefix(name) {
-  if (!name) return 'NON';                  // "NON" for none
+  if (!name) return 'NON';
   const cleaned = name.replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
   const parts = cleaned.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'NON';
@@ -14,6 +14,7 @@ function makePrefix(name) {
   return parts.map(p => p[0]).join('').substring(0, 3).toUpperCase();
 }
 
+// ─── Admin generate account code ──────────────────────
 exports.generateAccountCode = async (req, res) => {
   try {
     const { department_id, office_id, role_id, position_id, is_admin = false, expires_at } = req.body;
@@ -65,7 +66,9 @@ exports.generateAccountCode = async (req, res) => {
           is_admin: !!is_admin,
           generated_by_admin_id: req.adminId || null,
           status: 'unused',
-          expires_at: expires_at ? new Date(expires_at) : null
+          expires_at: expires_at ? new Date(expires_at) : null,
+          source_type: 'admin_generated',  // ← NEW
+          account_code_request_id: null    // ← NEW
         });
         break;
       } catch (err) {
@@ -85,11 +88,19 @@ exports.generateAccountCode = async (req, res) => {
   }
 };
 
+// ─── List all generated codes ─────────────────────────
 exports.listCodes = async (req, res) => {
   try {
     const codes = await AccountCode.findAll({
       order: [['created_at', 'DESC']],
-      limit: 100
+      limit: 100,
+      include: [
+        {
+          model: AccountCodeRequest,
+          as: 'request',
+          attributes: ['full_name', 'email']
+        }
+      ]
     });
 
     const resolved = await Promise.all(codes.map(async (code) => {
@@ -128,6 +139,12 @@ exports.listCodes = async (req, res) => {
         }
       }
 
+      // ─── NEW: Get requester info from the associated request ───
+      let requestedBy = null;
+      if (code.request) {
+        requestedBy = code.request.full_name || code.request.email;
+      }
+
       return {
         id: code.id,
         code: code.code,
@@ -138,7 +155,10 @@ exports.listCodes = async (req, res) => {
         office,
         role,
         position,
-        generated_by: generatedBy
+        generated_by: generatedBy,
+        // ─── NEW FIELDS ──────────────────────────────────
+        source_type: code.source_type,
+        requested_by: requestedBy
       };
     }));
 

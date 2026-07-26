@@ -134,13 +134,15 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Request already reviewed.' });
     }
 
-    // Generate account code
+    // ─── Generate account code with source_type and request ID ──
     const code = await generateUniqueCode({
       department_id: request.department_id,
       office_id: request.office_id,
       role_id: request.role_id,
       position_id: request.position_id,
-      is_admin: false
+      is_admin: false,
+      source_type: 'request_approved',          // ← NEW
+      account_code_request_id: request.id      // ← NEW
     });
 
     request.status = 'approved';
@@ -205,7 +207,6 @@ exports.sendCodeEmail = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'No code to send.' });
     }
 
-    // Send email with timeout
     await sendAccountCodeEmail({
       email: request.email,
       full_name: request.full_name,
@@ -218,7 +219,6 @@ exports.sendCodeEmail = async (req, res) => {
     res.json({ ok: true, message: 'Code sent successfully.' });
   } catch (error) {
     console.error('Send code email error:', error);
-    // Return meaningful error message
     res.status(500).json({
       ok: false,
       message: error.message || 'Failed to send email. Please check SMTP configuration.'
