@@ -138,3 +138,156 @@
   text-align: center;
   margin: 0.5rem 0;
 }
+
+/* ─── New styles for Google Auth & Compact Form ─── */
+
+/* Google Sign-In Button */
+.googleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+  margin: 0.5rem 0 1rem;
+}
+
+.googleButton:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.googleButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.googleIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+/* User Info Card (after Google login) */
+.userInfoCard {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 20px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.userInfoRow {
+  display: flex;
+  gap: 8px;
+  font-size: 0.95rem;
+  padding: 4px 0;
+  align-items: center;
+}
+
+.userInfoLabel {
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 56px;
+}
+
+.userInfoValue {
+  color: #111827;
+  word-break: break-all;
+}
+
+.switchAccountBtn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+  transition: opacity 0.2s;
+}
+
+.switchAccountBtn:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+/* Compact form container */
+.formCompact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* Optional section with expandable details */
+.optionalSection {
+  margin-top: 0.25rem;
+}
+
+.optionalSummary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6b7280;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.optionalSummary:hover {
+  color: #374151;
+}
+
+.optionalBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: #e5e7eb;
+  color: #6b7280;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.optionalContent {
+  padding: 8px 0 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* Smaller textarea for optional notes */
+.textareaSmall {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  border: 1px solid #d1d5db;
+  background: #e8e8e8;
+  color: #111827;
+  font: inherit;
+  min-height: 56px;
+  resize: vertical;
+}
+
+.textareaSmall:focus {
+  outline: none;
+  border-color: var(--input-focus-color);
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.12);
+}
+
+/* Info text for the Google auth step */
+.infoText {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
