@@ -19,3 +19,8 @@ export const getPositions = async () => {
   const { data } = await apiClient.get('/lookups/positions');
   return data;
 };
+
+export const getDomains = async () => {
+  const { data } = await apiClient.get('/lookups/domains');
+  return data;
+};
