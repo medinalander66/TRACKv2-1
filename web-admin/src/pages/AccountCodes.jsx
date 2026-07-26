@@ -370,6 +370,8 @@ export default function AccountCodes() {
                   <th>Office</th>
                   <th>Role</th>
                   <th>Position</th>
+                  <th>Source</th> 
+                  <th>Requested By</th> 
                   <th>Status</th>
                   <th>Created</th>
                 </tr>
@@ -384,6 +386,12 @@ export default function AccountCodes() {
                     <td>{code.role || "—"}</td>
                     <td>{code.position || "—"}</td>
                     <td>
+                      {code.source_type === "admin_generated"
+                        ? "Admin"
+                        : "Request"}
+                    </td>
+                    <td>{code.requested_by || "—"}</td>
+                    <td>
                       <span
                         className={`${styles.statusBadge} ${
                           code.status === "used"
@@ -397,13 +405,6 @@ export default function AccountCodes() {
                     <td>{new Date(code.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
-                {codes.length === 0 && (
-                  <tr>
-                    <td colSpan="8" className={styles.noData}>
-                      No codes yet.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
