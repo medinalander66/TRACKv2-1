@@ -134,15 +134,16 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Request already reviewed.' });
     }
 
-    // ─── Generate account code with source_type and request ID ──
+    // ─── Generate account code with admin ID ────────────
     const code = await generateUniqueCode({
       department_id: request.department_id,
       office_id: request.office_id,
       role_id: request.role_id,
       position_id: request.position_id,
       is_admin: false,
-      source_type: 'request_approved',          // ← NEW
-      account_code_request_id: request.id      // ← NEW
+      source_type: 'request_approved',
+      account_code_request_id: request.id,
+      generated_by_admin_id: req.adminId 
     });
 
     request.status = 'approved';
@@ -150,9 +151,6 @@ exports.approveRequest = async (req, res) => {
     request.reviewed_at = new Date();
     request.generated_code = code.code;
     await request.save();
-
-    // Do NOT pre-fill the generate form automatically
-    // The admin can click "Send" on the request card to email the code
 
     res.json({
       ok: true,
