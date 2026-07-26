@@ -14,3 +14,8 @@ export const getRoles = async () => {
   const { data } = await apiClient.get('/lookups/roles');
   return data;
 };
+
+export const getPositions = async () => {
+  const { data } = await apiClient.get('/lookups/positions');
+  return data;
+};
