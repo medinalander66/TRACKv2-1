@@ -25,7 +25,6 @@ const DailyMetric = require('./daily_metrics');
 // Requests
 const AccountCodeRequest = require('./account_code_requests');
 
-
 // User side
 const Venue = require('./venues');
 const Event = require('./events');
@@ -35,7 +34,7 @@ const Task = require('./tasks');
 const TaskChecklistItem = require('./task_checklist_items');
 const TaskCollaborator = require('./task_collaborators');
 const Attachment = require('./attachments');
-const Location = require('./locations');          // ← ensure this is present
+const Location = require('./locations');
 
 // Feedback & Notifications
 const FeedbackRating = require('./feedback_ratings');
@@ -58,7 +57,7 @@ AccountCode.belongsTo(AccountCodeRequest, { foreignKey: 'account_code_request_id
 
 // --- users ---
 User.belongsTo(AccountCode, { foreignKey: 'account_code_id', onDelete: 'SET NULL' });
-User.hasOne(UserProfile, { foreignKey: 'user_id' });
+User.hasOne(UserProfile, { foreignKey: 'user_id' });  // ← this is important
 
 // --- admins ---
 Admin.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
@@ -92,7 +91,6 @@ AccountCodeRequest.belongsTo(Department, { foreignKey: 'department_id', onDelete
 AccountCodeRequest.belongsTo(Office, { foreignKey: 'office_id', onDelete: 'SET NULL' });
 AccountCodeRequest.belongsTo(Role, { foreignKey: 'role_id', onDelete: 'SET NULL' });
 AccountCodeRequest.belongsTo(Admin, { foreignKey: 'reviewed_by_admin_id', onDelete: 'SET NULL' });
-
 
 // --- venues ---
 Venue.belongsTo(User, { foreignKey: 'created_by' });
@@ -167,7 +165,7 @@ module.exports = {
   TaskChecklistItem,
   TaskCollaborator,
   Attachment,
-  Location,               // ← exported
+  Location,
   FeedbackRating,
   FeedbackKeyword,
   Notification,
