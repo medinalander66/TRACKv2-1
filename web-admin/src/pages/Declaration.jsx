@@ -147,6 +147,28 @@ export default function Declaration() {
     [positions, searchPositions],
   );
 
+  // ─── Position summary stats ───────────────────────────
+  const positionStats = useMemo(() => {
+    const total = positions.length;
+    const active = positions.filter((p) => p.is_active).length;
+    const inactive = positions.filter((p) => !p.is_active).length;
+    // Taken = single positions that are assigned to someone
+    const taken = positions.filter(
+      (p) => !p.allow_multiple && takenPositionIds.has(p.id),
+    ).length;
+    return { total, active, inactive, taken };
+  }, [positions]);
+
+  // ─── Compute taken positions ──────────────────────────
+  const takenPositionIds = useMemo(() => {
+    const assignedIds = assignments
+      .filter((a) => a.status === "active")
+      .map((a) => a.position_id);
+    return new Set(assignedIds);
+  }, [assignments]);
+
+  const isPositionTaken = (posId) => takenPositionIds.has(posId);
+
   // ─── Add handlers ──────────────────────────────────────
   const handleAddDepartment = async (e) => {
     e.preventDefault();
@@ -398,16 +420,6 @@ export default function Declaration() {
     }
   };
 
-  // ─── Compute taken positions ──────────────────────────
-  const takenPositionIds = useMemo(() => {
-    const assignedIds = assignments
-      .filter((a) => a.status === "active")
-      .map((a) => a.position_id);
-    return new Set(assignedIds);
-  }, [assignments]);
-
-  const isPositionTaken = (posId) => takenPositionIds.has(posId);
-
   // ─── Render helpers ────────────────────────────────────
   const getStatusBadge = (isActive) => {
     return isActive ? (
@@ -419,7 +431,8 @@ export default function Declaration() {
 
   const getUserDisplay = (user) => {
     if (!user) return "—";
-    return user.UserProfile?.full_name || user.username || user.email || "—";
+    // Prefer username, then full_name, then email, then fallback to "—"
+    return user.username || user.UserProfile?.full_name || user.email || "—";
   };
 
   // ─── Main render ──────────────────────────────────────
@@ -901,6 +914,67 @@ export default function Declaration() {
       {/* ─── POSITIONS ──────────────────────────────────── */}
       {tab === "positions" && (
         <div className={styles.tabContentPositions}>
+          {/* ── Summary Cards ── */}
+          <div className={styles.summaryGrid}>
+            <div className={styles.summaryCard}>
+              <div
+                className={styles.summaryIcon}
+                style={{ background: "#dbeafe", color: "#2563eb" }}
+              >
+                <FiPlus size={20} />
+              </div>
+              <div className={styles.summaryInfo}>
+                <span className={styles.summaryValue}>
+                  {positionStats.total}
+                </span>
+                <span className={styles.summaryLabel}>Total</span>
+              </div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div
+                className={styles.summaryIcon}
+                style={{ background: "#d1fae5", color: "#059669" }}
+              >
+                <FiCheck size={20} />
+              </div>
+              <div className={styles.summaryInfo}>
+                <span className={styles.summaryValue}>
+                  {positionStats.active}
+                </span>
+                <span className={styles.summaryLabel}>Active</span>
+              </div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div
+                className={styles.summaryIcon}
+                style={{ background: "#fee2e2", color: "#dc2626" }}
+              >
+                <FiX size={20} />
+              </div>
+              <div className={styles.summaryInfo}>
+                <span className={styles.summaryValue}>
+                  {positionStats.inactive}
+                </span>
+                <span className={styles.summaryLabel}>Inactive</span>
+              </div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div
+                className={styles.summaryIcon}
+                style={{ background: "#fef3c7", color: "#d97706" }}
+              >
+                <FiLock size={20} />
+              </div>
+              <div className={styles.summaryInfo}>
+                <span className={styles.summaryValue}>
+                  {positionStats.taken}
+                </span>
+                <span className={styles.summaryLabel}>Taken</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Left Panel: Add Form + All Positions (Cards) */}
           <div className={styles.leftPanelPositions}>
             <div className={styles.card}>
               <h3>Add Position</h3>
@@ -1092,7 +1166,7 @@ export default function Declaration() {
             </div>
           </div>
 
-          {/* Right Panel: Current Assignments (no action column) */}
+          {/* Right Panel: Current Assignments */}
           <div className={styles.rightPanelPositions}>
             <div className={styles.card}>
               <h3>Current Assignments</h3>
