@@ -15,6 +15,10 @@ const Department = sequelize.define('departments', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  created_by: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
