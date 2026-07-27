@@ -1,15 +1,19 @@
-const PositionAssignment = require('../models').PositionAssignment;
-const User = require('../models').User;
-const Position = require('../models').Position;
+const { PositionAssignment, User, UserProfile, Position } = require('../models');
 const { Op } = require('sequelize');
 
-// List all assignments with user and position info
+// ─── List all assignments with user and position info ──
 exports.listAssignments = async (req, res) => {
   try {
     const assignments = await PositionAssignment.findAll({
       where: { status: 'active' },
       include: [
-        { model: User, attributes: ['id', 'email'] },
+        {
+          model: User,
+          attributes: ['id', 'email'],
+          include: [
+            { model: UserProfile, attributes: ['full_name'] }
+          ]
+        },
         { model: Position, attributes: ['id', 'name'] }
       ],
       order: [['created_at', 'DESC']]
@@ -21,7 +25,7 @@ exports.listAssignments = async (req, res) => {
   }
 };
 
-// Remove assignment (set inactive)
+// ─── Remove assignment (set inactive) ──────────────────
 exports.removeAssignment = async (req, res) => {
   try {
     const { id } = req.params;
