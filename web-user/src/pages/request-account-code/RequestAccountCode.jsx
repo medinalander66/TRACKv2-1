@@ -5,8 +5,8 @@ import {
   getDepartments,
   getOffices,
   getRoles,
-  getPositions,
-  getDomains, // ← new
+  getAvailablePositionsPublic,
+  getDomains,
 } from "../../api/lookups";
 import BrandHeader from "../../components/common/BrandHeader";
 import Footer from "../../components/layout/Footer";
@@ -45,7 +45,7 @@ export default function RequestAccountCode() {
           getDepartments(),
           getOffices(),
           getRoles(),
-          getPositions(),
+          getAvailablePositionsPublic(),
           getDomains(),
         ]);
         if (dRes.ok) setDepartments(dRes.items || []);
