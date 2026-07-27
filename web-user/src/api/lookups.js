@@ -20,6 +20,11 @@ export const getPositions = async () => {
   return data;
 };
 
+export const getAvailablePositionsPublic = async () => {
+  const { data } = await apiClient.get('/lookups/available-positions');
+  return data;
+};
+
 export const getDomains = async () => {
   const { data } = await apiClient.get('/lookups/domains');
   return data;
