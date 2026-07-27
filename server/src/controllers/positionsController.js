@@ -1,6 +1,9 @@
 const Position = require('../models').Position;
 const PositionAssignment = require('../models').PositionAssignment;
 const User = require('../models').User;
+const { Op } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const sequelize = require('../config/database');
 
 // ─── List all positions (sorted by order) ──────────────
 exports.list = async (req, res) => {
@@ -23,7 +26,6 @@ exports.create = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Position name required.' });
     }
 
-    // Get the highest order number
     const lastPosition = await Position.findOne({
       order: [['order', 'DESC']]
     });
@@ -46,12 +48,26 @@ exports.create = async (req, res) => {
   }
 };
 
-// ─── Toggle active/inactive ────────────────────────────
+// ─── Toggle active/inactive (with in-use check) ──────
 exports.toggle = async (req, res) => {
   try {
     const { id } = req.params;
     const pos = await Position.findByPk(id);
     if (!pos) return res.status(404).json({ ok: false, message: 'Position not found.' });
+
+    // If trying to deactivate, check if there are active assignments
+    if (pos.is_active) {
+      const hasAssignments = await PositionAssignment.findOne({
+        where: { position_id: id, status: 'active' }
+      });
+      if (hasAssignments) {
+        return res.status(409).json({
+          ok: false,
+          message: 'Cannot deactivate position. It is currently assigned to one or more users.'
+        });
+      }
+    }
+
     pos.is_active = !pos.is_active;
     await pos.save();
     res.json({ ok: true, position: pos });
@@ -61,62 +77,28 @@ exports.toggle = async (req, res) => {
   }
 };
 
-// ─── Delete position ────────────────────────────────────
+// ─── Delete position (with in-use check) ──────────────
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
     const pos = await Position.findByPk(id);
     if (!pos) return res.status(404).json({ ok: false, message: 'Position not found.' });
+
+    // Check if there are any assignments (active or inactive)
+    const hasAssignments = await PositionAssignment.findOne({
+      where: { position_id: id }
+    });
+    if (hasAssignments) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Cannot delete position. It has existing assignments (active or inactive).'
+      });
+    }
+
     await pos.destroy();
     res.json({ ok: true, message: 'Position deleted.' });
   } catch (error) {
     console.error('Delete position error:', error);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-// ─── Reorder positions (drag and drop) ─────────────────
-exports.reorder = async (req, res) => {
-  try {
-    const { positions } = req.body; // Array of { id, order }
-
-    if (!positions || !Array.isArray(positions)) {
-      return res.status(400).json({ ok: false, message: 'Positions array required.' });
-    }
-
-    // Update each position's order
-    for (const item of positions) {
-      await Position.update(
-        { order: item.order },
-        { where: { id: item.id } }
-      );
-    }
-
-    res.json({ ok: true, message: 'Positions reordered successfully.' });
-  } catch (error) {
-    console.error('Reorder positions error:', error);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-// ─── Get available positions ────────────────────────────
-exports.available = async (req, res) => {
-  try {
-    const positions = await Position.findAll({
-      where: { is_active: true },
-      order: [['order', 'ASC']]
-    });
-    const assignments = await PositionAssignment.findAll({
-      where: { status: 'active' },
-      attributes: ['position_id']
-    });
-    const assignedIds = assignments.map(a => a.position_id);
-
-    const available = positions.filter(p => p.allow_multiple || !assignedIds.includes(p.id));
-
-    res.json({ ok: true, positions: available });
-  } catch (error) {
-    console.error('Available positions error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
@@ -165,13 +147,12 @@ exports.combine = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Cannot combine a position with itself.' });
     }
 
-    // ── Transfer assignments from source to target ──
+    // Transfer assignments from source to target
     const assignments = await PositionAssignment.findAll({
       where: { position_id: sourcePos.id, status: 'active' }
     });
 
     for (const assignment of assignments) {
-      // Check if user already has the target position
       const existing = await PositionAssignment.findOne({
         where: {
           user_id: assignment.user_id,
@@ -189,23 +170,62 @@ exports.combine = async (req, res) => {
       }
     }
 
-    // ── Remove source assignments ──
     await PositionAssignment.update(
       { status: 'inactive' },
       { where: { position_id: sourcePos.id, status: 'active' } },
       { transaction: t }
     );
 
-    // ── Deactivate source position ──
     sourcePos.is_active = false;
     await sourcePos.save({ transaction: t });
 
     await t.commit();
-
     res.json({ ok: true, message: 'Positions combined successfully.' });
   } catch (error) {
     await t.rollback();
     console.error('Combine positions error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Available positions (filter out assigned single) ──
+exports.available = async (req, res) => {
+  try {
+    const positions = await Position.findAll({ where: { is_active: true } });
+    const assignments = await PositionAssignment.findAll({
+      where: { status: 'active' },
+      attributes: ['position_id']
+    });
+    const assignedIds = assignments.map(a => a.position_id);
+
+    const available = positions.filter(p => p.allow_multiple || !assignedIds.includes(p.id));
+
+    res.json({ ok: true, positions: available });
+  } catch (error) {
+    console.error('Available positions error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Reorder positions ──────────────────────────────────
+exports.reorder = async (req, res) => {
+  try {
+    const { positions } = req.body;
+
+    if (!positions || !Array.isArray(positions)) {
+      return res.status(400).json({ ok: false, message: 'Positions array required.' });
+    }
+
+    for (const item of positions) {
+      await Position.update(
+        { order: item.order },
+        { where: { id: item.id } }
+      );
+    }
+
+    res.json({ ok: true, message: 'Positions reordered successfully.' });
+  } catch (error) {
+    console.error('Reorder positions error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
