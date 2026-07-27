@@ -32,6 +32,9 @@ import {
   FiEdit,
   FiTrash2,
   FiPlus,
+  FiCheck,
+  FiX,
+  FiLock,
 } from "react-icons/fi";
 import FeedbackModal from "../components/common/FeedbackModal";
 import styles from "./Declaration.module.css";
@@ -148,24 +151,22 @@ export default function Declaration() {
   );
 
   // ─── Position summary stats ───────────────────────────
-  const positionStats = useMemo(() => {
-    const total = positions.length;
-    const active = positions.filter((p) => p.is_active).length;
-    const inactive = positions.filter((p) => !p.is_active).length;
-    // Taken = single positions that are assigned to someone
-    const taken = positions.filter(
-      (p) => !p.allow_multiple && takenPositionIds.has(p.id),
-    ).length;
-    return { total, active, inactive, taken };
-  }, [positions]);
-
-  // ─── Compute taken positions ──────────────────────────
   const takenPositionIds = useMemo(() => {
     const assignedIds = assignments
       .filter((a) => a.status === "active")
       .map((a) => a.position_id);
     return new Set(assignedIds);
   }, [assignments]);
+
+  const positionStats = useMemo(() => {
+    const total = positions.length;
+    const active = positions.filter((p) => p.is_active).length;
+    const inactive = positions.filter((p) => !p.is_active).length;
+    const taken = positions.filter(
+      (p) => !p.allow_multiple && takenPositionIds.has(p.id),
+    ).length;
+    return { total, active, inactive, taken };
+  }, [positions, takenPositionIds]);
 
   const isPositionTaken = (posId) => takenPositionIds.has(posId);
 
@@ -431,7 +432,6 @@ export default function Declaration() {
 
   const getUserDisplay = (user) => {
     if (!user) return "—";
-    // Prefer username, then full_name, then email, then fallback to "—"
     return user.username || user.UserProfile?.full_name || user.email || "—";
   };
 
