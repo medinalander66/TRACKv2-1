@@ -135,6 +135,18 @@ Position.hasMany(PositionAssignment, { foreignKey: 'position_id' });
 PositionAssignment.belongsTo(Position, { foreignKey: 'position_id' });
 PositionAssignment.belongsTo(User, { foreignKey: 'user_id' });
 
+// Department
+Department.belongsTo(Admin, { foreignKey: 'created_by', as: 'creator' });
+
+// Office
+Office.belongsTo(Admin, { foreignKey: 'created_by', as: 'creator' });
+
+// AllowedDomain
+AllowedDomain.belongsTo(Admin, { foreignKey: 'created_by', as: 'creator' });
+
+// Position
+Position.belongsTo(Admin, { foreignKey: 'created_by', as: 'creator' });
+
 // =====================
 // EXPORTS
 // =====================
