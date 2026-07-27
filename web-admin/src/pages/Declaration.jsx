@@ -32,40 +32,9 @@ import {
   FiEdit,
   FiTrash2,
   FiPlus,
-  FiX,
 } from "react-icons/fi";
+import FeedbackModal from "../components/common/FeedbackModal";
 import styles from "./Declaration.module.css";
-
-// ─── Feedback Modal Component ──────────────────────────
-function FeedbackModal({ message, type, onClose }) {
-  useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => {
-      onClose();
-    }, 10000); // Auto-close after 10 seconds
-
-    return () => clearTimeout(timer);
-  }, [message, onClose]);
-
-  if (!message) return null;
-
-  return (
-    <div className={styles.feedbackOverlay} onClick={onClose}>
-      <div
-        className={`${styles.feedbackModal} ${type === "error" ? styles.feedbackError : styles.feedbackSuccess}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button className={styles.feedbackClose} onClick={onClose}>
-          <FiX size={18} />
-        </button>
-        <span className={styles.feedbackIcon}>
-          {type === "error" ? "❌" : "✅"}
-        </span>
-        <span className={styles.feedbackText}>{message}</span>
-      </div>
-    </div>
-  );
-}
 
 export default function Declaration() {
   const [tab, setTab] = useState("departments");
@@ -103,11 +72,6 @@ export default function Declaration() {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editAllowMultiple, setEditAllowMultiple] = useState(false);
-
-  // ─── Combine Modal state ──────────────────────────────
-  const [combineModalOpen, setCombineModalOpen] = useState(false);
-  const [sourcePosition, setSourcePosition] = useState(null);
-  const [targetPositionId, setTargetPositionId] = useState("");
 
   // ─── Feedback state ───────────────────────────────────
   const [feedback, setFeedback] = useState({ message: "", type: "" });
@@ -255,7 +219,10 @@ export default function Declaration() {
       load();
       showFeedback(`Status toggled successfully.`);
     } catch (err) {
-      showFeedback("Failed to toggle status.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to toggle status.",
+        "error",
+      );
     }
   };
 
@@ -304,28 +271,15 @@ export default function Declaration() {
     }
   };
 
-  const handleRemoveAssignment = async (id) => {
-    if (!window.confirm("Remove this assignment?")) return;
-    try {
-      await removeAssignment(id);
-      load();
-      showFeedback("Assignment removed.");
-    } catch (err) {
-      showFeedback("Failed to remove assignment.", "error");
-    }
-  };
-
-  // ─── Edit functions for departments ────────────────────
+  // ─── Edit functions ────────────────────────────────────
   const startEditDept = (item) => {
     setEditDeptId(item.id);
     setEditDeptName(item.name);
   };
-
   const cancelEditDept = () => {
     setEditDeptId(null);
     setEditDeptName("");
   };
-
   const saveEditDept = async (id) => {
     if (!editDeptName.trim()) {
       showFeedback("Department name is required.", "error");
@@ -341,17 +295,14 @@ export default function Declaration() {
     }
   };
 
-  // ─── Edit functions for offices ────────────────────────
   const startEditOffice = (item) => {
     setEditOfficeId(item.id);
     setEditOfficeName(item.name);
   };
-
   const cancelEditOffice = () => {
     setEditOfficeId(null);
     setEditOfficeName("");
   };
-
   const saveEditOffice = async (id) => {
     if (!editOfficeName.trim()) {
       showFeedback("Office name is required.", "error");
@@ -367,17 +318,14 @@ export default function Declaration() {
     }
   };
 
-  // ─── Edit functions for domains ────────────────────────
   const startEditDomain = (item) => {
     setEditDomainId(item.id);
     setEditDomainValue(item.domain);
   };
-
   const cancelEditDomain = () => {
     setEditDomainId(null);
     setEditDomainValue("");
   };
-
   const saveEditDomain = async (id) => {
     if (!editDomainValue.trim()) {
       showFeedback("Domain is required.", "error");
@@ -393,19 +341,16 @@ export default function Declaration() {
     }
   };
 
-  // ─── Edit functions for positions ──────────────────────
   const startEdit = (pos) => {
     setEditingId(pos.id);
     setEditName(pos.name);
     setEditAllowMultiple(pos.allow_multiple);
   };
-
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
     setEditAllowMultiple(false);
   };
-
   const saveEdit = async (id) => {
     if (!editName.trim()) {
       showFeedback("Position name is required.", "error");
@@ -425,49 +370,6 @@ export default function Declaration() {
         "error",
       );
     }
-  };
-
-  // ─── Combine functions ─────────────────────────────────
-  const openCombineModal = (pos) => {
-    setSourcePosition(pos);
-    setTargetPositionId("");
-    setCombineModalOpen(true);
-  };
-
-  const handleCombine = async () => {
-    if (!sourcePosition || !targetPositionId) {
-      showFeedback("Please select a target position.", "error");
-      return;
-    }
-    if (sourcePosition.id === targetPositionId) {
-      showFeedback("Cannot combine a position with itself.", "error");
-      return;
-    }
-    if (
-      !window.confirm(
-        `Combine "${sourcePosition.name}" into the selected position? This will deactivate the source position and transfer all assignments.`,
-      )
-    ) {
-      return;
-    }
-    try {
-      await combinePositions(sourcePosition.id, targetPositionId);
-      setCombineModalOpen(false);
-      setSourcePosition(null);
-      setTargetPositionId("");
-      load();
-      showFeedback("Positions combined successfully.");
-    } catch (err) {
-      showFeedback(
-        err.response?.data?.message || "Failed to combine positions.",
-        "error",
-      );
-    }
-  };
-
-  const getOtherPositions = () => {
-    if (!sourcePosition) return [];
-    return positions.filter((p) => p.id !== sourcePosition.id && p.is_active);
   };
 
   // ─── Drag and Drop ─────────────────────────────────────
@@ -496,6 +398,16 @@ export default function Declaration() {
     }
   };
 
+  // ─── Compute taken positions ──────────────────────────
+  const takenPositionIds = useMemo(() => {
+    const assignedIds = assignments
+      .filter((a) => a.status === "active")
+      .map((a) => a.position_id);
+    return new Set(assignedIds);
+  }, [assignments]);
+
+  const isPositionTaken = (posId) => takenPositionIds.has(posId);
+
   // ─── Render helpers ────────────────────────────────────
   const getStatusBadge = (isActive) => {
     return isActive ? (
@@ -505,17 +417,20 @@ export default function Declaration() {
     );
   };
 
+  const getUserDisplay = (user) => {
+    if (!user) return "—";
+    return user.UserProfile?.full_name || user.username || user.email || "—";
+  };
+
   // ─── Main render ──────────────────────────────────────
   return (
     <div className={styles.container}>
-      {/* ─── Feedback Modal ────────────────────────────────── */}
       <FeedbackModal
         message={feedback.message}
         type={feedback.type}
         onClose={clearFeedback}
       />
 
-      {/* ─── Header ─────────────────────────────────────────── */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Declaration</h1>
@@ -528,7 +443,7 @@ export default function Declaration() {
         </button>
       </div>
 
-      {/* ─── Tabs ─────────────────────────────────────────── */}
+      {/* Tabs */}
       <div className={styles.tabs}>
         <button
           className={tab === "departments" ? styles.activeTab : ""}
@@ -986,7 +901,6 @@ export default function Declaration() {
       {/* ─── POSITIONS ──────────────────────────────────── */}
       {tab === "positions" && (
         <div className={styles.tabContentPositions}>
-          {/* Left Panel: Add Form + All Positions (Cards) */}
           <div className={styles.leftPanelPositions}>
             <div className={styles.card}>
               <h3>Add Position</h3>
@@ -1046,118 +960,126 @@ export default function Declaration() {
                         ref={provided.innerRef}
                         className={styles.positionList}
                       >
-                        {filteredPositions.map((pos, index) => (
-                          <Draggable
-                            key={pos.id}
-                            draggableId={pos.id}
-                            index={index}
-                          >
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`${styles.positionCard} ${snapshot.isDragging ? styles.dragging : ""}`}
-                              >
+                        {filteredPositions.map((pos, index) => {
+                          const taken =
+                            !pos.allow_multiple && isPositionTaken(pos.id);
+                          return (
+                            <Draggable
+                              key={pos.id}
+                              draggableId={pos.id}
+                              index={index}
+                            >
+                              {(provided, snapshot) => (
                                 <div
-                                  className={styles.cardDragHandle}
-                                  {...provided.dragHandleProps}
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={`${styles.positionCard} ${
+                                    snapshot.isDragging ? styles.dragging : ""
+                                  } ${taken ? styles.taken : ""}`}
                                 >
-                                  <span className={styles.dragIcon}>⠿</span>
-                                  <span className={styles.positionOrder}>
-                                    #{index + 1}
-                                  </span>
-                                </div>
-
-                                {editingId === pos.id ? (
-                                  <div className={styles.editForm}>
-                                    <input
-                                      type="text"
-                                      value={editName}
-                                      onChange={(e) =>
-                                        setEditName(e.target.value)
-                                      }
-                                      className={styles.editInput}
-                                      autoFocus
-                                    />
-                                    <label className={styles.checkboxRow}>
-                                      <input
-                                        type="checkbox"
-                                        checked={editAllowMultiple}
-                                        onChange={(e) =>
-                                          setEditAllowMultiple(e.target.checked)
-                                        }
-                                      />
-                                      Multiple
-                                    </label>
-                                    <button
-                                      onClick={() => saveEdit(pos.id)}
-                                      className={styles.saveEditBtn}
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={cancelEdit}
-                                      className={styles.cancelEditBtn}
-                                    >
-                                      Cancel
-                                    </button>
+                                  <div
+                                    className={styles.cardDragHandle}
+                                    {...provided.dragHandleProps}
+                                  >
+                                    <span className={styles.dragIcon}>⠿</span>
+                                    <span className={styles.positionOrder}>
+                                      #{index + 1}
+                                    </span>
                                   </div>
-                                ) : (
-                                  <>
-                                    <div className={styles.cardContent}>
-                                      <span className={styles.positionName}>
-                                        {pos.name}
-                                      </span>
-                                      <span className={styles.positionBadge}>
-                                        {pos.allow_multiple
-                                          ? "Multiple"
-                                          : "Single"}
-                                      </span>
-                                      {getStatusBadge(pos.is_active)}
-                                    </div>
-                                    <div className={styles.cardActions}>
-                                      <button
-                                        onClick={() => startEdit(pos)}
-                                        className={styles.editBtn}
-                                      >
-                                        <FiEdit size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => openCombineModal(pos)}
-                                        className={styles.combineBtn}
-                                        disabled={!pos.is_active}
-                                      >
-                                        Combine
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          toggleItem(
-                                            pos.id,
-                                            pos.is_active,
-                                            "position",
-                                          )
+
+                                  {editingId === pos.id ? (
+                                    <div className={styles.editForm}>
+                                      <input
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) =>
+                                          setEditName(e.target.value)
                                         }
-                                        className={styles.toggleBtn}
+                                        className={styles.editInput}
+                                        autoFocus
+                                      />
+                                      <label className={styles.checkboxRow}>
+                                        <input
+                                          type="checkbox"
+                                          checked={editAllowMultiple}
+                                          onChange={(e) =>
+                                            setEditAllowMultiple(
+                                              e.target.checked,
+                                            )
+                                          }
+                                        />
+                                        Multiple
+                                      </label>
+                                      <button
+                                        onClick={() => saveEdit(pos.id)}
+                                        className={styles.saveEditBtn}
                                       >
-                                        {pos.is_active
-                                          ? "Deactivate"
-                                          : "Activate"}
+                                        Save
                                       </button>
                                       <button
-                                        onClick={() =>
-                                          handleDeletePosition(pos.id)
-                                        }
-                                        className={styles.dangerBtn}
+                                        onClick={cancelEdit}
+                                        className={styles.cancelEditBtn}
                                       >
-                                        <FiTrash2 size={14} />
+                                        Cancel
                                       </button>
                                     </div>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
+                                  ) : (
+                                    <>
+                                      <div className={styles.cardContent}>
+                                        <span className={styles.positionName}>
+                                          {pos.name}
+                                        </span>
+                                        <span className={styles.positionBadge}>
+                                          {pos.allow_multiple
+                                            ? "Multiple"
+                                            : "Single"}
+                                        </span>
+                                        {taken && (
+                                          <span className={styles.takenBadge}>
+                                            Taken
+                                          </span>
+                                        )}
+                                        {getStatusBadge(pos.is_active)}
+                                      </div>
+                                      <div className={styles.cardActions}>
+                                        <button
+                                          onClick={() => startEdit(pos)}
+                                          className={styles.editBtn}
+                                        >
+                                          <FiEdit size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            toggleItem(
+                                              pos.id,
+                                              pos.is_active,
+                                              "position",
+                                            )
+                                          }
+                                          className={styles.toggleBtn}
+                                          disabled={taken && pos.is_active}
+                                        >
+                                          {pos.is_active
+                                            ? "Deactivate"
+                                            : "Activate"}
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleDeletePosition(pos.id)
+                                          }
+                                          className={styles.dangerBtn}
+                                          disabled={taken}
+                                        >
+                                          <FiTrash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
                         {provided.placeholder}
                       </div>
                     )}
@@ -1170,7 +1092,7 @@ export default function Declaration() {
             </div>
           </div>
 
-          {/* Right Panel: Current Assignments */}
+          {/* Right Panel: Current Assignments (no action column) */}
           <div className={styles.rightPanelPositions}>
             <div className={styles.card}>
               <h3>Current Assignments</h3>
@@ -1185,13 +1107,12 @@ export default function Declaration() {
                         <th>User</th>
                         <th>Email</th>
                         <th>Status</th>
-                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {assignments.length === 0 ? (
                         <tr>
-                          <td colSpan="5" className={styles.noData}>
+                          <td colSpan="4" className={styles.noData}>
                             No active assignments
                           </td>
                         </tr>
@@ -1199,18 +1120,10 @@ export default function Declaration() {
                         assignments.map((ass) => (
                           <tr key={ass.id}>
                             <td>{ass.Position?.name || "—"}</td>
-                            <td>{ass.User?.UserProfile?.full_name || "—"}</td>
+                            <td>{getUserDisplay(ass.User)}</td>
                             <td>{ass.User?.email || "—"}</td>
                             <td>
                               <span className={styles.badgeActive}>Active</span>
-                            </td>
-                            <td>
-                              <button
-                                onClick={() => handleRemoveAssignment(ass.id)}
-                                className={styles.dangerBtn}
-                              >
-                                Remove
-                              </button>
                             </td>
                           </tr>
                         ))
@@ -1219,68 +1132,6 @@ export default function Declaration() {
                   </table>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Combine Modal ───────────────────────────────── */}
-      {combineModalOpen && sourcePosition && (
-        <div
-          className={styles.modalOverlay}
-          onClick={() => setCombineModalOpen(false)}
-        >
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Combine Positions</h3>
-              <button
-                className={styles.modalClose}
-                onClick={() => setCombineModalOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              <p>
-                Combine <strong>"{sourcePosition.name}"</strong> into which
-                position?
-              </p>
-              <p className={styles.modalNote}>
-                This will deactivate "{sourcePosition.name}" and transfer all
-                its assignments.
-              </p>
-              <select
-                className={styles.modalSelect}
-                value={targetPositionId}
-                onChange={(e) => setTargetPositionId(e.target.value)}
-              >
-                <option value="">Select target position...</option>
-                {getOtherPositions().map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {!p.is_active ? "(Inactive)" : ""}
-                  </option>
-                ))}
-              </select>
-              {getOtherPositions().length === 0 && (
-                <p className={styles.modalWarning}>
-                  No other active positions available.
-                </p>
-              )}
-            </div>
-            <div className={styles.modalActions}>
-              <button
-                className={styles.cancelBtn}
-                onClick={() => setCombineModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.combineConfirmBtn}
-                onClick={handleCombine}
-                disabled={!targetPositionId || getOtherPositions().length === 0}
-              >
-                Combine
-              </button>
             </div>
           </div>
         </div>

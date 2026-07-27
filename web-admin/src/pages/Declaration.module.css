@@ -838,3 +838,32 @@
     width: 100%;
   }
 }
+
+/* ─── Taken position indicator ───────────────────────── */
+.positionCard.taken {
+  opacity: 0.8;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.positionCard.taken .positionName {
+  color: #991b1b;
+}
+
+.takenBadge {
+  display: inline-block;
+  background: #dc2626;
+  color: #fff;
+  padding: 1px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Disabled buttons for taken positions */
+.positionCard.taken .toggleBtn:disabled,
+.positionCard.taken .dangerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
