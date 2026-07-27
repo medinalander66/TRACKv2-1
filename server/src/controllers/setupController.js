@@ -1,4 +1,5 @@
 const { Department, Office } = require('../models');
+const { Op } = require('sequelize');
 
 // ── Departments ──
 exports.listDepartments = async (req, res) => {
