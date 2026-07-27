@@ -134,7 +134,32 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Request already reviewed.' });
     }
 
-    // ─── Generate account code with admin ID ────────────
+    // ─── Check if position is still available ──────────
+    if (request.position_id) {
+      const pos = await Position.findByPk(request.position_id);
+      if (pos && !pos.allow_multiple) {
+        // Check if this position is already assigned to someone
+        const existingAssignment = await PositionAssignment.findOne({
+          where: { position_id: request.position_id, status: 'active' }
+        });
+        if (existingAssignment) {
+          // Auto-reject the request
+          request.status = 'rejected';
+          request.admin_notes = 'Position is already assigned to another user.';
+          request.reviewed_by_admin_id = req.adminId;
+          request.reviewed_at = new Date();
+          await request.save();
+          
+          return res.json({
+            ok: true,
+            request,
+            message: 'Request auto-rejected: position is already taken.'
+          });
+        }
+      }
+    }
+
+    // Generate account code
     const code = await generateUniqueCode({
       department_id: request.department_id,
       office_id: request.office_id,
@@ -143,7 +168,7 @@ exports.approveRequest = async (req, res) => {
       is_admin: false,
       source_type: 'request_approved',
       account_code_request_id: request.id,
-      generated_by_admin_id: req.adminId 
+      generated_by_admin_id: req.adminId
     });
 
     request.status = 'approved';
