@@ -1,93 +1,7 @@
-const { Department, Office } = require('../models');
+const { Department, Office, UserProfile, Event } = require('../models');
 const { Op } = require('sequelize');
 
-// ── Departments ──
-exports.listDepartments = async (req, res) => {
-  try {
-    const rows = await Department.findAll({ order: [['name', 'ASC']] });
-    res.json({ ok: true, items: rows });
-  } catch (err) {
-    console.error('List departments error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-exports.createDepartment = async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ ok: false, message: 'Department name is required.' });
-    }
-    const existing = await Department.findOne({ where: { name: name.trim() } });
-    if (existing) {
-      return res.status(409).json({ ok: false, message: 'Department already exists.' });
-    }
-    const dept = await Department.create({ name: name.trim() });
-    res.status(201).json({ ok: true, item: dept });
-  } catch (err) {
-    console.error('Create department error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-exports.toggleDepartment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const dept = await Department.findByPk(id);
-    if (!dept) return res.status(404).json({ ok: false, message: 'Department not found.' });
-    dept.is_active = !dept.is_active;
-    await dept.save();
-    res.json({ ok: true, item: dept });
-  } catch (err) {
-    console.error('Toggle department error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-// ── Offices ──
-exports.listOffices = async (req, res) => {
-  try {
-    const rows = await Office.findAll({ order: [['name', 'ASC']] });
-    res.json({ ok: true, items: rows });
-  } catch (err) {
-    console.error('List offices error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-exports.createOffice = async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ ok: false, message: 'Office name is required.' });
-    }
-    const existing = await Office.findOne({ where: { name: name.trim() } });
-    if (existing) {
-      return res.status(409).json({ ok: false, message: 'Office already exists.' });
-    }
-    const office = await Office.create({ name: name.trim() });
-    res.status(201).json({ ok: true, item: office });
-  } catch (err) {
-    console.error('Create office error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-exports.toggleOffice = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const office = await Office.findByPk(id);
-    if (!office) return res.status(404).json({ ok: false, message: 'Office not found.' });
-    office.is_active = !office.is_active;
-    await office.save();
-    res.json({ ok: true, item: office });
-  } catch (err) {
-    console.error('Toggle office error:', err);
-    res.status(500).json({ ok: false, message: 'Server error.' });
-  }
-};
-
-// ─── Delete Department ─────────────────────────────────
+// ─── Delete Department (with in-use check) ─────────────
 exports.deleteDepartment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -95,6 +9,16 @@ exports.deleteDepartment = async (req, res) => {
     if (!dept) {
       return res.status(404).json({ ok: false, message: 'Department not found.' });
     }
+
+    // Check if any user profile uses this department
+    const inUse = await UserProfile.findOne({ where: { department_id: id } });
+    if (inUse) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Cannot delete department. It is currently assigned to one or more users.'
+      });
+    }
+
     await dept.destroy();
     res.json({ ok: true, message: 'Department deleted.' });
   } catch (error) {
@@ -115,7 +39,6 @@ exports.updateDepartment = async (req, res) => {
     if (!dept) {
       return res.status(404).json({ ok: false, message: 'Department not found.' });
     }
-    // Check for duplicate name (exclude self)
     const existing = await Department.findOne({
       where: { name: name.trim(), id: { [Op.ne]: id } }
     });
@@ -131,7 +54,34 @@ exports.updateDepartment = async (req, res) => {
   }
 };
 
-// ─── Delete Office ─────────────────────────────────────
+// ─── Toggle Department (with in-use check) ─────────────
+exports.toggleDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dept = await Department.findByPk(id);
+    if (!dept) return res.status(404).json({ ok: false, message: 'Department not found.' });
+
+    // If trying to deactivate, check if in use
+    if (dept.is_active) {
+      const inUse = await UserProfile.findOne({ where: { department_id: id } });
+      if (inUse) {
+        return res.status(409).json({
+          ok: false,
+          message: 'Cannot deactivate department. It is currently assigned to one or more users.'
+        });
+      }
+    }
+
+    dept.is_active = !dept.is_active;
+    await dept.save();
+    res.json({ ok: true, item: dept });
+  } catch (error) {
+    console.error('Toggle department error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Delete Office (with in-use check) ──────────────────
 exports.deleteOffice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -139,6 +89,15 @@ exports.deleteOffice = async (req, res) => {
     if (!office) {
       return res.status(404).json({ ok: false, message: 'Office not found.' });
     }
+
+    const inUse = await UserProfile.findOne({ where: { office_id: id } });
+    if (inUse) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Cannot delete office. It is currently assigned to one or more users.'
+      });
+    }
+
     await office.destroy();
     res.json({ ok: true, message: 'Office deleted.' });
   } catch (error) {
@@ -147,7 +106,7 @@ exports.deleteOffice = async (req, res) => {
   }
 };
 
-// ─── Update Office ─────────────────────────────────────
+// ─── Update Office ──────────────────────────────────────
 exports.updateOffice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -170,6 +129,32 @@ exports.updateOffice = async (req, res) => {
     res.json({ ok: true, office });
   } catch (error) {
     console.error('Update office error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Toggle Office (with in-use check) ──────────────────
+exports.toggleOffice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const office = await Office.findByPk(id);
+    if (!office) return res.status(404).json({ ok: false, message: 'Office not found.' });
+
+    if (office.is_active) {
+      const inUse = await UserProfile.findOne({ where: { office_id: id } });
+      if (inUse) {
+        return res.status(409).json({
+          ok: false,
+          message: 'Cannot deactivate office. It is currently assigned to one or more users.'
+        });
+      }
+    }
+
+    office.is_active = !office.is_active;
+    await office.save();
+    res.json({ ok: true, item: office });
+  } catch (error) {
+    console.error('Toggle office error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
