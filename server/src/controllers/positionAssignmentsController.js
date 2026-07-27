@@ -4,21 +4,48 @@ const { Op } = require('sequelize');
 // ─── List all assignments with user and position info ──
 exports.listAssignments = async (req, res) => {
   try {
+    // 1. Get all active assignments
     const assignments = await PositionAssignment.findAll({
       where: { status: 'active' },
-      include: [
-        {
-          model: User,
-          attributes: ['id', 'email'],
-          include: [
-            { model: UserProfile, attributes: ['full_name'] }
-          ]
-        },
-        { model: Position, attributes: ['id', 'name'] }
-      ],
       order: [['created_at', 'DESC']]
     });
-    res.json({ ok: true, assignments });
+
+    // 2. Manually fetch related data for each assignment
+    const enriched = await Promise.all(
+      assignments.map(async (assignment) => {
+        const plain = assignment.toJSON();
+
+        // Fetch position
+        if (plain.position_id) {
+          const position = await Position.findByPk(plain.position_id, {
+            attributes: ['id', 'name']
+          });
+          plain.Position = position ? position.toJSON() : null;
+        } else {
+          plain.Position = null;
+        }
+
+        // Fetch user with profile
+        if (plain.user_id) {
+          const user = await User.findByPk(plain.user_id, {
+            attributes: ['id', 'email', 'username'],
+            include: [
+              {
+                model: UserProfile,
+                attributes: ['full_name']
+              }
+            ]
+          });
+          plain.User = user ? user.toJSON() : null;
+        } else {
+          plain.User = null;
+        }
+
+        return plain;
+      })
+    );
+
+    res.json({ ok: true, assignments: enriched });
   } catch (error) {
     console.error('List assignments error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
