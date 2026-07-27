@@ -1,78 +1,298 @@
+/* ─── Container ─────────────────────────────────────────── */
+.container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+/* ─── Header ───────────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.refreshBtn:hover {
+  background: #f3f4f6;
+}
+
+/* ─── Tabs ─────────────────────────────────────────────── */
 .tabs {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .tabs button {
-  padding: 8px 20px;
+  padding: 10px 20px;
   border: none;
-  background: #e2e8f0;
+  background: transparent;
   cursor: pointer;
-  border-radius: 6px 6px 0 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabs button:hover {
+  color: #111827;
 }
 
 .activeTab {
-  background: white !important;
+  color: var(--primary-color, #800000) !important;
+  border-bottom-color: var(--primary-color, #800000) !important;
   font-weight: 600;
 }
 
+/* ─── Message ──────────────────────────────────────────── */
+.message {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #a7f3d0;
+}
+
+/* ─── Cards ────────────────────────────────────────────── */
 .card {
-  background: white;
+  background: #fff;
+  border-radius: 16px;
   padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
   margin-bottom: 20px;
 }
 
+.card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+/* ─── Add Form ─────────────────────────────────────────── */
 .addForm {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
   flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
 }
 
-.input {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+.addForm .input {
+  flex: 1 1 200px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.addForm .btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.addForm .btn:hover {
+  background: #660000;
+}
+
+/* ─── Controls (Search + Sort) ────────────────────────── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.searchBar {
+  position: relative;
+  flex: 1 1 200px;
+}
+
+.searchBar input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.searchBar input:focus {
+  outline: none;
+  border-color: var(--primary-color, #800000);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.sortWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
   min-width: 150px;
 }
 
-.btn {
-  padding: 8px 16px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
+.sortWrapper select {
+  width: 100%;
+  padding: 8px 34px 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  appearance: none;
   cursor: pointer;
+}
+
+.sortWrapper select:focus {
+  outline: none;
+  border-color: var(--primary-color, #800000);
+}
+
+.filterIcon {
+  position: absolute;
+  left: 10px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.sortChevron {
+  position: absolute;
+  right: 10px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.sortWrapper select {
+  padding-left: 34px;
+}
+
+/* ─── Tables ───────────────────────────────────────────── */
+.tableWrapper {
+  overflow-x: auto;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-}
-
-.table th,
-.table td {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-  text-align: left;
-}
-
-.msg {
-  margin-bottom: 10px;
-  color: #16a34a;
-}
-
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   font-size: 14px;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f9fafb;
+  font-weight: 600;
   color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background: #fafafa;
+}
+
+.noData {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px 0 !important;
+}
+
+.loading {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px 0;
+}
+
+/* ─── Badges ───────────────────────────────────────────── */
+.badgeActive {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgeInactive {
+  display: inline-block;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ─── Buttons ──────────────────────────────────────────── */
+.toggleBtn {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+  margin-right: 4px;
+}
+
+.toggleBtn:hover {
+  background: #f3f4f6;
 }
 
 .dangerBtn {
@@ -84,29 +304,115 @@
   font-size: 12px;
   cursor: pointer;
   transition: background 0.2s;
-  margin-left: 4px;
+  margin: 0 2px;
 }
 
 .dangerBtn:hover {
   background: #b91c1c;
 }
 
-/* ─── New styles for Positions (Card + Drag & Drop) ─── */
-
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+.editBtn {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+  margin-right: 4px;
 }
 
-.hint {
-  font-size: 13px;
+.editBtn:hover {
+  background: #f3f4f6;
+}
+
+.combineBtn {
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #7c3aed;
+  margin-right: 4px;
+}
+
+.combineBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #7c3aed;
+}
+
+.combineBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Right Panel Stats ────────────────────────────────── */
+.rightPanel {
+  flex: 0 0 220px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.statCard {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  display: block;
+}
+
+.statLabel {
+  font-size: 12px;
   color: #6b7280;
 }
 
+/* ─── Tab Content (Layouts) ───────────────────────────── */
+.tabContent {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.tabContent .leftPanel {
+  flex: 1;
+  min-width: 0;
+}
+
+.tabContent .rightPanel {
+  flex: 0 0 220px;
+}
+
+/* ─── Positions Tab (Account Codes style) ────────────── */
+.tabContentPositions {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.leftPanelPositions {
+  flex: 2;
+  min-width: 0;
+}
+
+.rightPanelPositions {
+  flex: 1;
+  min-width: 300px;
+}
+
+/* ─── Position Cards ───────────────────────────────────── */
 .positionList {
   display: flex;
   flex-direction: column;
@@ -122,6 +428,7 @@
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   transition: all 0.2s;
+  flex-wrap: wrap;
 }
 
 .positionCard:hover {
@@ -183,46 +490,13 @@
   color: #4b5563;
 }
 
-.statusActive {
-  font-size: 12px;
-  font-weight: 500;
-  color: #16a34a;
-}
-
-.statusInactive {
-  font-size: 12px;
-  font-weight: 500;
-  color: #dc2626;
-}
-
 .cardActions {
   display: flex;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-.toggleBtn {
-  padding: 4px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #374151;
-}
-
-.toggleBtn:hover {
-  background: #f3f4f6;
-}
-
-.noData {
-  text-align: center;
-  color: #6b7280;
-  padding: 20px 0;
-}
-
-/* ─── Edit Mode ───────────────────────────────────────── */
+/* ─── Edit Mode ─────────────────────────────────────────── */
 .editForm {
   display: flex;
   align-items: center;
@@ -242,11 +516,6 @@
 
 .editInput:focus {
   outline: none;
-}
-
-.editActions {
-  display: flex;
-  gap: 6px;
 }
 
 .saveEditBtn {
@@ -277,43 +546,51 @@
   background: #4b5563;
 }
 
-.editBtn {
-  padding: 4px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
   color: #374151;
 }
 
-.editBtn:hover {
-  background: #f3f4f6;
+/* ─── Card Controls (search + sort inside card) ────────── */
+.cardControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
 }
 
-.combineBtn {
-  padding: 4px 12px;
+.searchBarSmall {
+  position: relative;
+  flex: 1 1 150px;
+}
+
+.searchBarSmall input {
+  width: 100%;
+  padding: 6px 10px 6px 32px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
+  font-size: 13px;
+}
+
+.searchBarSmall .searchIcon {
+  left: 8px;
+  font-size: 14px;
+}
+
+.sortWrapperSmall select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
   background: #fff;
-  font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #7c3aed;
 }
 
-.combineBtn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #7c3aed;
-}
-
-.combineBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ─── Combine Modal ───────────────────────────────────── */
+/* ─── Combine Modal ────────────────────────────────────── */
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -342,6 +619,7 @@
     transform: scale(0.95);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -437,4 +715,78 @@
 .combineConfirmBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ─── Responsive ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .tabContent .rightPanel {
+    flex: 1 1 100%;
+  }
+
+  .tabContentPositions {
+    flex-direction: column;
+  }
+
+  .rightPanelPositions {
+    min-width: auto;
+  }
+
+  .leftPanelPositions {
+    flex: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 12px;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sortWrapper {
+    min-width: auto;
+  }
+
+  .addForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .tabs button {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .table td,
+  .table th {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .positionCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cardActions {
+    justify-content: flex-start;
+  }
+
+  .editForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
