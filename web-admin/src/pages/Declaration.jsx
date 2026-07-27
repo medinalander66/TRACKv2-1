@@ -1199,7 +1199,7 @@ export default function Declaration() {
                         assignments.map((ass) => (
                           <tr key={ass.id}>
                             <td>{ass.Position?.name || "—"}</td>
-                            <td>{ass.User?.full_name || "—"}</td>
+                            <td>{ass.User?.UserProfile?.full_name || "—"}</td>
                             <td>{ass.User?.email || "—"}</td>
                             <td>
                               <span className={styles.badgeActive}>Active</span>
