@@ -85,3 +85,90 @@ exports.toggleOffice = async (req, res) => {
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
+
+// ─── Delete Department ─────────────────────────────────
+exports.deleteDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dept = await Department.findByPk(id);
+    if (!dept) {
+      return res.status(404).json({ ok: false, message: 'Department not found.' });
+    }
+    await dept.destroy();
+    res.json({ ok: true, message: 'Department deleted.' });
+  } catch (error) {
+    console.error('Delete department error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Update Department ─────────────────────────────────
+exports.updateDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ ok: false, message: 'Department name is required.' });
+    }
+    const dept = await Department.findByPk(id);
+    if (!dept) {
+      return res.status(404).json({ ok: false, message: 'Department not found.' });
+    }
+    // Check for duplicate name (exclude self)
+    const existing = await Department.findOne({
+      where: { name: name.trim(), id: { [Op.ne]: id } }
+    });
+    if (existing) {
+      return res.status(409).json({ ok: false, message: 'Department name already exists.' });
+    }
+    dept.name = name.trim();
+    await dept.save();
+    res.json({ ok: true, department: dept });
+  } catch (error) {
+    console.error('Update department error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Delete Office ─────────────────────────────────────
+exports.deleteOffice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const office = await Office.findByPk(id);
+    if (!office) {
+      return res.status(404).json({ ok: false, message: 'Office not found.' });
+    }
+    await office.destroy();
+    res.json({ ok: true, message: 'Office deleted.' });
+  } catch (error) {
+    console.error('Delete office error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── Update Office ─────────────────────────────────────
+exports.updateOffice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ ok: false, message: 'Office name is required.' });
+    }
+    const office = await Office.findByPk(id);
+    if (!office) {
+      return res.status(404).json({ ok: false, message: 'Office not found.' });
+    }
+    const existing = await Office.findOne({
+      where: { name: name.trim(), id: { [Op.ne]: id } }
+    });
+    if (existing) {
+      return res.status(409).json({ ok: false, message: 'Office name already exists.' });
+    }
+    office.name = name.trim();
+    await office.save();
+    res.json({ ok: true, office });
+  } catch (error) {
+    console.error('Update office error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
