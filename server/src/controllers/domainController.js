@@ -59,3 +59,31 @@ exports.deleteDomain = async (req, res) => {
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
+
+// ─── Update Domain ─────────────────────────────────────
+exports.updateDomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { domain } = req.body;
+    if (!domain || !domain.trim()) {
+      return res.status(400).json({ ok: false, message: 'Domain is required.' });
+    }
+    const domainRecord = await AllowedDomain.findByPk(id);
+    if (!domainRecord) {
+      return res.status(404).json({ ok: false, message: 'Domain not found.' });
+    }
+    // Check for duplicate (exclude self)
+    const existing = await AllowedDomain.findOne({
+      where: { domain: domain.trim(), id: { [Op.ne]: id } }
+    });
+    if (existing) {
+      return res.status(409).json({ ok: false, message: 'Domain already exists.' });
+    }
+    domainRecord.domain = domain.trim();
+    await domainRecord.save();
+    res.json({ ok: true, domain: domainRecord });
+  } catch (error) {
+    console.error('Update domain error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
