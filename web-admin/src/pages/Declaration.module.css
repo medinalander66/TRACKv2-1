@@ -78,16 +78,6 @@
   font-weight: 600;
 }
 
-/* ─── Message ──────────────────────────────────────────── */
-.message {
-  background: #d1fae5;
-  color: #065f46;
-  padding: 10px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  border: 1px solid #a7f3d0;
-}
-
 /* ─── Cards ────────────────────────────────────────────── */
 .card {
   background: #fff;
@@ -139,7 +129,7 @@
   background: #660000;
 }
 
-/* ─── Controls (Search + Sort) ────────────────────────── */
+/* ─── Controls (Search) ────────────────────────────────── */
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -172,47 +162,6 @@
   top: 50%;
   transform: translateY(-50%);
   color: #9ca3af;
-}
-
-.sortWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 150px;
-}
-
-.sortWrapper select {
-  width: 100%;
-  padding: 8px 34px 8px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #fff;
-  appearance: none;
-  cursor: pointer;
-}
-
-.sortWrapper select:focus {
-  outline: none;
-  border-color: var(--primary-color, #800000);
-}
-
-.filterIcon {
-  position: absolute;
-  left: 10px;
-  color: #6b7280;
-  pointer-events: none;
-}
-
-.sortChevron {
-  position: absolute;
-  right: 10px;
-  color: #6b7280;
-  pointer-events: none;
-}
-
-.sortWrapper select {
-  padding-left: 34px;
 }
 
 /* ─── Tables ───────────────────────────────────────────── */
@@ -257,6 +206,26 @@
   padding: 20px 0;
 }
 
+/* ─── Inline Edit ──────────────────────────────────────── */
+.inlineEdit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.inlineInput {
+  padding: 4px 8px;
+  border: 2px solid var(--primary-color, #800000);
+  border-radius: 4px;
+  font-size: 14px;
+  width: 140px;
+}
+
+.inlineInput:focus {
+  outline: none;
+}
+
 /* ─── Badges ───────────────────────────────────────────── */
 .badgeActive {
   display: inline-block;
@@ -296,7 +265,7 @@
 }
 
 .dangerBtn {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border: none;
   border-radius: 6px;
   background: #dc2626;
@@ -312,7 +281,7 @@
 }
 
 .editBtn {
-  padding: 4px 12px;
+  padding: 4px 8px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #fff;
@@ -320,7 +289,6 @@
   cursor: pointer;
   transition: all 0.2s;
   color: #374151;
-  margin-right: 4px;
 }
 
 .editBtn:hover {
@@ -347,6 +315,34 @@
 .combineBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.saveEditBtn {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 4px;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.saveEditBtn:hover {
+  background: #15803d;
+}
+
+.cancelEditBtn {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 4px;
+  background: #6b7280;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cancelEditBtn:hover {
+  background: #4b5563;
 }
 
 /* ─── Right Panel Stats ────────────────────────────────── */
@@ -395,7 +391,7 @@
   flex: 0 0 220px;
 }
 
-/* ─── Positions Tab (Account Codes style) ────────────── */
+/* ─── Positions Tab ────────────────────────────────────── */
 .tabContentPositions {
   display: flex;
   gap: 20px;
@@ -496,7 +492,7 @@
   flex-wrap: wrap;
 }
 
-/* ─── Edit Mode ─────────────────────────────────────────── */
+/* ─── Edit Mode (Positions) ───────────────────────────── */
 .editForm {
   display: flex;
   align-items: center;
@@ -518,34 +514,6 @@
   outline: none;
 }
 
-.saveEditBtn {
-  padding: 4px 14px;
-  border: none;
-  border-radius: 6px;
-  background: #16a34a;
-  color: #fff;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.saveEditBtn:hover {
-  background: #15803d;
-}
-
-.cancelEditBtn {
-  padding: 4px 14px;
-  border: none;
-  border-radius: 6px;
-  background: #6b7280;
-  color: #fff;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.cancelEditBtn:hover {
-  background: #4b5563;
-}
-
 .checkboxRow {
   display: flex;
   align-items: center;
@@ -554,18 +522,10 @@
   color: #374151;
 }
 
-/* ─── Card Controls (search + sort inside card) ────────── */
-.cardControls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin-top: 4px;
-}
-
+/* ─── Search Bar (Positions) ──────────────────────────── */
 .searchBarSmall {
   position: relative;
-  flex: 1 1 150px;
+  flex: 1 1 180px;
 }
 
 .searchBarSmall input {
@@ -581,13 +541,20 @@
   font-size: 14px;
 }
 
-.sortWrapperSmall select {
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
-  background: #fff;
-  cursor: pointer;
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cardHeader h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
 }
 
 /* ─── Combine Modal ────────────────────────────────────── */
@@ -717,6 +684,77 @@
   cursor: not-allowed;
 }
 
+/* ─── Feedback Modal ───────────────────────────────────── */
+.feedbackOverlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  max-width: 480px;
+  width: 90%;
+  pointer-events: none;
+}
+
+.feedbackModal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  border-left: 4px solid #16a34a;
+  pointer-events: auto;
+  animation: slideUp 0.3s ease;
+  position: relative;
+}
+
+.feedbackError {
+  border-left-color: #dc2626;
+}
+
+.feedbackSuccess {
+  border-left-color: #16a34a;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.feedbackClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.feedbackClose:hover {
+  color: #374151;
+}
+
+.feedbackIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.feedbackText {
+  font-size: 14px;
+  color: #111827;
+  flex: 1;
+}
+
 /* ─── Responsive ───────────────────────────────────────── */
 @media (max-width: 1024px) {
   .tabContent .rightPanel {
@@ -744,10 +782,6 @@
   .controls {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .sortWrapper {
-    min-width: auto;
   }
 
   .addForm {
@@ -788,5 +822,19 @@
   .editForm {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .feedbackModal {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .inlineEdit {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inlineInput {
+    width: 100%;
   }
 }

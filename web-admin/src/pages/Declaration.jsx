@@ -4,13 +4,18 @@ import {
   getDepartments,
   createDepartment,
   toggleDepartment,
+  deleteDepartment,
+  updateDepartment,
   getOffices,
   createOffice,
   toggleOffice,
+  deleteOffice,
+  updateOffice,
   getDomains,
   addDomain,
   toggleDomain,
   deleteDomain,
+  updateDomain,
   getPositions,
   createPosition,
   togglePosition,
@@ -23,16 +28,44 @@ import {
 } from "../api/admin";
 import {
   FiSearch,
-  FiFilter,
-  FiChevronDown,
   FiRefreshCw,
   FiEdit,
   FiTrash2,
   FiPlus,
-  FiUser,
-  FiMail,
+  FiX,
 } from "react-icons/fi";
 import styles from "./Declaration.module.css";
+
+// ─── Feedback Modal Component ──────────────────────────
+function FeedbackModal({ message, type, onClose }) {
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => {
+      onClose();
+    }, 10000); // Auto-close after 10 seconds
+
+    return () => clearTimeout(timer);
+  }, [message, onClose]);
+
+  if (!message) return null;
+
+  return (
+    <div className={styles.feedbackOverlay} onClick={onClose}>
+      <div
+        className={`${styles.feedbackModal} ${type === "error" ? styles.feedbackError : styles.feedbackSuccess}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className={styles.feedbackClose} onClick={onClose}>
+          <FiX size={18} />
+        </button>
+        <span className={styles.feedbackIcon}>
+          {type === "error" ? "❌" : "✅"}
+        </span>
+        <span className={styles.feedbackText}>{message}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Declaration() {
   const [tab, setTab] = useState("departments");
@@ -52,17 +85,21 @@ export default function Declaration() {
     allow_multiple: false,
   });
 
-  // ─── Search & Sort states ────────────────────────────
+  // ─── Search states ────────────────────────────────────
   const [searchDepartments, setSearchDepartments] = useState("");
-  const [sortDepartments, setSortDepartments] = useState("name_asc");
   const [searchOffices, setSearchOffices] = useState("");
-  const [sortOffices, setSortOffices] = useState("name_asc");
   const [searchDomains, setSearchDomains] = useState("");
-  const [sortDomains, setSortDomains] = useState("name_asc");
   const [searchPositions, setSearchPositions] = useState("");
-  const [sortPositions, setSortPositions] = useState("order_asc");
 
-  // ─── Edit state ────────────────────────────────────────
+  // ─── Edit states for tables ──────────────────────────
+  const [editDeptId, setEditDeptId] = useState(null);
+  const [editDeptName, setEditDeptName] = useState("");
+  const [editOfficeId, setEditOfficeId] = useState(null);
+  const [editOfficeName, setEditOfficeName] = useState("");
+  const [editDomainId, setEditDomainId] = useState(null);
+  const [editDomainValue, setEditDomainValue] = useState("");
+
+  // ─── Edit state for positions (inline) ────────────────
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editAllowMultiple, setEditAllowMultiple] = useState(false);
@@ -72,11 +109,22 @@ export default function Declaration() {
   const [sourcePosition, setSourcePosition] = useState(null);
   const [targetPositionId, setTargetPositionId] = useState("");
 
-  const [message, setMessage] = useState("");
+  // ─── Feedback state ───────────────────────────────────
+  const [feedback, setFeedback] = useState({ message: "", type: "" });
+
   const [isDragging, setIsDragging] = useState(false);
 
   // ─── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(true);
+
+  // ─── Show feedback ────────────────────────────────────
+  const showFeedback = (message, type = "success") => {
+    setFeedback({ message, type });
+  };
+
+  const clearFeedback = () => {
+    setFeedback({ message: "", type: "" });
+  };
 
   // ─── Load data ────────────────────────────────────────
   const load = async () => {
@@ -97,6 +145,7 @@ export default function Declaration() {
       setAssignments(assignRes.assignments || []);
     } catch (err) {
       console.error(err);
+      showFeedback("Failed to load data.", "error");
     } finally {
       setLoading(false);
     }
@@ -106,47 +155,35 @@ export default function Declaration() {
     load();
   }, []);
 
-  // ─── Filter & sort helpers ────────────────────────────
-  const filterAndSort = (items, searchKey, sortKey, searchField = "name") => {
-    let filtered = items.filter((item) =>
+  // ─── Filter helpers ────────────────────────────────────
+  const filterItems = (items, searchKey, searchField = "name") => {
+    if (!searchKey) return items;
+    return items.filter((item) =>
       item[searchField]?.toLowerCase().includes(searchKey.toLowerCase()),
     );
-    if (sortKey === "name_asc")
-      filtered.sort((a, b) => a[searchField].localeCompare(b[searchField]));
-    else if (sortKey === "name_desc")
-      filtered.sort((a, b) => b[searchField].localeCompare(a[searchField]));
-    else if (sortKey === "status_active")
-      filtered.sort((a) => (a.is_active ? -1 : 1));
-    else if (sortKey === "status_inactive")
-      filtered.sort((a) => (a.is_active ? 1 : -1));
-    else if (sortKey === "newest")
-      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    else if (sortKey === "oldest")
-      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    return filtered;
   };
 
   const filteredDepartments = useMemo(
-    () => filterAndSort(departments, searchDepartments, sortDepartments),
-    [departments, searchDepartments, sortDepartments],
+    () => filterItems(departments, searchDepartments),
+    [departments, searchDepartments],
   );
 
   const filteredOffices = useMemo(
-    () => filterAndSort(offices, searchOffices, sortOffices),
-    [offices, searchOffices, sortOffices],
+    () => filterItems(offices, searchOffices),
+    [offices, searchOffices],
   );
 
   const filteredDomains = useMemo(
-    () => filterAndSort(domains, searchDomains, sortDomains, "domain"),
-    [domains, searchDomains, sortDomains],
+    () => filterItems(domains, searchDomains, "domain"),
+    [domains, searchDomains],
   );
 
   const filteredPositions = useMemo(
-    () => filterAndSort(positions, searchPositions, sortPositions),
-    [positions, searchPositions, sortPositions],
+    () => filterItems(positions, searchPositions),
+    [positions, searchPositions],
   );
 
-  // ─── Add handlers (with form onSubmit) ────────────────
+  // ─── Add handlers ──────────────────────────────────────
   const handleAddDepartment = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
@@ -154,9 +191,9 @@ export default function Declaration() {
       await createDepartment(newName.trim());
       setNewName("");
       load();
-      setMessage("Department added.");
+      showFeedback("Department added successfully.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to add.");
+      showFeedback(err.response?.data?.message || "Failed to add.", "error");
     }
   };
 
@@ -167,9 +204,9 @@ export default function Declaration() {
       await createOffice(newName.trim());
       setNewName("");
       load();
-      setMessage("Office added.");
+      showFeedback("Office added successfully.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to add.");
+      showFeedback(err.response?.data?.message || "Failed to add.", "error");
     }
   };
 
@@ -180,9 +217,12 @@ export default function Declaration() {
       await addDomain(newDomain.trim());
       setNewDomain("");
       load();
-      setMessage("Domain added.");
+      showFeedback("Domain added successfully.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to add domain.");
+      showFeedback(
+        err.response?.data?.message || "Failed to add domain.",
+        "error",
+      );
     }
   };
 
@@ -196,13 +236,16 @@ export default function Declaration() {
       });
       setNewPosition({ name: "", allow_multiple: false });
       load();
-      setMessage("Position added.");
+      showFeedback("Position added successfully.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to add position.");
+      showFeedback(
+        err.response?.data?.message || "Failed to add position.",
+        "error",
+      );
     }
   };
 
-  // ─── Toggle / Delete handlers ──────────────────────────
+  // ─── Toggle handlers ───────────────────────────────────
   const toggleItem = async (id, currentActive, type) => {
     try {
       if (type === "department") await toggleDepartment(id, !currentActive);
@@ -210,8 +253,32 @@ export default function Declaration() {
       else if (type === "domain") await toggleDomain(id);
       else if (type === "position") await togglePosition(id);
       load();
+      showFeedback(`Status toggled successfully.`);
     } catch (err) {
-      setMessage("Failed to toggle status.");
+      showFeedback("Failed to toggle status.", "error");
+    }
+  };
+
+  // ─── Delete handlers ───────────────────────────────────
+  const handleDeleteDepartment = async (id) => {
+    if (!window.confirm("Delete this department?")) return;
+    try {
+      await deleteDepartment(id);
+      load();
+      showFeedback("Department deleted.");
+    } catch (err) {
+      showFeedback("Failed to delete department.", "error");
+    }
+  };
+
+  const handleDeleteOffice = async (id) => {
+    if (!window.confirm("Delete this office?")) return;
+    try {
+      await deleteOffice(id);
+      load();
+      showFeedback("Office deleted.");
+    } catch (err) {
+      showFeedback("Failed to delete office.", "error");
     }
   };
 
@@ -220,8 +287,9 @@ export default function Declaration() {
     try {
       await deleteDomain(id);
       load();
+      showFeedback("Domain deleted.");
     } catch (err) {
-      setMessage("Failed to delete domain.");
+      showFeedback("Failed to delete domain.", "error");
     }
   };
 
@@ -230,8 +298,9 @@ export default function Declaration() {
     try {
       await deletePosition(id);
       load();
+      showFeedback("Position deleted.");
     } catch (err) {
-      setMessage("Failed to delete position.");
+      showFeedback("Failed to delete position.", "error");
     }
   };
 
@@ -240,12 +309,91 @@ export default function Declaration() {
     try {
       await removeAssignment(id);
       load();
+      showFeedback("Assignment removed.");
     } catch (err) {
-      setMessage("Failed to remove assignment.");
+      showFeedback("Failed to remove assignment.", "error");
     }
   };
 
-  // ─── Edit functions ────────────────────────────────────
+  // ─── Edit functions for departments ────────────────────
+  const startEditDept = (item) => {
+    setEditDeptId(item.id);
+    setEditDeptName(item.name);
+  };
+
+  const cancelEditDept = () => {
+    setEditDeptId(null);
+    setEditDeptName("");
+  };
+
+  const saveEditDept = async (id) => {
+    if (!editDeptName.trim()) {
+      showFeedback("Department name is required.", "error");
+      return;
+    }
+    try {
+      await updateDepartment(id, { name: editDeptName.trim() });
+      setEditDeptId(null);
+      load();
+      showFeedback("Department updated.");
+    } catch (err) {
+      showFeedback(err.response?.data?.message || "Failed to update.", "error");
+    }
+  };
+
+  // ─── Edit functions for offices ────────────────────────
+  const startEditOffice = (item) => {
+    setEditOfficeId(item.id);
+    setEditOfficeName(item.name);
+  };
+
+  const cancelEditOffice = () => {
+    setEditOfficeId(null);
+    setEditOfficeName("");
+  };
+
+  const saveEditOffice = async (id) => {
+    if (!editOfficeName.trim()) {
+      showFeedback("Office name is required.", "error");
+      return;
+    }
+    try {
+      await updateOffice(id, { name: editOfficeName.trim() });
+      setEditOfficeId(null);
+      load();
+      showFeedback("Office updated.");
+    } catch (err) {
+      showFeedback(err.response?.data?.message || "Failed to update.", "error");
+    }
+  };
+
+  // ─── Edit functions for domains ────────────────────────
+  const startEditDomain = (item) => {
+    setEditDomainId(item.id);
+    setEditDomainValue(item.domain);
+  };
+
+  const cancelEditDomain = () => {
+    setEditDomainId(null);
+    setEditDomainValue("");
+  };
+
+  const saveEditDomain = async (id) => {
+    if (!editDomainValue.trim()) {
+      showFeedback("Domain is required.", "error");
+      return;
+    }
+    try {
+      await updateDomain(id, { domain: editDomainValue.trim() });
+      setEditDomainId(null);
+      load();
+      showFeedback("Domain updated.");
+    } catch (err) {
+      showFeedback(err.response?.data?.message || "Failed to update.", "error");
+    }
+  };
+
+  // ─── Edit functions for positions ──────────────────────
   const startEdit = (pos) => {
     setEditingId(pos.id);
     setEditName(pos.name);
@@ -260,7 +408,7 @@ export default function Declaration() {
 
   const saveEdit = async (id) => {
     if (!editName.trim()) {
-      setMessage("Position name is required.");
+      showFeedback("Position name is required.", "error");
       return;
     }
     try {
@@ -269,10 +417,13 @@ export default function Declaration() {
         allow_multiple: editAllowMultiple,
       });
       setEditingId(null);
-      setMessage("Position updated successfully.");
       load();
+      showFeedback("Position updated.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to update position.");
+      showFeedback(
+        err.response?.data?.message || "Failed to update position.",
+        "error",
+      );
     }
   };
 
@@ -285,11 +436,11 @@ export default function Declaration() {
 
   const handleCombine = async () => {
     if (!sourcePosition || !targetPositionId) {
-      setMessage("Please select a target position.");
+      showFeedback("Please select a target position.", "error");
       return;
     }
     if (sourcePosition.id === targetPositionId) {
-      setMessage("Cannot combine a position with itself.");
+      showFeedback("Cannot combine a position with itself.", "error");
       return;
     }
     if (
@@ -304,10 +455,13 @@ export default function Declaration() {
       setCombineModalOpen(false);
       setSourcePosition(null);
       setTargetPositionId("");
-      setMessage("Positions combined successfully.");
       load();
+      showFeedback("Positions combined successfully.");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to combine positions.");
+      showFeedback(
+        err.response?.data?.message || "Failed to combine positions.",
+        "error",
+      );
     }
   };
 
@@ -331,14 +485,13 @@ export default function Declaration() {
     }));
 
     setPositions(items);
-    setMessage("Updating order...");
 
     try {
       await reorderPositions(updatedItems);
-      setMessage("Positions reordered successfully.");
+      showFeedback("Positions reordered successfully.");
       load();
     } catch (err) {
-      setMessage("Failed to reorder positions.");
+      showFeedback("Failed to reorder positions.", "error");
       load();
     }
   };
@@ -352,81 +505,17 @@ export default function Declaration() {
     );
   };
 
-  const renderTable = (items, type, fields) => {
-    return (
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            {fields.map((f) => (
-              <th key={f.key}>{f.label}</th>
-            ))}
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.length === 0 ? (
-            <tr>
-              <td colSpan={fields.length + 1} className={styles.noData}>
-                No items found
-              </td>
-            </tr>
-          ) : (
-            items.map((item) => (
-              <tr key={item.id}>
-                {fields.map((f) => (
-                  <td key={f.key}>{f.render ? f.render(item) : item[f.key]}</td>
-                ))}
-                <td>
-                  <button
-                    onClick={() => toggleItem(item.id, item.is_active, type)}
-                    className={styles.toggleBtn}
-                  >
-                    {item.is_active ? "Deactivate" : "Activate"}
-                  </button>
-                  {type === "domain" && (
-                    <button
-                      onClick={() => handleDeleteDomain(item.id)}
-                      className={styles.dangerBtn}
-                    >
-                      Delete
-                    </button>
-                  )}
-                  {type === "position" && (
-                    <>
-                      <button
-                        onClick={() => startEdit(item)}
-                        className={styles.editBtn}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openCombineModal(item)}
-                        className={styles.combineBtn}
-                        disabled={!item.is_active}
-                      >
-                        Combine
-                      </button>
-                      <button
-                        onClick={() => handleDeletePosition(item.id)}
-                        className={styles.dangerBtn}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    );
-  };
-
   // ─── Main render ──────────────────────────────────────
   return (
     <div className={styles.container}>
-      {/* Header */}
+      {/* ─── Feedback Modal ────────────────────────────────── */}
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={clearFeedback}
+      />
+
+      {/* ─── Header ─────────────────────────────────────────── */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Declaration</h1>
@@ -439,7 +528,7 @@ export default function Declaration() {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* ─── Tabs ─────────────────────────────────────────── */}
       <div className={styles.tabs}>
         <button
           className={tab === "departments" ? styles.activeTab : ""}
@@ -466,8 +555,6 @@ export default function Declaration() {
           Positions
         </button>
       </div>
-
-      {message && <div className={styles.message}>{message}</div>}
 
       {/* ─── DEPARTMENTS ────────────────────────────────── */}
       {tab === "departments" && (
@@ -499,33 +586,92 @@ export default function Declaration() {
                     onChange={(e) => setSearchDepartments(e.target.value)}
                   />
                 </div>
-                <div className={styles.sortWrapper}>
-                  <FiFilter className={styles.filterIcon} />
-                  <select
-                    value={sortDepartments}
-                    onChange={(e) => setSortDepartments(e.target.value)}
-                  >
-                    <option value="name_asc">Name A→Z</option>
-                    <option value="name_desc">Name Z→A</option>
-                    <option value="status_active">Active First</option>
-                    <option value="status_inactive">Inactive First</option>
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                  </select>
-                  <FiChevronDown className={styles.sortChevron} />
-                </div>
               </div>
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                renderTable(filteredDepartments, "department", [
-                  { key: "name", label: "Name" },
-                  {
-                    key: "is_active",
-                    label: "Status",
-                    render: (item) => getStatusBadge(item.is_active),
-                  },
-                ])
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 60 }}>Edit</th>
+                      <th>Name</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDepartments.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className={styles.noData}>
+                          No departments found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDepartments.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <button
+                              onClick={() => startEditDept(item)}
+                              className={styles.editBtn}
+                            >
+                              <FiEdit size={14} />
+                            </button>
+                          </td>
+                          <td>
+                            {editDeptId === item.id ? (
+                              <div className={styles.inlineEdit}>
+                                <input
+                                  type="text"
+                                  value={editDeptName}
+                                  onChange={(e) =>
+                                    setEditDeptName(e.target.value)
+                                  }
+                                  className={styles.inlineInput}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => saveEditDept(item.id)}
+                                  className={styles.saveEditBtn}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditDept}
+                                  className={styles.cancelEditBtn}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              item.name
+                            )}
+                          </td>
+                          <td>{getStatusBadge(item.is_active)}</td>
+                          <td>
+                            <button
+                              onClick={() =>
+                                toggleItem(
+                                  item.id,
+                                  item.is_active,
+                                  "department",
+                                )
+                              }
+                              className={styles.toggleBtn}
+                            >
+                              {item.is_active ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDepartment(item.id)}
+                              className={styles.dangerBtn}
+                            >
+                              <FiTrash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -585,33 +731,88 @@ export default function Declaration() {
                     onChange={(e) => setSearchOffices(e.target.value)}
                   />
                 </div>
-                <div className={styles.sortWrapper}>
-                  <FiFilter className={styles.filterIcon} />
-                  <select
-                    value={sortOffices}
-                    onChange={(e) => setSortOffices(e.target.value)}
-                  >
-                    <option value="name_asc">Name A→Z</option>
-                    <option value="name_desc">Name Z→A</option>
-                    <option value="status_active">Active First</option>
-                    <option value="status_inactive">Inactive First</option>
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                  </select>
-                  <FiChevronDown className={styles.sortChevron} />
-                </div>
               </div>
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                renderTable(filteredOffices, "office", [
-                  { key: "name", label: "Name" },
-                  {
-                    key: "is_active",
-                    label: "Status",
-                    render: (item) => getStatusBadge(item.is_active),
-                  },
-                ])
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 60 }}>Edit</th>
+                      <th>Name</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOffices.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className={styles.noData}>
+                          No offices found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOffices.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <button
+                              onClick={() => startEditOffice(item)}
+                              className={styles.editBtn}
+                            >
+                              <FiEdit size={14} />
+                            </button>
+                          </td>
+                          <td>
+                            {editOfficeId === item.id ? (
+                              <div className={styles.inlineEdit}>
+                                <input
+                                  type="text"
+                                  value={editOfficeName}
+                                  onChange={(e) =>
+                                    setEditOfficeName(e.target.value)
+                                  }
+                                  className={styles.inlineInput}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => saveEditOffice(item.id)}
+                                  className={styles.saveEditBtn}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditOffice}
+                                  className={styles.cancelEditBtn}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              item.name
+                            )}
+                          </td>
+                          <td>{getStatusBadge(item.is_active)}</td>
+                          <td>
+                            <button
+                              onClick={() =>
+                                toggleItem(item.id, item.is_active, "office")
+                              }
+                              className={styles.toggleBtn}
+                            >
+                              {item.is_active ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOffice(item.id)}
+                              className={styles.dangerBtn}
+                            >
+                              <FiTrash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -671,21 +872,6 @@ export default function Declaration() {
                     onChange={(e) => setSearchDomains(e.target.value)}
                   />
                 </div>
-                <div className={styles.sortWrapper}>
-                  <FiFilter className={styles.filterIcon} />
-                  <select
-                    value={sortDomains}
-                    onChange={(e) => setSortDomains(e.target.value)}
-                  >
-                    <option value="name_asc">Name A→Z</option>
-                    <option value="name_desc">Name Z→A</option>
-                    <option value="status_active">Active First</option>
-                    <option value="status_inactive">Inactive First</option>
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                  </select>
-                  <FiChevronDown className={styles.sortChevron} />
-                </div>
               </div>
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
@@ -693,6 +879,7 @@ export default function Declaration() {
                 <table className={styles.table}>
                   <thead>
                     <tr>
+                      <th style={{ width: 60 }}>Edit</th>
                       <th>Domain</th>
                       <th>Status</th>
                       <th>Actions</th>
@@ -701,29 +888,65 @@ export default function Declaration() {
                   <tbody>
                     {filteredDomains.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className={styles.noData}>
+                        <td colSpan="4" className={styles.noData}>
                           No domains found
                         </td>
                       </tr>
                     ) : (
-                      filteredDomains.map((d) => (
-                        <tr key={d.id}>
-                          <td>{d.domain}</td>
-                          <td>{getStatusBadge(d.is_active)}</td>
+                      filteredDomains.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <button
+                              onClick={() => startEditDomain(item)}
+                              className={styles.editBtn}
+                            >
+                              <FiEdit size={14} />
+                            </button>
+                          </td>
+                          <td>
+                            {editDomainId === item.id ? (
+                              <div className={styles.inlineEdit}>
+                                <input
+                                  type="text"
+                                  value={editDomainValue}
+                                  onChange={(e) =>
+                                    setEditDomainValue(e.target.value)
+                                  }
+                                  className={styles.inlineInput}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => saveEditDomain(item.id)}
+                                  className={styles.saveEditBtn}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditDomain}
+                                  className={styles.cancelEditBtn}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              item.domain
+                            )}
+                          </td>
+                          <td>{getStatusBadge(item.is_active)}</td>
                           <td>
                             <button
                               onClick={() =>
-                                toggleItem(d.id, d.is_active, "domain")
+                                toggleItem(item.id, item.is_active, "domain")
                               }
                               className={styles.toggleBtn}
                             >
-                              {d.is_active ? "Deactivate" : "Activate"}
+                              {item.is_active ? "Deactivate" : "Activate"}
                             </button>
                             <button
-                              onClick={() => handleDeleteDomain(d.id)}
+                              onClick={() => handleDeleteDomain(item.id)}
                               className={styles.dangerBtn}
                             >
-                              Delete
+                              <FiTrash2 size={14} />
                             </button>
                           </td>
                         </tr>
@@ -760,7 +983,7 @@ export default function Declaration() {
         </div>
       )}
 
-      {/* ─── POSITIONS (Account Codes Layout) ───────────── */}
+      {/* ─── POSITIONS ──────────────────────────────────── */}
       {tab === "positions" && (
         <div className={styles.tabContentPositions}>
           {/* Left Panel: Add Form + All Positions (Cards) */}
@@ -799,16 +1022,14 @@ export default function Declaration() {
             <div className={styles.card}>
               <div className={styles.cardHeader}>
                 <h3>All Positions</h3>
-                <div className={styles.cardControls}>
-                  <div className={styles.searchBarSmall}>
-                    <FiSearch className={styles.searchIcon} />
-                    <input
-                      type="text"
-                      placeholder="Search positions..."
-                      value={searchPositions}
-                      onChange={(e) => setSearchPositions(e.target.value)}
-                    />
-                  </div>
+                <div className={styles.searchBarSmall}>
+                  <FiSearch className={styles.searchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Search positions..."
+                    value={searchPositions}
+                    onChange={(e) => setSearchPositions(e.target.value)}
+                  />
                 </div>
               </div>
               {loading ? (
