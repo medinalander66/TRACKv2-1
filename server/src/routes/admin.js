@@ -6,15 +6,20 @@ const {
   listDepartments,
   createDepartment,
   toggleDepartment,
+  deleteDepartment,
+  updateDepartment,
   listOffices,
   createOffice,
-  toggleOffice
+  toggleOffice,
+  deleteOffice,
+  updateOffice,
 } = require('../controllers/setupController');
 const {
   listDomains,
   addDomain,
   toggleDomain,
-  deleteDomain
+  deleteDomain,
+  updateDomain,
 } = require('../controllers/domainController');
 const {
   list: listPositions,
@@ -58,6 +63,12 @@ router.get('/domains', requireAdmin, listDomains);
 router.post('/domains', requireAdmin, addDomain);
 router.put('/domains/:id/toggle', requireAdmin, toggleDomain);
 router.delete('/domains/:id', requireAdmin, deleteDomain);
+
+router.delete('/departments/:id', requireAdmin, deleteDepartment);
+router.put('/departments/:id', requireAdmin, updateDepartment);
+router.delete('/offices/:id', requireAdmin, deleteOffice);
+router.put('/offices/:id', requireAdmin, updateOffice);
+router.put('/domains/:id', requireAdmin, updateDomain);
 
 // --- Positions ---
 router.get('/positions', requireAdmin, listPositions);
