@@ -123,3 +123,33 @@ export const combinePositions = async (sourceId, targetId) => {
   });
   return data;
 };
+
+// ─── Delete Department ──────────────────────────────────
+export const deleteDepartment = async (id) => {
+  const { data } = await apiClient.delete(`/admin/departments/${id}`);
+  return data;
+};
+
+// ─── Update Department ──────────────────────────────────
+export const updateDepartment = async (id, payload) => {
+  const { data } = await apiClient.put(`/admin/departments/${id}`, payload);
+  return data;
+};
+
+// ─── Delete Office ──────────────────────────────────────
+export const deleteOffice = async (id) => {
+  const { data } = await apiClient.delete(`/admin/offices/${id}`);
+  return data;
+};
+
+// ─── Update Office ──────────────────────────────────────
+export const updateOffice = async (id, payload) => {
+  const { data } = await apiClient.put(`/admin/offices/${id}`, payload);
+  return data;
+};
+
+// ─── Update Domain ──────────────────────────────────────
+export const updateDomain = async (id, payload) => {
+  const { data } = await apiClient.put(`/admin/domains/${id}`, payload);
+  return data;
+};
