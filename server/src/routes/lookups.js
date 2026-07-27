@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { Position, Department, Office, Role, AllowedDomain } = require('../models');
+const { Department, Office, Role, Position, PositionAssignment, AllowedDomain } = require('../models');
 
-// Public lookups for client-side selects
+// ─── Public lookups ──────────────────────────────────────
 router.get('/departments', async (req, res) => {
   try {
     const rows = await Department.findAll({ where: { is_active: true }, attributes: ['id', 'name'], order: [['name', 'ASC']] });
@@ -33,16 +33,23 @@ router.get('/roles', async (req, res) => {
   }
 });
 
-router.get('/positions', async (req, res) => {
+// ─── NEW: Public available positions (excludes single positions already assigned) ───
+router.get('/available-positions', async (req, res) => {
   try {
     const positions = await Position.findAll({
       where: { is_active: true },
       attributes: ['id', 'name'],
-      order: [['name', 'ASC']]
+      order: [['order', 'ASC']]
     });
-    res.json({ ok: true, positions });
+    const assignments = await PositionAssignment.findAll({
+      where: { status: 'active' },
+      attributes: ['position_id']
+    });
+    const assignedIds = assignments.map(a => a.position_id);
+    const available = positions.filter(p => p.allow_multiple || !assignedIds.includes(p.id));
+    res.json({ ok: true, positions: available });
   } catch (err) {
-    console.error('Lookup positions error:', err);
+    console.error('Lookup available positions error:', err);
     res.status(500).json({ ok: false, message: 'Server error' });
   }
 });
@@ -57,6 +64,20 @@ router.get('/domains', async (req, res) => {
     res.json({ ok: true, domains: domains.map(d => d.domain) });
   } catch (err) {
     console.error('Lookup domains error:', err);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
+});
+
+router.get('/positions', async (req, res) => {
+  try {
+    const positions = await Position.findAll({
+      where: { is_active: true },
+      attributes: ['id', 'name'],
+      order: [['order', 'ASC']]
+    });
+    res.json({ ok: true, positions });
+  } catch (err) {
+    console.error('Lookup positions error:', err);
     res.status(500).json({ ok: false, message: 'Server error' });
   }
 });
