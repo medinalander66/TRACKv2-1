@@ -915,3 +915,12 @@
   color: #6b7280;
   font-weight: 500;
 }
+
+.createdBySmall {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-left: 8px;
+}
