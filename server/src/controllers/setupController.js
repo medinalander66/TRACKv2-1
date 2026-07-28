@@ -1,11 +1,25 @@
-const { Department, Office, UserProfile, Event } = require('../models');
+const { Department, Office, UserProfile, Admin, User } = require('../models');
 const { Op } = require('sequelize');
 
 // ─── List Departments ──────────────────────────────────
 exports.listDepartments = async (req, res) => {
   try {
-    const rows = await Department.findAll({ order: [['name', 'ASC']] });
-    res.json({ ok: true, items: rows });
+    const rows = await Department.findAll({
+      order: [['name', 'ASC']],
+      include: [
+        {
+          model: Admin,
+          as: 'creator',
+          attributes: ['user_id'],
+          include: [{ model: User, attributes: ['username'] }]
+        }
+      ]
+    });
+    const items = rows.map(item => ({
+      ...item.toJSON(),
+      created_by_username: item.creator?.User?.username || null
+    }));
+    res.json({ ok: true, items });
   } catch (err) {
     console.error('List departments error:', err);
     res.status(500).json({ ok: false, message: 'Server error.' });
@@ -23,7 +37,10 @@ exports.createDepartment = async (req, res) => {
     if (existing) {
       return res.status(409).json({ ok: false, message: 'Department already exists.' });
     }
-    const dept = await Department.create({ name: name.trim() });
+    const dept = await Department.create({
+      name: name.trim(),
+      created_by: req.adminId
+    });
     res.status(201).json({ ok: true, item: dept });
   } catch (err) {
     console.error('Create department error:', err);
@@ -31,7 +48,7 @@ exports.createDepartment = async (req, res) => {
   }
 };
 
-// ─── Toggle Department (with in-use check) ─────────────
+// ─── Toggle Department ─────────────────────────────────
 exports.toggleDepartment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -57,7 +74,7 @@ exports.toggleDepartment = async (req, res) => {
   }
 };
 
-// ─── Delete Department (with in-use check) ─────────────
+// ─── Delete Department ─────────────────────────────────
 exports.deleteDepartment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -112,8 +129,22 @@ exports.updateDepartment = async (req, res) => {
 // ─── List Offices ──────────────────────────────────────
 exports.listOffices = async (req, res) => {
   try {
-    const rows = await Office.findAll({ order: [['name', 'ASC']] });
-    res.json({ ok: true, items: rows });
+    const rows = await Office.findAll({
+      order: [['name', 'ASC']],
+      include: [
+        {
+          model: Admin,
+          as: 'creator',
+          attributes: ['user_id'],
+          include: [{ model: User, attributes: ['username'] }]
+        }
+      ]
+    });
+    const items = rows.map(item => ({
+      ...item.toJSON(),
+      created_by_username: item.creator?.User?.username || null
+    }));
+    res.json({ ok: true, items });
   } catch (err) {
     console.error('List offices error:', err);
     res.status(500).json({ ok: false, message: 'Server error.' });
@@ -131,7 +162,10 @@ exports.createOffice = async (req, res) => {
     if (existing) {
       return res.status(409).json({ ok: false, message: 'Office already exists.' });
     }
-    const office = await Office.create({ name: name.trim() });
+    const office = await Office.create({
+      name: name.trim(),
+      created_by: req.adminId
+    });
     res.status(201).json({ ok: true, item: office });
   } catch (err) {
     console.error('Create office error:', err);
@@ -139,7 +173,7 @@ exports.createOffice = async (req, res) => {
   }
 };
 
-// ─── Toggle Office (with in-use check) ──────────────────
+// ─── Toggle Office ──────────────────────────────────────
 exports.toggleOffice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -165,7 +199,7 @@ exports.toggleOffice = async (req, res) => {
   }
 };
 
-// ─── Delete Office (with in-use check) ──────────────────
+// ─── Delete Office ──────────────────────────────────────
 exports.deleteOffice = async (req, res) => {
   try {
     const { id } = req.params;

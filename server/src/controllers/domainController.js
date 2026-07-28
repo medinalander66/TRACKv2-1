@@ -1,11 +1,25 @@
-const { AllowedDomain, User } = require('../models');
+const { AllowedDomain, Admin, User } = require('../models');
 const { Op } = require('sequelize');
 
 // ─── List Domains ──────────────────────────────────────
 exports.listDomains = async (req, res) => {
   try {
-    const domains = await AllowedDomain.findAll({ order: [['domain', 'ASC']] });
-    res.json({ ok: true, domains });
+    const domains = await AllowedDomain.findAll({
+      order: [['domain', 'ASC']],
+      include: [
+        {
+          model: Admin,
+          as: 'creator',
+          attributes: ['user_id'],
+          include: [{ model: User, attributes: ['username'] }]
+        }
+      ]
+    });
+    const items = domains.map(d => ({
+      ...d.toJSON(),
+      created_by_username: d.creator?.User?.username || null
+    }));
+    res.json({ ok: true, domains: items });
   } catch (error) {
     console.error('List domains error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
@@ -25,7 +39,8 @@ exports.addDomain = async (req, res) => {
     }
     const newDomain = await AllowedDomain.create({
       domain: domain.trim(),
-      is_active: true
+      is_active: true,
+      created_by: req.adminId
     });
     res.status(201).json({ ok: true, domain: newDomain });
   } catch (error) {
@@ -34,7 +49,7 @@ exports.addDomain = async (req, res) => {
   }
 };
 
-// ─── Toggle Domain (with in-use check) ─────────────────
+// ─── Toggle Domain ─────────────────────────────────────
 exports.toggleDomain = async (req, res) => {
   try {
     const { id } = req.params;
@@ -62,7 +77,7 @@ exports.toggleDomain = async (req, res) => {
   }
 };
 
-// ─── Delete Domain (with in-use check) ─────────────────
+// ─── Delete Domain ─────────────────────────────────────
 exports.deleteDomain = async (req, res) => {
   try {
     const { id } = req.params;

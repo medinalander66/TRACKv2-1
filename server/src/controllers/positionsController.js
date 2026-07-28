@@ -1,6 +1,7 @@
 const Position = require('../models').Position;
 const PositionAssignment = require('../models').PositionAssignment;
 const User = require('../models').User;
+const Admin = require('../models').Admin;
 const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const sequelize = require('../config/database');
@@ -9,9 +10,21 @@ const sequelize = require('../config/database');
 exports.list = async (req, res) => {
   try {
     const positions = await Position.findAll({
-      order: [['order', 'ASC'], ['created_at', 'ASC']]
+      order: [['order', 'ASC'], ['created_at', 'ASC']],
+      include: [
+        {
+          model: Admin,
+          as: 'creator',
+          attributes: ['user_id'],
+          include: [{ model: User, attributes: ['username'] }]
+        }
+      ]
     });
-    res.json({ ok: true, positions });
+    const items = positions.map(p => ({
+      ...p.toJSON(),
+      created_by_username: p.creator?.User?.username || null
+    }));
+    res.json({ ok: true, positions: items });
   } catch (error) {
     console.error('List positions error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
@@ -35,7 +48,8 @@ exports.create = async (req, res) => {
       name: name.trim(),
       order: newOrder,
       allow_multiple: allow_multiple || false,
-      is_active: true
+      is_active: true,
+      created_by: req.adminId
     });
 
     res.status(201).json({ ok: true, position: pos });
@@ -55,7 +69,6 @@ exports.toggle = async (req, res) => {
     const pos = await Position.findByPk(id);
     if (!pos) return res.status(404).json({ ok: false, message: 'Position not found.' });
 
-    // If trying to deactivate, check if there are active assignments
     if (pos.is_active) {
       const hasAssignments = await PositionAssignment.findOne({
         where: { position_id: id, status: 'active' }
@@ -84,7 +97,6 @@ exports.delete = async (req, res) => {
     const pos = await Position.findByPk(id);
     if (!pos) return res.status(404).json({ ok: false, message: 'Position not found.' });
 
-    // Check if there are any assignments (active or inactive)
     const hasAssignments = await PositionAssignment.findOne({
       where: { position_id: id }
     });
