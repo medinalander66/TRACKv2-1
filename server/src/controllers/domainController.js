@@ -15,10 +15,11 @@ exports.listDomains = async (req, res) => {
         }
       ]
     });
-    const items = domains.map(d => ({
-      ...d.toJSON(),
-      created_by_username: d.creator?.User?.username || null
-    }));
+    const items = domains.map(d => {
+      const plain = d.toJSON();
+      plain.created_by_username = plain.creator?.User?.username || null;
+      return plain;
+    });
     res.json({ ok: true, domains: items });
   } catch (error) {
     console.error('List domains error:', error);

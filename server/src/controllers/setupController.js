@@ -15,10 +15,11 @@ exports.listDepartments = async (req, res) => {
         }
       ]
     });
-    const items = rows.map(item => ({
-      ...item.toJSON(),
-      created_by_username: item.creator?.User?.username || null
-    }));
+    const items = rows.map(item => {
+      const plain = item.toJSON();
+      plain.created_by_username = plain.creator?.User?.username || null;
+      return plain;
+    });
     res.json({ ok: true, items });
   } catch (err) {
     console.error('List departments error:', err);
@@ -140,10 +141,11 @@ exports.listOffices = async (req, res) => {
         }
       ]
     });
-    const items = rows.map(item => ({
-      ...item.toJSON(),
-      created_by_username: item.creator?.User?.username || null
-    }));
+    const items = rows.map(item => {
+      const plain = item.toJSON();
+      plain.created_by_username = plain.creator?.User?.username || null;
+      return plain;
+    });
     res.json({ ok: true, items });
   } catch (err) {
     console.error('List offices error:', err);

@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const sequelize = require('../config/database');
 
-// ─── List all positions (sorted by order) ──────────────
+// ─── List all positions ──────────────────────────────
 exports.list = async (req, res) => {
   try {
     const positions = await Position.findAll({
@@ -20,10 +20,11 @@ exports.list = async (req, res) => {
         }
       ]
     });
-    const items = positions.map(p => ({
-      ...p.toJSON(),
-      created_by_username: p.creator?.User?.username || null
-    }));
+    const items = positions.map(p => {
+      const plain = p.toJSON();
+      plain.created_by_username = plain.creator?.User?.username || null;
+      return plain;
+    });
     res.json({ ok: true, positions: items });
   } catch (error) {
     console.error('List positions error:', error);
@@ -62,7 +63,7 @@ exports.create = async (req, res) => {
   }
 };
 
-// ─── Toggle active/inactive (with in-use check) ──────
+// ─── Toggle ──────────────────────────────────────────────
 exports.toggle = async (req, res) => {
   try {
     const { id } = req.params;
@@ -90,7 +91,7 @@ exports.toggle = async (req, res) => {
   }
 };
 
-// ─── Delete position (with in-use check) ──────────────
+// ─── Delete ──────────────────────────────────────────────
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
@@ -115,7 +116,7 @@ exports.delete = async (req, res) => {
   }
 };
 
-// ─── Update Position ────────────────────────────────────
+// ─── Update ──────────────────────────────────────────────
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
@@ -138,7 +139,7 @@ exports.update = async (req, res) => {
   }
 };
 
-// ─── Combine Positions ──────────────────────────────────
+// ─── Combine ──────────────────────────────────────────────
 exports.combine = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -159,7 +160,6 @@ exports.combine = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Cannot combine a position with itself.' });
     }
 
-    // Transfer assignments from source to target
     const assignments = await PositionAssignment.findAll({
       where: { position_id: sourcePos.id, status: 'active' }
     });
@@ -200,7 +200,7 @@ exports.combine = async (req, res) => {
   }
 };
 
-// ─── Available positions (filter out assigned single) ──
+// ─── Available ──────────────────────────────────────────
 exports.available = async (req, res) => {
   try {
     const positions = await Position.findAll({ where: { is_active: true } });
@@ -219,7 +219,7 @@ exports.available = async (req, res) => {
   }
 };
 
-// ─── Reorder positions ──────────────────────────────────
+// ─── Reorder ──────────────────────────────────────────────
 exports.reorder = async (req, res) => {
   try {
     const { positions } = req.body;
