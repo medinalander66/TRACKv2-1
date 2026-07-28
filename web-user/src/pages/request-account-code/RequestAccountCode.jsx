@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../../api/client";
 import {
   getDepartments,
@@ -10,6 +10,7 @@ import {
 } from "../../api/lookups";
 import BrandHeader from "../../components/common/BrandHeader";
 import Footer from "../../components/layout/Footer";
+import FeedbackModal from "../../components/common/FeedbackModal";
 import styles from "./RequestAccountCode.module.css";
 
 export default function RequestAccountCode() {
@@ -31,8 +32,9 @@ export default function RequestAccountCode() {
   const [allowedDomains, setAllowedDomains] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+
+  // ─── Feedback state ──────────────────────────────────
+  const [feedback, setFeedback] = useState({ message: "", type: "" });
 
   // ─── Email validation state ──────────────────────────
   const [emailError, setEmailError] = useState("");
@@ -86,38 +88,47 @@ export default function RequestAccountCode() {
     validateEmailDomain(value);
   };
 
+  const clearFeedback = () => {
+    setFeedback({ message: "", type: "" });
+  };
+
   // ─── Submit Request ─────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
-    setSuccess("");
+    clearFeedback();
 
     // ── Basic validation ──
     if (!fullName.trim()) {
-      setError("Please enter your full name.");
+      setFeedback({ message: "Please enter your full name.", type: "error" });
       setLoading(false);
       return;
     }
     if (!email.trim()) {
-      setError("Please enter your email address.");
+      setFeedback({
+        message: "Please enter your email address.",
+        type: "error",
+      });
       setLoading(false);
       return;
     }
     // Validate email domain again
     if (!validateEmailDomain(email)) {
-      setError(emailError);
+      setFeedback({ message: emailError, type: "error" });
       setLoading(false);
       return;
     }
     // At least one of department or office must be selected
     if (!department && !office) {
-      setError("Please select at least one: Department or Office.");
+      setFeedback({
+        message: "Please select at least one: Department or Office.",
+        type: "error",
+      });
       setLoading(false);
       return;
     }
     if (!role) {
-      setError("Please select a role.");
+      setFeedback({ message: "Please select a role.", type: "error" });
       setLoading(false);
       return;
     }
@@ -135,9 +146,11 @@ export default function RequestAccountCode() {
 
       const res = await apiClient.post("/account-code-requests", payload);
       if (res.data && res.data.ok) {
-        setSuccess(
-          "Request submitted successfully! Please wait for admin approval.",
-        );
+        setFeedback({
+          message:
+            "✅ Request submitted successfully! Please wait for admin approval.",
+          type: "success",
+        });
         setEmail("");
         setFullName("");
         setDepartment("");
@@ -147,15 +160,55 @@ export default function RequestAccountCode() {
         setDescription("");
         setEmailError("");
       } else {
-        setError(res.data?.message || "Submission failed.");
+        setFeedback({
+          message: res.data?.message || "Submission failed.",
+          type: "error",
+        });
       }
     } catch (err) {
+      const status = err?.response?.status;
       const msg = err?.response?.data?.message || err.message || "Server error";
-      setError(msg);
-      if (msg.includes("pending request")) {
-        setError(
-          "You already have a pending request. Please wait for admin review.",
-        );
+
+      // ─── Handle duplicate email cases ──────────────────
+      if (
+        status === 409 ||
+        msg.includes("already registered") ||
+        msg.includes("pending request") ||
+        msg.includes("approved")
+      ) {
+        if (msg.includes("already registered")) {
+          setFeedback({
+            message:
+              "❌ This email is already registered. Please login or use a different email address.",
+            type: "error",
+          });
+        } else if (msg.includes("pending request")) {
+          setFeedback({
+            message:
+              "⏳ You already have a pending request. Please wait for admin approval.",
+            type: "error",
+          });
+        } else if (msg.includes("approved")) {
+          setFeedback({
+            message:
+              "✅ This email already has an approved account code request. Please check your email for the code.",
+            type: "error",
+          });
+        } else {
+          setFeedback({
+            message:
+              "❌ This email is already in the system. Please use a different email address.",
+            type: "error",
+          });
+        }
+      } else if (msg.includes("pending request")) {
+        setFeedback({
+          message:
+            "⏳ You already have a pending request. Please wait for admin review.",
+          type: "error",
+        });
+      } else {
+        setFeedback({ message: msg, type: "error" });
       }
     } finally {
       setLoading(false);
@@ -164,6 +217,12 @@ export default function RequestAccountCode() {
 
   return (
     <div className={styles.requestAccountCodePage}>
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={clearFeedback}
+      />
+
       <div className={styles.pageContent}>
         <BrandHeader />
         <div className={styles.requestCard}>
@@ -290,9 +349,18 @@ export default function RequestAccountCode() {
               {loading ? "Submitting..." : "Submit Request"}
             </button>
 
-            {error && <p className={styles.errorText}>{error}</p>}
-            {success && <p className={styles.successText}>{success}</p>}
+            {/* We removed inline error/success; now using FeedbackModal */}
           </form>
+
+          {/* ─── Link to Register ─────────────────────────── */}
+          <div className={styles.registerLinkWrapper}>
+            <span className={styles.registerLinkText}>
+              Already have an account code?{" "}
+              <Link to="/register" className={styles.registerLink}>
+                Register here
+              </Link>
+            </span>
+          </div>
         </div>
       </div>
       <Footer />
