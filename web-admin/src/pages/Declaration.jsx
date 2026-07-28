@@ -35,6 +35,7 @@ import {
   FiCheck,
   FiX,
   FiLock,
+  FiUser,
 } from "react-icons/fi";
 import FeedbackModal from "../components/common/FeedbackModal";
 import styles from "./Declaration.module.css";
@@ -523,6 +524,7 @@ export default function Declaration() {
                     <tr>
                       <th style={{ width: 60 }}>Edit</th>
                       <th>Name</th>
+                      <th>Created By</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -530,7 +532,7 @@ export default function Declaration() {
                   <tbody>
                     {filteredDepartments.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className={styles.noData}>
+                        <td colSpan="5" className={styles.noData}>
                           No departments found
                         </td>
                       </tr>
@@ -574,6 +576,7 @@ export default function Declaration() {
                               item.name
                             )}
                           </td>
+                          <td>{item.created_by_username || "—"}</td>
                           <td>{getStatusBadge(item.is_active)}</td>
                           <td>
                             <button
@@ -668,6 +671,7 @@ export default function Declaration() {
                     <tr>
                       <th style={{ width: 60 }}>Edit</th>
                       <th>Name</th>
+                      <th>Created By</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -675,7 +679,7 @@ export default function Declaration() {
                   <tbody>
                     {filteredOffices.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className={styles.noData}>
+                        <td colSpan="5" className={styles.noData}>
                           No offices found
                         </td>
                       </tr>
@@ -719,6 +723,7 @@ export default function Declaration() {
                               item.name
                             )}
                           </td>
+                          <td>{item.created_by_username || "—"}</td>
                           <td>{getStatusBadge(item.is_active)}</td>
                           <td>
                             <button
@@ -809,6 +814,7 @@ export default function Declaration() {
                     <tr>
                       <th style={{ width: 60 }}>Edit</th>
                       <th>Domain</th>
+                      <th>Created By</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -816,7 +822,7 @@ export default function Declaration() {
                   <tbody>
                     {filteredDomains.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className={styles.noData}>
+                        <td colSpan="5" className={styles.noData}>
                           No domains found
                         </td>
                       </tr>
@@ -860,6 +866,7 @@ export default function Declaration() {
                               item.domain
                             )}
                           </td>
+                          <td>{item.created_by_username || "—"}</td>
                           <td>{getStatusBadge(item.is_active)}</td>
                           <td>
                             <button
@@ -1114,6 +1121,10 @@ export default function Declaration() {
                                           </span>
                                         )}
                                         {getStatusBadge(pos.is_active)}
+                                        <span className={styles.createdBySmall}>
+                                          <FiUser size={12} />
+                                          {pos.created_by_username || "System"}
+                                        </span>
                                       </div>
                                       <div className={styles.cardActions}>
                                         <button
