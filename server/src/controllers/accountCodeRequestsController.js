@@ -13,17 +13,35 @@ exports.createRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Email is required.' });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if email already has a pending request
-    const existing = await AccountCodeRequest.findOne({
-      where: { email: email.trim().toLowerCase(), status: 'pending' }
+    const existingPending = await AccountCodeRequest.findOne({
+      where: { email: normalizedEmail, status: 'pending' }
     });
-    if (existing) {
+    if (existingPending) {
       return res.status(409).json({ ok: false, message: 'You already have a pending request.' });
+    }
+
+    // Check if email already has an approved request
+    const existingApproved = await AccountCodeRequest.findOne({
+      where: { email: normalizedEmail, status: 'approved' }
+    });
+    if (existingApproved) {
+      return res.status(409).json({ ok: false, message: 'This email already has an approved account code request.' });
+    }
+
+    //Check if email is already registered as a user
+    const existingUser = await User.findOne({
+      where: { email: normalizedEmail }
+    });
+    if (existingUser) {
+      return res.status(409).json({ ok: false, message: 'Email already registered.' });
     }
 
     const request = await AccountCodeRequest.create({
       id: uuidv4(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       full_name: full_name?.trim() || null,
       department_id: department_id || null,
       office_id: office_id || null,
@@ -149,7 +167,7 @@ exports.approveRequest = async (req, res) => {
           request.reviewed_by_admin_id = req.adminId;
           request.reviewed_at = new Date();
           await request.save();
-          
+
           return res.json({
             ok: true,
             request,
