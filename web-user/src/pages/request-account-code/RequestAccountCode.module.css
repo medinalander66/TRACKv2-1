@@ -1,4 +1,4 @@
-/* === Page layout (from old RequestAccountCodePage.module.css) === */
+/* ─── Page Layout ────────────────────────────────────── */
 .requestAccountCodePage {
   min-height: 100vh;
   padding: 1.5rem 1rem 2rem;
@@ -25,7 +25,7 @@
   padding: 1.75rem 1.5rem 2rem;
 }
 
-/* === Form styles (your old RequestAccountCodeForm.module.css) === */
+/* ─── Typography ────────────────────────────────────── */
 .title {
   margin: 0 0 1rem;
   font-size: 2rem;
@@ -34,6 +34,7 @@
   text-align: center;
 }
 
+/* ─── Form fields ────────────────────────────────────── */
 .field {
   display: grid;
   gap: 0.35rem;
@@ -53,8 +54,8 @@
   padding: 0.75rem 1rem;
   border-radius: 18px;
   border: 1px solid #d1d5db;
-  background: #e8e8e8;
-  color: #111827;
+  background: var(--input-background-color);
+  color: var(--text-color);
   font: inherit;
 }
 
@@ -70,6 +71,7 @@
   box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.12);
 }
 
+/* ─── Buttons ────────────────────────────────────────── */
 .primaryButton,
 .secondaryButton {
   width: 100%;
@@ -139,9 +141,7 @@
   margin: 0.5rem 0;
 }
 
-/* ─── New styles for Google Auth & Compact Form ─── */
-
-/* Google Sign-In Button */
+/* ─── Google Sign-In Button (unused currently) ────── */
 .googleButton {
   display: flex;
   align-items: center;
@@ -175,7 +175,7 @@
   line-height: 1;
 }
 
-/* User Info Card (after Google login) */
+/* ─── User Info Card ────────────────────────────────── */
 .userInfoCard {
   background: rgba(0, 0, 0, 0.03);
   border-radius: 20px;
@@ -220,14 +220,14 @@
   opacity: 0.8;
 }
 
-/* Compact form container */
+/* ─── Compact form ──────────────────────────────────── */
 .formCompact {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
 }
 
-/* Optional section with expandable details */
+/* ─── Optional section ──────────────────────────────── */
 .optionalSection {
   margin-top: 0.25rem;
 }
@@ -264,14 +264,14 @@
   gap: 0.8rem;
 }
 
-/* Smaller textarea for optional notes */
+/* ─── Small textarea ────────────────────────────────── */
 .textareaSmall {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 18px;
   border: 1px solid #d1d5db;
-  background: #e8e8e8;
-  color: #111827;
+  background: var(--input-background-color);
+  color: var(--text-color);
   font: inherit;
   min-height: 56px;
   resize: vertical;
@@ -283,7 +283,7 @@
   box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.12);
 }
 
-/* Info text for the Google auth step */
+/* ─── Info text ──────────────────────────────────────── */
 .infoText {
   text-align: center;
   font-size: 0.95rem;
@@ -292,8 +292,7 @@
   line-height: 1.5;
 }
 
-/* ─── New styles for email error, field groups ─── */
-
+/* ─── Email error ────────────────────────────────────── */
 .fieldError {
   color: #dc2626;
   font-size: 0.8rem;
@@ -301,6 +300,7 @@
   display: block;
 }
 
+/* ─── Department/Office group ──────────────────────── */
 .fieldGroup {
   margin-bottom: 1rem;
 }
@@ -336,4 +336,30 @@
   font-size: 0.75rem;
   color: #6b7280;
   margin-top: 4px;
+}
+
+/* ─── Register Link ──────────────────────────────────── */
+.registerLinkWrapper {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.registerLinkText {
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+.registerLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.registerLink:hover {
+  text-decoration: underline;
 }
