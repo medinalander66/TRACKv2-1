@@ -4,22 +4,27 @@ const { Op } = require('sequelize');
 // ─── List Domains ──────────────────────────────────────
 exports.listDomains = async (req, res) => {
   try {
-    const domains = await AllowedDomain.findAll({
-      order: [['domain', 'ASC']],
-      include: [
-        {
-          model: Admin,
-          as: 'creator',
-          attributes: ['user_id'],
-          include: [{ model: User, attributes: ['username'] }]
+    const rows = await AllowedDomain.findAll({ order: [['domain', 'ASC']] });
+    const items = [];
+    for (const domain of rows) {
+      const plain = domain.toJSON();
+      if (domain.created_by) {
+        const admin = await Admin.findByPk(domain.created_by, {
+          attributes: ['user_id']
+        });
+        if (admin) {
+          const user = await User.findByPk(admin.user_id, {
+            attributes: ['username']
+          });
+          plain.created_by_username = user ? user.username : null;
+        } else {
+          plain.created_by_username = null;
         }
-      ]
-    });
-    const items = domains.map(d => {
-      const plain = d.toJSON();
-      plain.created_by_username = plain.creator?.User?.username || null;
-      return plain;
-    });
+      } else {
+        plain.created_by_username = null;
+      }
+      items.push(plain);
+    }
     res.json({ ok: true, domains: items });
   } catch (error) {
     console.error('List domains error:', error);

@@ -9,22 +9,29 @@ const sequelize = require('../config/database');
 // ─── List all positions ──────────────────────────────
 exports.list = async (req, res) => {
   try {
-    const positions = await Position.findAll({
-      order: [['order', 'ASC'], ['created_at', 'ASC']],
-      include: [
-        {
-          model: Admin,
-          as: 'creator',
-          attributes: ['user_id'],
-          include: [{ model: User, attributes: ['username'] }]
+    const rows = await Position.findAll({
+      order: [['order', 'ASC'], ['created_at', 'ASC']]
+    });
+    const items = [];
+    for (const pos of rows) {
+      const plain = pos.toJSON();
+      if (pos.created_by) {
+        const admin = await Admin.findByPk(pos.created_by, {
+          attributes: ['user_id']
+        });
+        if (admin) {
+          const user = await User.findByPk(admin.user_id, {
+            attributes: ['username']
+          });
+          plain.created_by_username = user ? user.username : null;
+        } else {
+          plain.created_by_username = null;
         }
-      ]
-    });
-    const items = positions.map(p => {
-      const plain = p.toJSON();
-      plain.created_by_username = plain.creator?.User?.username || null;
-      return plain;
-    });
+      } else {
+        plain.created_by_username = null;
+      }
+      items.push(plain);
+    }
     res.json({ ok: true, positions: items });
   } catch (error) {
     console.error('List positions error:', error);

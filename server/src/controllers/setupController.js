@@ -4,22 +4,27 @@ const { Op } = require('sequelize');
 // ─── List Departments ──────────────────────────────────
 exports.listDepartments = async (req, res) => {
   try {
-    const rows = await Department.findAll({
-      order: [['name', 'ASC']],
-      include: [
-        {
-          model: Admin,
-          as: 'creator',
-          attributes: ['user_id'],
-          include: [{ model: User, attributes: ['username'] }]
+    const rows = await Department.findAll({ order: [['name', 'ASC']] });
+    const items = [];
+    for (const dept of rows) {
+      const plain = dept.toJSON();
+      if (dept.created_by) {
+        const admin = await Admin.findByPk(dept.created_by, {
+          attributes: ['user_id']
+        });
+        if (admin) {
+          const user = await User.findByPk(admin.user_id, {
+            attributes: ['username']
+          });
+          plain.created_by_username = user ? user.username : null;
+        } else {
+          plain.created_by_username = null;
         }
-      ]
-    });
-    const items = rows.map(item => {
-      const plain = item.toJSON();
-      plain.created_by_username = plain.creator?.User?.username || null;
-      return plain;
-    });
+      } else {
+        plain.created_by_username = null;
+      }
+      items.push(plain);
+    }
     res.json({ ok: true, items });
   } catch (err) {
     console.error('List departments error:', err);
@@ -130,22 +135,27 @@ exports.updateDepartment = async (req, res) => {
 // ─── List Offices ──────────────────────────────────────
 exports.listOffices = async (req, res) => {
   try {
-    const rows = await Office.findAll({
-      order: [['name', 'ASC']],
-      include: [
-        {
-          model: Admin,
-          as: 'creator',
-          attributes: ['user_id'],
-          include: [{ model: User, attributes: ['username'] }]
+    const rows = await Office.findAll({ order: [['name', 'ASC']] });
+    const items = [];
+    for (const office of rows) {
+      const plain = office.toJSON();
+      if (office.created_by) {
+        const admin = await Admin.findByPk(office.created_by, {
+          attributes: ['user_id']
+        });
+        if (admin) {
+          const user = await User.findByPk(admin.user_id, {
+            attributes: ['username']
+          });
+          plain.created_by_username = user ? user.username : null;
+        } else {
+          plain.created_by_username = null;
         }
-      ]
-    });
-    const items = rows.map(item => {
-      const plain = item.toJSON();
-      plain.created_by_username = plain.creator?.User?.username || null;
-      return plain;
-    });
+      } else {
+        plain.created_by_username = null;
+      }
+      items.push(plain);
+    }
     res.json({ ok: true, items });
   } catch (err) {
     console.error('List offices error:', err);
