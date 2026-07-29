@@ -25,6 +25,7 @@ import Notifications from "./pages/app/notifications/Notifications";
 import Profile from "./pages/app/profile/Profile";
 import CreateEvent from "./pages/app/events/CreateEvent";
 import CreateTask from "./pages/app/tasks/CreateTask";
+import Events from "./pages/app/events/Events";
 
 const RoleRedirect = () => {
   const { user } = useAuth();
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/tasks" element={<TasksList />} />
             <Route path="/analytics" element={<UserAnalytics />} />
             <Route path="/venues" element={<VenuesList />} />
+            <Route path="/events" element={<Events />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/create-event" element={<CreateEvent />} />
