@@ -14,6 +14,7 @@ import {
   FiCheckSquare,
   FiBarChart2,
   FiMapPin,
+  FiList, // ← new icon for Events
 } from "react-icons/fi";
 import styles from "./AppLayout.module.css";
 
@@ -59,6 +60,7 @@ export default function AppLayout() {
       bottomItems.push(
         { label: "Home", path: `/${role}/home`, icon: <FiHome size={20} /> },
         { label: "Venues", path: "/venues", icon: <FiMapPin size={20} /> },
+        { label: "Events", path: "/events", icon: <FiList size={20} /> }, // ← new
         {
           label: "Calendar",
           path: "/calendar",
@@ -72,8 +74,10 @@ export default function AppLayout() {
         },
       );
     } else {
+      // officials & faculty
       bottomItems.push(
         { label: "Home", path: `/${role}/home`, icon: <FiHome size={20} /> },
+        { label: "Events", path: "/events", icon: <FiList size={20} /> }, // ← new
         { label: "Tasks", path: "/tasks", icon: <FiCheckSquare size={20} /> },
         {
           label: "Calendar",
