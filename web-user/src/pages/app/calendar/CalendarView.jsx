@@ -10,7 +10,7 @@ import {
   FiTarget,
 } from "react-icons/fi";
 import apiClient from "../../../api/client";
-import { getInvitations } from "../../../api/notifications"; // ✅ new import
+import { getInvitations } from "../../../api/notifications";
 import styles from "./CalendarView.module.css";
 
 // ── Constants ──────────────────────────────────────
@@ -33,8 +33,9 @@ const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 // ── Helpers ────────────────────────────────────────
 const generateMonthGrid = (year, month) => {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = -firstDayOfMonth;
-  const totalCells = 35;
+  const totalCells = 42;
   const grid = [];
   for (let i = 0; i < totalCells; i++) {
     const date = new Date(year, month, 1 + i + startOffset);
@@ -97,7 +98,7 @@ export default function CalendarView() {
   // ── Events state ──────────────────────────────────
   const [holidays, setHolidays] = useState([]);
   const [userEvents, setUserEvents] = useState([]);
-  const [pendingEventIds, setPendingEventIds] = useState([]); // ✅ IDs of pending invitations
+  const [pendingEventIds, setPendingEventIds] = useState([]);
 
   const visibleRange = useMemo(() => {
     let start, end;
@@ -153,11 +154,10 @@ export default function CalendarView() {
       }
     };
     fetchPending();
-  }, [visibleRange.start, visibleRange.end]); // refetch when range changes
+  }, [visibleRange.start, visibleRange.end]);
 
   // ── Combine events, excluding pending ones ──────
   const allEvents = useMemo(() => {
-    // Filter out user events that are pending
     const filteredUserEvents = userEvents.filter(
       (ev) => !pendingEventIds.includes(ev.id),
     );
@@ -444,7 +444,6 @@ export default function CalendarView() {
         {duration === "week" && (
           <div className={styles.weekContainer}>
             <div className={styles.weekGrid}>
-              {/* Week day headers – highlight today */}
               <div className={styles.weekDayHeader}>
                 {weekDays.map((day, idx) => {
                   const dateStr = day.toISOString().slice(0, 10);
@@ -464,7 +463,6 @@ export default function CalendarView() {
                   );
                 })}
               </div>
-              {/* Time rows */}
               <div className={styles.weekTimeline}>
                 {Array.from({ length: 24 }, (_, hour) => (
                   <div key={hour} className={styles.weekHourRow}>
@@ -511,14 +509,17 @@ export default function CalendarView() {
           </div>
         )}
 
+        {/* ─── MONTH VIEW – CARD GRID ─── */}
         {duration === "month" && (
           <div className={styles.calendarGridContainer}>
             <div className={styles.calendarGrid}>
+              {/* Day headers */}
               {DAY_NAMES.map((day) => (
                 <div key={day} className={styles.dayHeader}>
                   {day}
                 </div>
               ))}
+              {/* Day cells */}
               {monthGrid.map((cell, idx) => {
                 const events = eventsByDate[cell.dateStr] || [];
                 const isToday = cell.dateStr === todayStr;
@@ -526,11 +527,17 @@ export default function CalendarView() {
                 return (
                   <button
                     key={idx}
-                    className={`${styles.dayCell} ${!cell.isCurrentMonth ? styles.otherMonthCell : ""} ${isToday ? styles.todayCell : ""} ${isSelected ? styles.activeCell : ""}`}
+                    className={`${styles.dayCell} ${
+                      !cell.isCurrentMonth ? styles.otherMonthCell : ""
+                    } ${isToday ? styles.todayCell : ""} ${
+                      isSelected ? styles.activeCell : ""
+                    }`}
                     onClick={() => handleDayClick(cell.dateStr)}
                   >
                     <span
-                      className={`${styles.dayNumber} ${!cell.isCurrentMonth ? styles.otherMonthNumber : ""}`}
+                      className={`${styles.dayNumber} ${
+                        !cell.isCurrentMonth ? styles.otherMonthNumber : ""
+                      }`}
                     >
                       {cell.day}
                     </span>

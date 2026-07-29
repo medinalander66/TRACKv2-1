@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import { getInvitations } from "../../../api/notifications";
 import apiClient from "../../../api/client";
 import {
@@ -10,7 +11,6 @@ import {
   FiEdit,
   FiEye,
   FiPlus,
-  FiChevronRight,
   FiCheckCircle,
   FiXCircle,
   FiClock as FiClockIcon,
@@ -18,9 +18,10 @@ import {
 import styles from "./Events.module.css";
 
 export default function Events() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("created"); // created | collaboration | invited | all
-  const [invitedSubTab, setInvitedSubTab] = useState("pending"); // pending | all
+  const [activeTab, setActiveTab] = useState("created");
+  const [invitedSubTab, setInvitedSubTab] = useState("pending");
 
   const [createdEvents, setCreatedEvents] = useState([]);
   const [invitedEvents, setInvitedEvents] = useState([]);
@@ -37,7 +38,7 @@ export default function Events() {
     setLoading(true);
     setError("");
     try {
-      // Fetch all events the user is involved in (created + invited)
+      // ── Fetch all events (last month to next 2 months) ──
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         .toISOString()
@@ -45,38 +46,64 @@ export default function Events() {
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0)
         .toISOString()
         .slice(0, 10);
-      const eventsRes = await apiClient.get(
-        `/events?start=${start}&end=${end}`,
-      );
+      const eventsRes = await apiClient.get(`/events?start=${start}&end=${end}`);
       const allEventsData = eventsRes.data.events || [];
 
-      // Fetch pending invitations
+      // ── Fetch pending invitations with full event details ──
       const invitationsRes = await getInvitations({ response: "pending" });
       const pendingInvitations = invitationsRes.events || [];
+      const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
 
-      // Separate events
+      // ── Get current user's ID from auth context ──
+      const currentUserId = user?.id;
+
+      // ── Separate events based on creator_id (not creatorName) ──
+      // Since the backend doesn't return creator_id, we need to match by creatorName
+      // But we can use the fact that the user's email/username might be in creatorName
+      // Better approach: fetch user's own events from a dedicated endpoint or use invites
+      // For now, we'll use a fallback: if creatorName matches user's email or username
+
+      const userIdentifier = user?.username || user?.email?.split("@")[0] || "";
+
       const created = allEventsData.filter(
-        (ev) => ev.creatorName === "You" || ev.isCreator,
+        (ev) => ev.creatorName === userIdentifier
       );
-      const invited = allEventsData.filter((ev) => !ev.isCreator);
 
-      setCreatedEvents(created);
-      setInvitedEvents(invited);
-      setAllEvents(allEventsData);
-      setCollaborationEvents([]); // Placeholder for now
+      // ── Invited events: events the user is invited to (not created by them) ──
+      const invited = allEventsData.filter(
+        (ev) => ev.creatorName !== userIdentifier
+      );
+
+      // ── Mark response status ──
+      const createdWithResponse = created.map((ev) => ({
+        ...ev,
+        response: "accepted",
+        isCreator: true,
+      }));
+
+      const invitedWithResponse = invited.map((ev) => ({
+        ...ev,
+        response: pendingIds.has(ev.id) ? "pending" : "accepted",
+        isCreator: false,
+      }));
+
+      setCreatedEvents(createdWithResponse);
+      setInvitedEvents(invitedWithResponse);
+      setAllEvents([...createdWithResponse, ...invitedWithResponse]);
+      setCollaborationEvents([]);
     } catch (err) {
       console.error("Failed to fetch events:", err);
       setError("Unable to load events. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
-  // ─── Handle Event Click ──────────────────────────────
+  // ─── Handlers ─────────────────────────────────────────
   const handleEventClick = (event) => {
     setSelectedEvent(event);
     setShowInvitationModal(true);
@@ -89,7 +116,6 @@ export default function Events() {
   const handleRespond = async (eventId, response) => {
     try {
       await apiClient.put(`/notifications/${eventId}/respond`, { response });
-      // Refresh data
       fetchEvents();
       setShowInvitationModal(false);
     } catch (err) {
@@ -99,6 +125,7 @@ export default function Events() {
 
   // ─── Format helpers ──────────────────────────────────
   const formatDate = (dateStr) => {
+    if (!dateStr) return "TBD";
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", {
       month: "short",
@@ -107,12 +134,17 @@ export default function Events() {
     });
   };
 
-  const formatTime = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "TBD";
+    if (timeStr.includes(":")) {
+      const parts = timeStr.split(":");
+      const hours = parseInt(parts[0]);
+      const mins = parts[1];
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const hour12 = hours % 12 || 12;
+      return `${hour12}:${mins} ${ampm}`;
+    }
+    return timeStr;
   };
 
   const getVisibilityBadge = (type) => {
@@ -154,7 +186,7 @@ export default function Events() {
   // ─── Render Event Card ────────────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
-    const isCreator = event.creatorName === "You" || event.isCreator;
+    const isCreator = event.isCreator || false;
 
     return (
       <div key={event.id} className={styles.eventCard}>
@@ -172,12 +204,11 @@ export default function Events() {
 
         <div className={styles.cardDetails}>
           <span>
-            <FiCalendar size={14} />{" "}
-            {formatDate(event.date || event.start_datetime)}
+            <FiCalendar size={14} /> {formatDate(event.date || event.start_datetime)}
           </span>
           <span>
             <FiClock size={14} />{" "}
-            {formatTime(event.date || event.start_datetime)} -{" "}
+            {formatTime(event.time || event.start_datetime)} -{" "}
             {formatTime(event.endTime || event.end_datetime)}
           </span>
           <span>
@@ -268,16 +299,16 @@ export default function Events() {
         return (
           <div className={styles.eventList}>
             {createdEvents.length === 0 ? (
-              <p className={styles.emptyState}>
+              <div className={styles.emptyState}>
                 <FiPlus size={24} />
-                You haven't created any events yet.
+                <span>You haven't created any events yet.</span>
                 <button
                   className={styles.createBtn}
                   onClick={() => navigate("/create-event")}
                 >
                   Create Event
                 </button>
-              </p>
+              </div>
             ) : (
               createdEvents.map((ev) => renderEventCard(ev, true))
             )}
@@ -287,11 +318,11 @@ export default function Events() {
       case "collaboration":
         return (
           <div className={styles.eventList}>
-            <p className={styles.emptyState}>
+            <div className={styles.emptyState}>
               <FiUsers size={24} />
-              Collaboration events will appear here.
+              <span>Collaboration events will appear here.</span>
               <span className={styles.emptySubtext}>Coming soon!</span>
-            </p>
+            </div>
           </div>
         );
 
@@ -321,11 +352,11 @@ export default function Events() {
             </div>
             <div className={styles.eventList}>
               {filteredInvited.length === 0 ? (
-                <p className={styles.emptyState}>
+                <div className={styles.emptyState}>
                   {invitedSubTab === "pending"
                     ? "No pending invitations."
                     : "No invited events."}
-                </p>
+                </div>
               ) : (
                 filteredInvited.map((ev) => renderEventCard(ev, true))
               )}
@@ -337,7 +368,7 @@ export default function Events() {
         return (
           <div className={styles.eventList}>
             {allEvents.length === 0 ? (
-              <p className={styles.emptyState}>No events found.</p>
+              <div className={styles.emptyState}>No events found.</div>
             ) : (
               allEvents.map((ev) => renderEventCard(ev, false))
             )}
@@ -362,7 +393,6 @@ export default function Events() {
         </button>
       </div>
 
-      {/* Tabs */}
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${activeTab === "created" ? styles.activeTab : ""}`}
@@ -390,7 +420,6 @@ export default function Events() {
         </button>
       </div>
 
-      {/* Content */}
       <div className={styles.content}>{renderContent()}</div>
     </div>
   );

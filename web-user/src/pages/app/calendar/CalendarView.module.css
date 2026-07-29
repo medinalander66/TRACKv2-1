@@ -121,9 +121,11 @@
 .calendarGrid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: auto repeat(5, minmax(112px, 1fr));
+  grid-template-rows: auto repeat(6, minmax(90px, 1fr));
   gap: 0;
   border: none;
+  height: auto;
+  min-height: calc(100vh - 320px);
 }
 
 .dayHeader {
