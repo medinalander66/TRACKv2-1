@@ -1,0 +1,401 @@
+.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--page-background-color, #f8fafb);
+}
+
+/* ─── Header ───────────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.createBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.createBtn:hover {
+  background: #660000;
+}
+
+/* ─── Tabs ─────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 4px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: #111827;
+}
+
+.activeTab {
+  color: var(--primary-color, #800000);
+  border-bottom-color: var(--primary-color, #800000);
+}
+
+/* ─── Content ──────────────────────────────────────────── */
+.content {
+  min-height: 400px;
+}
+
+/* ─── Event List ───────────────────────────────────────── */
+.eventList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Event Card ───────────────────────────────────────── */
+.eventCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s;
+}
+
+.eventCard:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: #e5e7eb;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eventTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cardStatus {
+  flex-shrink: 0;
+}
+
+.cardDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.cardDetails span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cardActions button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editBtn {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+.editBtn:hover {
+  background: #c7d2fe;
+}
+
+.viewBtn {
+  background: #f3f4f6;
+  color: #374151;
+}
+.viewBtn:hover {
+  background: #e5e7eb;
+}
+
+.acceptBtn {
+  background: #d1fae5;
+  color: #065f46;
+}
+.acceptBtn:hover {
+  background: #a7f3d0;
+}
+
+.declineBtn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.declineBtn:hover {
+  background: #fecaca;
+}
+
+.cardFooter {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.eventHierarchy,
+.eventType {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ─── Badges ───────────────────────────────────────────── */
+.badgeCampus {
+  display: inline-block;
+  background: #dbeafe;
+  color: #2563eb;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgeDepartment {
+  display: inline-block;
+  background: #fef3c7;
+  color: #d97706;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgePrivate {
+  display: inline-block;
+  background: #e5e7eb;
+  color: #4b5563;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgeAccepted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgeDeclined {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badgePending {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ─── Invited Sub-tabs ────────────────────────────────── */
+.invitedContainer {
+  width: 100%;
+}
+
+.invitedTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.invitedTab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.invitedTab:hover {
+  background: #e5e7eb;
+}
+
+.activeInvitedTab {
+  background: var(--primary-color, #800000);
+  color: #fff;
+}
+
+/* ─── Empty State ──────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  text-align: center;
+  gap: 8px;
+}
+
+.emptyState svg {
+  color: #9ca3af;
+}
+
+.emptySubtext {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.emptyState .createBtn {
+  margin-top: 12px;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ─── Loading / Error ────────────────────────────────── */
+.loading {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px 0;
+}
+
+.error {
+  text-align: center;
+  color: #dc2626;
+  padding: 40px 0;
+}
+
+/* ─── Responsive ───────────────────────────────────────── */
+@media (max-width: 640px) {
+  .container {
+    padding: 12px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .tab {
+    font-size: 13px;
+    padding: 6px 12px;
+    white-space: nowrap;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cardDetails {
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .cardActions {
+    flex-wrap: wrap;
+  }
+
+  .invitedTabs {
+    flex-wrap: wrap;
+  }
+}
