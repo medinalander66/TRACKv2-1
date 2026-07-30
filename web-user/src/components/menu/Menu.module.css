@@ -1,36 +1,38 @@
 .menuContainer {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 24px 16px;
-  text-align: center;
+  padding: 16px;
   height: 100%;
+  overflow-y: auto;
 }
 
 .menuIcon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  font-size: 40px;
+  text-align: center;
+  margin-bottom: 8px;
 }
 
 .menuTitle {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #111827;
+  text-align: center;
   margin: 0 0 4px 0;
 }
 
 .menuDescription {
   font-size: 14px;
   color: #6b7280;
-  margin: 0 0 20px 0;
+  text-align: center;
+  margin: 0 0 16px 0;
 }
 
 .menuDivider {
-  width: 60px;
+  width: 40px;
   height: 2px;
   background: var(--primary-color, #800000);
+  margin: 0 auto 16px auto;
   border-radius: 2px;
-  margin-bottom: 24px;
 }
 
 .menuPlaceholder {
@@ -38,15 +40,148 @@
   border: 1px dashed #d1d5db;
   border-radius: 12px;
   padding: 24px 16px;
-  width: 100%;
-}
-
-.menuPlaceholder p {
+  text-align: center;
+  color: #6b7280;
   font-size: 14px;
-  color: #9ca3af;
-  margin: 0;
 }
 
-.menuPlaceholder strong {
+/* ===== Calendar Menu Content ===== */
+.calendarMenuContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Mini Calendar */
+.miniCalendar {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+}
+
+.miniHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.miniNav {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0 8px;
+  transition: color 0.2s;
+}
+
+.miniNav:hover {
+  color: #111827;
+}
+
+.miniMonthYear {
+  font-weight: 600;
+  font-size: 16px;
+  color: #111827;
+}
+
+.miniGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.miniDayHeader {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.miniDayCell {
+  background: none;
+  border: none;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
   color: #374151;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.miniDayCell:hover {
+  background: #f3f4f6;
+}
+
+.miniDayCell.miniOtherMonth {
+  color: #d1d5db;
+}
+
+.miniDayCell.miniSelected {
+  background: var(--primary-color, #800000);
+  color: white;
+  font-weight: 600;
+}
+
+/* Filter Section */
+.filterSection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.filterLabel {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.filterSelect {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  border-color: var(--primary-color, #800000);
+}
+
+/* Create Event Button */
+.createEventBtn {
+  background: var(--primary-color, #800000);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(128, 0, 0, 0.2);
+}
+
+.createEventBtn:hover {
+  background: #a00000;
+}
+
+.createEventBtn:active {
+  transform: scale(0.97);
 }
