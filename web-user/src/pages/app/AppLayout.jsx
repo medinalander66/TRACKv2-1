@@ -36,7 +36,6 @@ export default function AppLayout() {
   const [fabOpen, setFabOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
 
-  // Fetch profile picture
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -45,7 +44,7 @@ export default function AppLayout() {
           setProfilePicture(data.user.display_picture);
         }
       } catch (err) {
-        // silent fail – fallback to icon
+        // silent fail
       }
     };
     fetchProfile();
@@ -69,14 +68,9 @@ export default function AppLayout() {
         },
         { label: "Events", path: "/events", icon: <FiList size={20} /> },
         { label: "Tasks", path: "/tasks", icon: <FiCheckSquare size={20} /> },
-        // {
-        //   label: "Analytics",
-        //   path: "/analytics",
-        //   icon: <FiBarChart2 size={20} />,
-        // },
+        // { label: "Analytics", path: "/analytics", icon: <FiBarChart2 size={20} /> },
       );
     } else {
-      // officials & faculty
       bottomItems.push(
         { label: "Home", path: `/${role}/home`, icon: <FiHome size={20} /> },
         { label: "Events", path: "/events", icon: <FiList size={20} /> },
@@ -104,6 +98,8 @@ export default function AppLayout() {
       .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
+  const closeDrawer = () => setDrawerOpen(false);
+
   return (
     <CalendarProvider>
       <div className={styles.mobileContainer}>
@@ -115,23 +111,19 @@ export default function AppLayout() {
             >
               <div className={styles.drawerHeader}>
                 <h2>Menu</h2>
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  className={styles.closeBtn}
-                >
+                <button onClick={closeDrawer} className={styles.closeBtn}>
                   <FiX size={24} />
                 </button>
               </div>
               <div className={styles.drawerContent}>
-                {/* ===== REPLACED with Menu component ===== */}
-                <Menu activePath={location.pathname} />
+                <Menu
+                  activePath={location.pathname}
+                  onCloseDrawer={closeDrawer}
+                />
               </div>
             </div>
             {drawerOpen && (
-              <div
-                className={styles.overlay}
-                onClick={() => setDrawerOpen(false)}
-              />
+              <div className={styles.overlay} onClick={closeDrawer} />
             )}
           </>
         )}
@@ -157,6 +149,7 @@ export default function AppLayout() {
                 >
                   <FiMenu size={24} />
                 </button>
+                <span className={styles.title}>TRACK</span>
               </div>
               <div className={styles.topActions}>
                 <button
