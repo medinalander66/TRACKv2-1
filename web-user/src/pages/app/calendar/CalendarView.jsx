@@ -4,16 +4,12 @@ import {
   FiChevronRight,
   FiX,
   FiChevronDown,
-  FiGlobe,
-  FiUsers,
-  FiLock,
-  FiTarget,
 } from "react-icons/fi";
 import apiClient from "../../../api/client";
 import { getInvitations } from "../../../api/notifications";
+import { useCalendar } from "../../../context/CalendarContext";
 import styles from "./CalendarView.module.css";
 
-// ── Constants ──────────────────────────────────────
 const MONTH_NAMES = [
   "January",
   "February",
@@ -30,7 +26,6 @@ const MONTH_NAMES = [
 ];
 const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-// ── Helpers ────────────────────────────────────────
 const generateMonthGrid = (year, month) => {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -67,19 +62,27 @@ const timeToMinutes = (timeStr) => {
 const HOUR_HEIGHT = 64;
 
 export default function CalendarView() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1));
-  const [selectedDate, setSelectedDate] = useState("2026-06-10");
+  const {
+    currentDate,
+    setCurrentDate,
+    selectedDate,
+    setSelectedDate,
+    duration,
+    setDuration,
+    activeFilters,
+  } = useCalendar();
+
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [activeFilters, setActiveFilters] = useState([]);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [duration, setDuration] = useState("month");
+  const [holidays, setHolidays] = useState([]);
+  const [userEvents, setUserEvents] = useState([]);
+  const [pendingEventIds, setPendingEventIds] = useState([]);
 
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
@@ -94,11 +97,6 @@ export default function CalendarView() {
     () => generateMonthGrid(year, month),
     [year, month],
   );
-
-  // ── Events state ──────────────────────────────────
-  const [holidays, setHolidays] = useState([]);
-  const [userEvents, setUserEvents] = useState([]);
-  const [pendingEventIds, setPendingEventIds] = useState([]);
 
   const visibleRange = useMemo(() => {
     let start, end;
@@ -119,7 +117,7 @@ export default function CalendarView() {
     return { start, end };
   }, [duration, selectedDate, weekStart, year, month]);
 
-  // ── Fetch holidays ───────────────────────────────
+  // Fetch holidays
   useEffect(() => {
     fetch("https://trackv2-68rg.onrender.com/data/holidays.json")
       .then((res) => res.json())
@@ -127,7 +125,7 @@ export default function CalendarView() {
       .catch(() => {});
   }, []);
 
-  // ── Fetch user events ────────────────────────────
+  // Fetch user events
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -142,7 +140,7 @@ export default function CalendarView() {
     fetchEvents();
   }, [visibleRange.start, visibleRange.end]);
 
-  // ── Fetch pending invitations (to hide them) ─────
+  // Fetch pending invitations
   useEffect(() => {
     const fetchPending = async () => {
       try {
@@ -156,7 +154,6 @@ export default function CalendarView() {
     fetchPending();
   }, [visibleRange.start, visibleRange.end]);
 
-  // ── Combine events, excluding pending ones ──────
   const allEvents = useMemo(() => {
     const filteredUserEvents = userEvents.filter(
       (ev) => !pendingEventIds.includes(ev.id),
@@ -169,14 +166,6 @@ export default function CalendarView() {
     return allEvents.filter((e) => activeFilters.includes(e.type));
   }, [activeFilters, allEvents]);
 
-  const eventCounts = useMemo(() => {
-    const counts = { all: allEvents.length };
-    allEvents.forEach((e) => {
-      counts[e.type] = (counts[e.type] || 0) + 1;
-    });
-    return counts;
-  }, [allEvents]);
-
   const eventsByDate = useMemo(() => {
     const map = {};
     filteredEvents.forEach((ev) => {
@@ -187,10 +176,9 @@ export default function CalendarView() {
   }, [filteredEvents]);
 
   const dailyEvents = selectedDate ? eventsByDate[selectedDate] || [] : [];
-
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // ── Navigation ───────────────────────────────────
+  // Navigation
   const goToToday = () => {
     const today = new Date();
     setCurrentDate(today);
@@ -228,13 +216,14 @@ export default function CalendarView() {
       setSelectedEvent(null);
       if (duration !== "day") setSheetOpen(true);
     },
-    [duration],
+    [duration, setSelectedDate],
   );
 
   const handleEventClick = useCallback((ev) => {
     setSelectedEvent(ev);
     setSheetOpen(true);
   }, []);
+
   const closeSheet = () => {
     setSheetOpen(false);
     setSelectedEvent(null);
@@ -298,17 +287,6 @@ export default function CalendarView() {
     setCurrentDate(newDate);
   };
 
-  const toggleFilter = (type) => {
-    setActiveFilters((prev) => {
-      if (type === "all" || prev.includes("all")) return [];
-      if (prev.includes(type)) {
-        const next = prev.filter((t) => t !== type);
-        return next.length === 0 ? [] : next;
-      }
-      return [...prev, type];
-    });
-  };
-
   return (
     <div className={styles.pageWrapper}>
       <div
@@ -327,7 +305,7 @@ export default function CalendarView() {
           </button>
         </div>
 
-        {/* Controls row */}
+        {/* Controls row (Today, Duration, Month, Year) */}
         <div className={styles.controlsRow}>
           <button
             className={`${styles.chip} ${styles.todayChip}`}
@@ -368,39 +346,9 @@ export default function CalendarView() {
           </select>
         </div>
 
-        {/* Filter chips */}
-        <div className={`${styles.chipRow} ${styles.scrollableRow}`}>
-          <button
-            className={`${styles.chip} ${activeFilters.length === 0 ? styles.chipActive : ""}`}
-            onClick={() => toggleFilter("all")}
-          >
-            <FiTarget size={14} style={{ marginRight: 4 }} /> All (
-            {eventCounts.all})
-          </button>
-          <button
-            className={`${styles.chip} ${activeFilters.includes("campus") ? styles.chipActive : ""}`}
-            onClick={() => toggleFilter("campus")}
-          >
-            <FiGlobe size={14} style={{ marginRight: 4 }} /> Campus (
-            {eventCounts.campus || 0})
-          </button>
-          <button
-            className={`${styles.chip} ${activeFilters.includes("department") ? styles.chipActive : ""}`}
-            onClick={() => toggleFilter("department")}
-          >
-            <FiUsers size={14} style={{ marginRight: 4 }} /> Dept (
-            {eventCounts.department || 0})
-          </button>
-          <button
-            className={`${styles.chip} ${activeFilters.includes("personal") ? styles.chipActive : ""}`}
-            onClick={() => toggleFilter("personal")}
-          >
-            <FiLock size={14} style={{ marginRight: 4 }} /> Private (
-            {eventCounts.personal || 0})
-          </button>
-        </div>
+        {/* Filter chips removed — now in Menu */}
 
-        {/* ===== Day / Week / Month views ===== */}
+        {/* Day / Week / Month views */}
         {duration === "day" && (
           <div className={styles.dailyContainer}>
             <div className={styles.timelineWrapper}>
@@ -451,7 +399,9 @@ export default function CalendarView() {
                   return (
                     <div
                       key={idx}
-                      className={`${styles.weekDayLabel} ${isToday ? styles.weekDayLabelToday : ""}`}
+                      className={`${styles.weekDayLabel} ${
+                        isToday ? styles.weekDayLabelToday : ""
+                      }`}
                     >
                       <span className={styles.weekDayName}>
                         {DAY_NAMES[day.getDay()]}
@@ -486,7 +436,9 @@ export default function CalendarView() {
                         return (
                           <div
                             key={dayIdx}
-                            className={`${styles.weekCell} ${isToday ? styles.weekCellToday : ""}`}
+                            className={`${styles.weekCell} ${
+                              isToday ? styles.weekCellToday : ""
+                            }`}
                           >
                             {eventsAtHour.map((ev) => (
                               <div
@@ -509,17 +461,14 @@ export default function CalendarView() {
           </div>
         )}
 
-        {/* ─── MONTH VIEW – CARD GRID ─── */}
         {duration === "month" && (
           <div className={styles.calendarGridContainer}>
             <div className={styles.calendarGrid}>
-              {/* Day headers */}
               {DAY_NAMES.map((day) => (
                 <div key={day} className={styles.dayHeader}>
                   {day}
                 </div>
               ))}
-              {/* Day cells */}
               {monthGrid.map((cell, idx) => {
                 const events = eventsByDate[cell.dateStr] || [];
                 const isToday = cell.dateStr === todayStr;
