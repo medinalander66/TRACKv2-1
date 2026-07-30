@@ -14,9 +14,10 @@ import {
   FiCheckSquare,
   FiBarChart2,
   FiMapPin,
-  FiList, // ← new icon for Events
+  FiList,
 } from "react-icons/fi";
 import styles from "./AppLayout.module.css";
+import Menu from "../../components/menu/Menu";
 
 const FOCUSED_ROUTES = [
   "/notifications",
@@ -60,24 +61,24 @@ export default function AppLayout() {
       bottomItems.push(
         { label: "Home", path: `/${role}/home`, icon: <FiHome size={20} /> },
         { label: "Venues", path: "/venues", icon: <FiMapPin size={20} /> },
-        { label: "Events", path: "/events", icon: <FiList size={20} /> }, // ← new
         {
           label: "Calendar",
           path: "/calendar",
           icon: <FiCalendar size={20} />,
         },
+        { label: "Events", path: "/events", icon: <FiList size={20} /> },
         { label: "Tasks", path: "/tasks", icon: <FiCheckSquare size={20} /> },
-        {
-          label: "Analytics",
-          path: "/analytics",
-          icon: <FiBarChart2 size={20} />,
-        },
+        // {
+        //   label: "Analytics",
+        //   path: "/analytics",
+        //   icon: <FiBarChart2 size={20} />,
+        // },
       );
     } else {
       // officials & faculty
       bottomItems.push(
         { label: "Home", path: `/${role}/home`, icon: <FiHome size={20} /> },
-        { label: "Events", path: "/events", icon: <FiList size={20} /> }, // ← new
+        { label: "Events", path: "/events", icon: <FiList size={20} /> },
         { label: "Tasks", path: "/tasks", icon: <FiCheckSquare size={20} /> },
         {
           label: "Calendar",
@@ -120,7 +121,8 @@ export default function AppLayout() {
               </button>
             </div>
             <div className={styles.drawerContent}>
-              <p>Navigation options still on development</p>
+              {/* ===== REPLACED with Menu component ===== */}
+              <Menu activePath={location.pathname} />
             </div>
           </div>
           {drawerOpen && (
@@ -153,7 +155,6 @@ export default function AppLayout() {
               >
                 <FiMenu size={24} />
               </button>
-              <span className={styles.title}>TRACK</span>
             </div>
             <div className={styles.topActions}>
               <button
