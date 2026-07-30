@@ -1,7 +1,7 @@
 .menuContainer {
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  /* padding: px; */
   height: 100%;
   overflow-y: auto;
 }
@@ -45,11 +45,33 @@
   font-size: 14px;
 }
 
-/* ===== Calendar Menu Content ===== */
 .calendarMenuContent {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Create Event Button */
+.createEventBtn {
+  background: var(--primary-color, #800000);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(128, 0, 0, 0.2);
+  width: 100%;
+}
+
+.createEventBtn:hover {
+  background: #a00000;
+}
+
+.createEventBtn:active {
+  transform: scale(0.97);
 }
 
 /* Mini Calendar */
@@ -133,55 +155,65 @@
   font-weight: 600;
 }
 
-/* Filter Section */
-.filterSection {
+/* --- List-style buttons (Day/Week/Month + All/Campus/Department/Private) --- */
+/* Light theme version of the vertical icon-list pattern */
+
+.listGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listDivider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 0;
+}
+
+.listBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px;
-}
-
-.filterLabel {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.filterSelect {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: white;
-  font-size: 14px;
-  color: #111827;
-  outline: none;
-  transition: border-color 0.2s;
-  cursor: pointer;
-}
-
-.filterSelect:focus {
-  border-color: var(--primary-color, #800000);
-}
-
-/* Create Event Button */
-.createEventBtn {
-  background: var(--primary-color, #800000);
-  color: white;
+  gap: 14px;
+  width: 100%;
   border: none;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 16px;
-  font-weight: 600;
+  background: transparent;
+  padding: 11px 14px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-  box-shadow: 0 2px 8px rgba(128, 0, 0, 0.2);
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
 }
 
-.createEventBtn:hover {
-  background: #a00000;
+.listBtn:hover {
+  background: #f3f4f6;
 }
 
-.createEventBtn:active {
-  transform: scale(0.97);
+.listIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.listLabel {
+  flex: 1;
+}
+
+.listBtnActive {
+  background: var(--primary-color, #800000);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.listBtnActive * {
+  color: #ffffff;
+}
+
+.listBtnActive:hover {
+  background: var(--primary-color, #800000);
+  opacity: 0.95;
 }

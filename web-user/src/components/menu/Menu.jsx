@@ -47,6 +47,130 @@ const MENU_CONTENT = {
   },
 };
 
+/* --- Simple line icons (stroke uses currentColor so they inherit active/inactive color) --- */
+const IconDay = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="4" y="5" width="16" height="15" rx="2" />
+    <line x1="4" y1="9" x2="20" y2="9" />
+    <line x1="12" y1="9" x2="12" y2="20" />
+  </svg>
+);
+
+const IconThreeDays = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="3" y="5" width="18" height="15" rx="2" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="9" y1="9" x2="9" y2="20" />
+    <line x1="15" y1="9" x2="15" y2="20" />
+  </svg>
+);
+
+const IconWeek = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="2" y="5" width="20" height="15" rx="2" />
+    <line x1="2" y1="9" x2="22" y2="9" />
+    <line x1="7" y1="9" x2="7" y2="20" />
+    <line x1="12" y1="9" x2="12" y2="20" />
+    <line x1="17" y1="9" x2="17" y2="20" />
+  </svg>
+);
+
+const IconMonth = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="3" y="4" width="18" height="17" rx="2" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="9" y1="9" x2="9" y2="21" />
+    <line x1="15" y1="9" x2="15" y2="21" />
+    <line x1="3" y1="14.5" x2="21" y2="14.5" />
+  </svg>
+);
+
+const IconAll = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+    <line x1="4" y1="17" x2="20" y2="17" />
+  </svg>
+);
+
+const IconCampus = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <path d="M3 21h18" />
+    <path d="M5 21V9l7-5 7 5v12" />
+    <path d="M9 21v-6h6v6" />
+  </svg>
+);
+
+const IconDepartment = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
+const IconPrivate = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <rect x="4" y="10" width="16" height="10" rx="2" />
+    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+  </svg>
+);
+
 const generateMonthGrid = (year, month) => {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -65,18 +189,19 @@ const generateMonthGrid = (year, month) => {
   return grid;
 };
 
-export default function Menu({ activePath }) {
+export default function Menu({ activePath, onCloseDrawer }) {
   const navigate = useNavigate();
   const {
     currentDate,
     setCurrentDate,
     selectedDate,
     setSelectedDate,
+    duration,
+    setDuration,
     activeFilters,
     setActiveFilters,
   } = useCalendar();
 
-  // Determine which menu to show based on active path
   let activeKey = "home";
   if (activePath.includes("/venues")) activeKey = "venues";
   else if (activePath.includes("/calendar")) activeKey = "calendar";
@@ -85,7 +210,6 @@ export default function Menu({ activePath }) {
 
   const menu = MENU_CONTENT[activeKey];
 
-  // Mini calendar for calendar screen
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthGrid = useMemo(
@@ -97,40 +221,74 @@ export default function Menu({ activePath }) {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() - 1);
     setCurrentDate(d);
+    onCloseDrawer(); // close drawer after action
   };
+
   const goToNextMonth = () => {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() + 1);
     setCurrentDate(d);
+    onCloseDrawer();
   };
 
   const handleDateClick = (dateStr) => {
     setSelectedDate(dateStr);
-  };
-
-  const handleFilterChange = (e) => {
-    const value = e.target.value;
-    if (value === "all") {
-      setActiveFilters([]);
-    } else {
-      setActiveFilters([value]);
-    }
+    onCloseDrawer();
   };
 
   const handleCreateEvent = () => {
+    onCloseDrawer();
     navigate("/create-event");
   };
 
+  const handleViewChange = (view) => {
+    setDuration(view);
+    onCloseDrawer();
+  };
+
+  const handleFilterToggle = (filter) => {
+    if (filter === "all") {
+      setActiveFilters([]);
+    } else {
+      setActiveFilters((prev) =>
+        prev.includes(filter)
+          ? prev.filter((f) => f !== filter)
+          : [...prev, filter],
+      );
+    }
+    onCloseDrawer();
+  };
+
+  const isFilterActive = (filter) => {
+    if (filter === "all") return activeFilters.length === 0;
+    return activeFilters.includes(filter);
+  };
+
+  // NOTE: "3 days" view isn't wired into CalendarContext yet — kept as a
+  // duration option ("3day") so it's ready as soon as the context supports it.
+  const durationOptions = [
+    { key: "day", label: "Day", icon: <IconDay /> },
+    { key: "3day", label: "3 days", icon: <IconThreeDays /> },
+    { key: "week", label: "Week", icon: <IconWeek /> },
+    { key: "month", label: "Month", icon: <IconMonth /> },
+  ];
+
+  const filterOptions = [
+    { key: "all", label: "All", icon: <IconAll /> },
+    { key: "campus", label: "Campus", icon: <IconCampus /> },
+    { key: "department", label: "Department", icon: <IconDepartment /> },
+    { key: "personal", label: "Private", icon: <IconPrivate /> },
+  ];
+
   return (
     <div className={styles.menuContainer}>
-      <div className={styles.menuIcon}>{menu.icon}</div>
-      <h3 className={styles.menuTitle}>{menu.title} Menu</h3>
-      <p className={styles.menuDescription}>{menu.description}</p>
-      <div className={styles.menuDivider} />
-
-      {/* Calendar-specific content */}
       {activeKey === "calendar" && (
         <div className={styles.calendarMenuContent}>
+          {/* Create Event */}
+          <button className={styles.createEventBtn} onClick={handleCreateEvent}>
+            + Create Event
+          </button>
+
           {/* Mini Calendar */}
           <div className={styles.miniCalendar}>
             <div className={styles.miniHeader}>
@@ -167,34 +325,42 @@ export default function Menu({ activePath }) {
             </div>
           </div>
 
-          {/* Filter Dropdown */}
-          <div className={styles.filterSection}>
-            <label htmlFor="filterSelect" className={styles.filterLabel}>
-              Filter by:
-            </label>
-            <select
-              id="filterSelect"
-              className={styles.filterSelect}
-              value={
-                activeFilters.length === 0 ? "all" : activeFilters[0] || "all"
-              }
-              onChange={handleFilterChange}
-            >
-              <option value="all">All</option>
-              <option value="campus">Campus</option>
-              <option value="department">Department</option>
-              <option value="personal">Private</option>
-            </select>
+          {/* View Switcher (Day, 3 days, Week, Month) */}
+          <div className={styles.listGroup}>
+            {durationOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  duration === opt.key ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleViewChange(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Create Event Button */}
-          <button className={styles.createEventBtn} onClick={handleCreateEvent}>
-            + Create Event
-          </button>
+          <div className={styles.listDivider} />
+
+          {/* Filter Buttons (All, Campus, Department, Private) */}
+          <div className={styles.listGroup}>
+            {filterOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  isFilterActive(opt.key) ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleFilterToggle(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Placeholder for other screens */}
       {activeKey !== "calendar" && (
         <div className={styles.menuPlaceholder}>
           <p>
