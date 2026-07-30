@@ -88,7 +88,6 @@ export default function CalendarView() {
   const [userEvents, setUserEvents] = useState([]);
   const [pendingEventIds, setPendingEventIds] = useState([]);
 
-  // Swipe state
   const viewportRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [dragX, setDragX] = useState(0);
@@ -117,7 +116,6 @@ export default function CalendarView() {
     [year, month],
   );
 
-  // Fetch a buffer around the visible range so swiped-in peek panels have data too
   const visibleRange = useMemo(() => {
     let start, end;
     if (duration === "day") {
@@ -203,6 +201,10 @@ export default function CalendarView() {
   const dailyEvents = selectedDate ? eventsByDate[selectedDate] || [] : [];
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayWeekday = new Date().getDay();
+  const todayNumber = new Date().getDate();
+  const todayMonthAbbr = MONTH_NAMES[new Date().getMonth()]
+    .slice(0, 3)
+    .toUpperCase();
 
   // Navigation
   const navigate = useCallback(
@@ -228,7 +230,27 @@ export default function CalendarView() {
   const goToPrev = () => navigate(-1);
   const goToNext = () => navigate(1);
 
-  // Measure viewport width (for swipe math) on mount + resize
+  // Go to today
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today.toISOString().slice(0, 10));
+  };
+
+  // Month dropdown
+  const handleMonthChange = (e) => {
+    const newMonth = parseInt(e.target.value, 10);
+    const d = new Date(currentDate);
+    d.setMonth(newMonth);
+    setCurrentDate(d);
+    if (duration === "day") {
+      const dayDate = new Date(d);
+      dayDate.setDate(1);
+      setSelectedDate(dayDate.toISOString().slice(0, 10));
+    }
+  };
+
+  // Measure viewport
   useLayoutEffect(() => {
     const measure = () =>
       setContainerWidth(viewportRef.current?.offsetWidth || 0);
@@ -237,7 +259,7 @@ export default function CalendarView() {
     return () => window.removeEventListener("resize", measure);
   }, [duration]);
 
-  // Native touch listeners (needed so preventDefault actually works during horizontal drag)
+  // Native touch listeners
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -357,8 +379,7 @@ export default function CalendarView() {
     return `${MONTH_NAMES[month]} ${year}`;
   }, [duration, selectedDate, weekStart, month, year]);
 
-  /* ---------- Panel renderers (each takes an offset: -1 / 0 / +1) ---------- */
-
+  /* ---------- Panel renderers ---------- */
   const renderMonthPanel = (offset) => {
     const d = new Date(year, month + offset, 1);
     const grid = generateMonthGrid(d.getFullYear(), d.getMonth());
@@ -538,9 +559,9 @@ export default function CalendarView() {
   return (
     <div className={styles.pageWrapper}>
       <div className={styles.container}>
-        {/* Top: arrows + date */}
+        {/* Top Content */}
         <div className={styles.topContent}>
-          <div className={styles.header}>
+          <div className={styles.headerLeft}>
             <button onClick={goToPrev} className={styles.navBtn}>
               <FiChevronLeft size={20} />
             </button>
@@ -549,9 +570,32 @@ export default function CalendarView() {
               <FiChevronRight size={20} />
             </button>
           </div>
+          <div className={styles.headerRight}>
+            <button
+              onClick={goToToday}
+              className={styles.todayBtn}
+              aria-label="Go to today"
+              title="Go to today"
+            >
+              <span className={styles.todayBtnTop}>{todayMonthAbbr}</span>
+              <span className={styles.todayBtnNumber}>{todayNumber}</span>
+            </button>
+            <select
+              className={styles.monthSelect}
+              value={month}
+              onChange={handleMonthChange}
+              aria-label="Jump to month"
+            >
+              {MONTH_NAMES.map((name, idx) => (
+                <option key={idx} value={idx}>
+                  {name.slice(0, 4).toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Main: swipeable grid/timeline, fills remaining height exactly */}
+        {/* Main swipeable view */}
         <div className={styles.mainContent}>
           <div className={styles.viewport} ref={viewportRef}>
             <div

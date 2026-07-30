@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
-import styles from './EventColor.module.css';
+import { useState, useRef } from "react";
+import { FiDroplet } from "react-icons/fi";
+import styles from "./EventColor.module.css";
 
 const PRESET_COLORS = [
-  { name: 'Grey', value: '#808080' },
-  { name: 'Red', value: '#800000' },
-  { name: 'Yellow', value: '#F5C542' },
-  { name: 'Blue', value: '#0A66B9' },
+  { name: "Grey", value: "#808080" },
+  { name: "Red", value: "#800000" },
+  { name: "Yellow", value: "#F5C542" },
+  { name: "Blue", value: "#0A66B9" },
 ];
 
 export default function EventColor({ value, onChange }) {
@@ -29,12 +30,14 @@ export default function EventColor({ value, onChange }) {
           <button
             key={color.name}
             type="button"
-            className={`${styles.swatch} ${value === color.value ? styles.selected : ''}`}
+            className={`${styles.swatch} ${value === color.value ? styles.selected : ""}`}
             style={{ backgroundColor: color.value }}
             onClick={() => handlePresetClick(color.value)}
             title={color.name}
           >
-            {value === color.value && <span className={styles.checkmark}>✓</span>}
+            {value === color.value && (
+              <span className={styles.checkmark}>✓</span>
+            )}
           </button>
         ))}
         <button
@@ -43,7 +46,7 @@ export default function EventColor({ value, onChange }) {
           onClick={() => setShowPicker(!showPicker)}
           title="Custom color"
         >
-          🎨
+          <FiDroplet size={16} />
         </button>
       </div>
       {showPicker && (
@@ -51,7 +54,7 @@ export default function EventColor({ value, onChange }) {
           ref={pickerRef}
           type="color"
           className={styles.colorPicker}
-          value={value || '#800000'}
+          value={value || "#800000"}
           onChange={handlePickerChange}
         />
       )}

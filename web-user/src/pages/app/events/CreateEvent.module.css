@@ -11,17 +11,20 @@
 }
 
 .sectionContent {
-  padding: 0 1.5rem;
+  padding: 1.5rem;
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
 /* Title area */
 .titleSection {
   background: var(--input-background-color);
-  padding: 3rem 0;
+  padding: 2.5rem 1.5rem;
   margin: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .titleInput {
@@ -31,19 +34,48 @@
   background: transparent;
   border: none;
   width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   outline: none;
   padding: 0;
+  display: block;
 }
 
 .titleInput::placeholder {
   color: var(--fifth-color);
 }
 
-.section {
+/* Card */
+.card {
+  background: var(--background-color, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0;
+  gap: 0.9rem;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--primary-color, #800000);
+}
+
+.cardHeaderIcon {
+  color: var(--primary-color, #800000);
+  flex-shrink: 0;
 }
 
 .row {
@@ -66,24 +98,33 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .checkRow label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.9rem;
   color: var(--text-color);
   cursor: pointer;
 }
 
 .error {
-  color: red;
+  color: #dc2626;
   font-size: 0.9rem;
   text-align: center;
+  margin: 0.5rem 0 0;
+}
+
+.helperText {
+  font-size: 0.85rem;
+  color: #374151;
+  margin: 0;
 }
 
 .mapContainer {
   width: 100%;
-  margin-top: 4px;
 }
 
 .sectionLabel {
@@ -91,6 +132,7 @@
   font-weight: 600;
   color: var(--fifth-color);
   margin-bottom: 4px;
+  display: block;
 }
 
 .hint {
@@ -116,17 +158,25 @@
   border-radius: 10px;
 }
 
-.inviteBtn {
+.inviteBtn,
+.collabBtn {
   width: 100%;
-  padding: 0.9rem 1rem;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
   transition: background 0.2s, color 0.2s;
+}
+
+.inviteBtn {
   background: var(--primary-color, #800000);
-  color: white;
+  color: #fff;
   border: 1.5px solid var(--primary-color, #800000);
 }
 
@@ -136,42 +186,33 @@
 }
 
 .collabBtn {
-  width: 100%;
-  padding: 0.9rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.2s, color 0.2s;
-  background: white;
+  background: transparent;
   color: var(--primary-color, #800000);
   border: 1.5px solid var(--primary-color, #800000);
 }
 
 .collabBtn:hover {
   background: var(--primary-color, #800000);
-  color: white;
+  color: #fff;
 }
 
 /* ─── Conflict detection styles ─── */
 .conflictNotice {
-  background: #fff3cd;
+  background: #fff8e6;
   border: 1px solid #ffc107;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  margin-top: 8px;
-  transition: 0.2s;
+  transition: background 0.2s;
   font-weight: 500;
   gap: 12px;
 }
 
 .conflictNotice:hover {
-  background: #ffe69b;
+  background: #ffefc2;
 }
 
 .conflictNoticeLeft {
@@ -181,23 +222,23 @@
 }
 
 .conflictIcon {
-  color: #856404;
+  color: #92400e;
   flex-shrink: 0;
 }
 
 .viewDetails {
   font-weight: 600;
-  color: #856404;
-  font-size: 0.9rem;
+  color: #92400e;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .noConflictNotice {
-  background: #d4edda;
-  border: 1px solid #28a745;
-  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #34d399;
+  border-radius: 14px;
   padding: 10px 16px;
-  margin-top: 8px;
-  color: #155724;
+  color: #065f46;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -205,19 +246,27 @@
 }
 
 .noConflictIcon {
-  color: #28a745;
+  color: #059669;
   flex-shrink: 0;
 }
 
 .checkingNotice {
-  background: #e2e3e5;
-  border: 1px solid #6c757d;
-  border-radius: 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
   padding: 10px 16px;
-  margin-top: 8px;
-  color: #383d41;
+  color: #4b5563;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ─── Submit ─── */
+.submitBar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
 }

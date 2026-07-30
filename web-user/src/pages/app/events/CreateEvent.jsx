@@ -12,7 +12,19 @@ import FileAttachment from "../../../components/common/FileAttachment";
 import ConflictCard from "../../../components/events/ConflictCard";
 import apiClient from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
-import { FiAlertCircle, FiCheckCircle, FiClock } from "react-icons/fi";
+import {
+  FiAlertCircle,
+  FiCheckCircle,
+  FiClock,
+  FiInfo,
+  FiTag,
+  FiMapPin,
+  FiUsers,
+  FiCalendar,
+  FiFileText,
+  FiPaperclip,
+  FiUserPlus,
+} from "react-icons/fi";
 import styles from "./CreateEvent.module.css";
 
 export default function CreateEvent() {
@@ -294,7 +306,13 @@ export default function CreateEvent() {
         </div>
 
         <div className={styles.sectionContent}>
-          <div className={styles.section}>
+          {/* ── Event Basics ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiInfo size={16} className={styles.cardHeaderIcon} />
+              <span>Event Basics</span>
+            </div>
+
             <EventColor
               value={form.color}
               onChange={(color) => updateField("color", color)}
@@ -333,35 +351,44 @@ export default function CreateEvent() {
             )}
           </div>
 
-          <div className={styles.section}>
-            <SelectDropdown
-              label="HIERARCHY LEVEL"
-              options={[
-                { value: "local", label: "Local" },
-                { value: "regional", label: "Regional" },
-                { value: "national", label: "National" },
-                { value: "international", label: "International" },
-              ]}
-              value={form.hierarchy}
-              onChange={(e) => updateField("hierarchy", e.target.value)}
-            />
+          {/* ── Classification ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiTag size={16} className={styles.cardHeaderIcon} />
+              <span>Classification</span>
+            </div>
+            <div className={styles.row}>
+              <SelectDropdown
+                label="HIERARCHY LEVEL"
+                options={[
+                  { value: "local", label: "Local" },
+                  { value: "regional", label: "Regional" },
+                  { value: "national", label: "National" },
+                  { value: "international", label: "International" },
+                ]}
+                value={form.hierarchy}
+                onChange={(e) => updateField("hierarchy", e.target.value)}
+              />
+              <SelectDropdown
+                label="EVENT TYPE"
+                options={[
+                  { value: "meeting", label: "Meeting" },
+                  { value: "seminar", label: "Seminar" },
+                  { value: "event", label: "Event" },
+                ]}
+                value={form.event_type}
+                onChange={(e) => updateField("event_type", e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className={styles.section}>
-            <SelectDropdown
-              label="EVENT TYPE"
-              options={[
-                { value: "meeting", label: "Meeting" },
-                { value: "seminar", label: "Seminar" },
-                { value: "event", label: "Event" },
-              ]}
-              value={form.event_type}
-              onChange={(e) => updateField("event_type", e.target.value)}
-            />
-          </div>
-
+          {/* ── Location ── */}
           {form.method !== "online" && (
-            <div className={styles.section}>
+            <div className={styles.card}>
+              <div className={styles.cardHeader}>
+                <FiMapPin size={16} className={styles.cardHeaderIcon} />
+                <span>Location</span>
+              </div>
               {form.hierarchy === "local" ? (
                 <SelectDropdown
                   label="VENUE"
@@ -389,10 +416,15 @@ export default function CreateEvent() {
             </div>
           )}
 
-          <div className={styles.section}>
+          {/* ── Attendees ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiUsers size={16} className={styles.cardHeaderIcon} />
+              <span>Attendees</span>
+            </div>
             {form.visibility === "department" && (
-              <p style={{ fontSize: "0.85rem", color: "#374151" }}>
-                All users belongs to your department{" "}
+              <p className={styles.helperText}>
+                All users belonging to your department{" "}
                 <strong>{currentProfile?.department}</strong> will be
                 automatically invited.
               </p>
@@ -402,11 +434,17 @@ export default function CreateEvent() {
               className={styles.inviteBtn}
               onClick={() => setShowAttendeeModal(true)}
             >
+              <FiUserPlus size={16} />
               Invite Attendees ({attendeeIds.length})
             </button>
           </div>
 
-          <div className={styles.section}>
+          {/* ── Date & Time ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiCalendar size={16} className={styles.cardHeaderIcon} />
+              <span>Date &amp; Time</span>
+            </div>
             <div className={styles.row}>
               <InputField
                 label="START DATE"
@@ -503,9 +541,13 @@ export default function CreateEvent() {
             </div>
           </div>
 
-          <div className={styles.section}>
+          {/* ── Description ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiFileText size={16} className={styles.cardHeaderIcon} />
+              <span>Description</span>
+            </div>
             <InputField
-              label="DESCRIPTION"
               as="textarea"
               rows={3}
               value={form.description}
@@ -514,7 +556,12 @@ export default function CreateEvent() {
             />
           </div>
 
-          <div className={styles.section}>
+          {/* ── Attachments ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiPaperclip size={16} className={styles.cardHeaderIcon} />
+              <span>Attachments</span>
+            </div>
             <FileAttachment
               files={attachments.map(({ name, size }) => ({ name, size }))}
               onRemove={(file) => {
@@ -525,7 +572,12 @@ export default function CreateEvent() {
             />
           </div>
 
-          <div className={styles.section}>
+          {/* ── Collaborators ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiUserPlus size={16} className={styles.cardHeaderIcon} />
+              <span>Collaborators</span>
+            </div>
             <button
               type="button"
               className={styles.collabBtn}
@@ -535,7 +587,7 @@ export default function CreateEvent() {
             </button>
           </div>
 
-          <div className={styles.section}>
+          <div className={styles.submitBar}>
             <Button type="submit" disabled={loading}>
               {loading ? "Creating..." : "Create Event"}
             </Button>
@@ -558,6 +610,7 @@ export default function CreateEvent() {
           selectedIds={collaboratorIds}
           onSave={setCollaboratorIds}
           departmentId={null}
+          type="collaborators"
         />
 
         <input

@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCalendar } from "../../context/CalendarContext";
+import apiClient from "../../api/client";
 import styles from "./Menu.module.css";
 
 const MONTH_NAMES = [
@@ -202,6 +203,53 @@ export default function Menu({ activePath, onCloseDrawer }) {
     setActiveFilters,
   } = useCalendar();
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allEventsForSearch, setAllEventsForSearch] = useState([]);
+
+  // Fetch all events for search
+  useEffect(() => {
+    const fetchAllEvents = async () => {
+      try {
+        const now = new Date();
+        const start = new Date(now.getFullYear() - 2, 0, 1)
+          .toISOString()
+          .slice(0, 10);
+        const end = new Date(now.getFullYear() + 2, 11, 31)
+          .toISOString()
+          .slice(0, 10);
+        const res = await apiClient.get("/events", {
+          params: { start, end },
+        });
+        setAllEventsForSearch(res.data.events || []);
+      } catch (err) {
+        console.error("Failed to fetch events for search:", err);
+      }
+    };
+    fetchAllEvents();
+  }, []);
+
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const lower = searchTerm.toLowerCase();
+    return allEventsForSearch
+      .filter((ev) => ev.title.toLowerCase().includes(lower))
+      .slice(0, 10);
+  }, [searchTerm, allEventsForSearch]);
+
+  const handleSelectResult = (event) => {
+    setSelectedDate(event.date);
+    const dateParts = event.date.split("-");
+    const newDate = new Date(
+      parseInt(dateParts[0]),
+      parseInt(dateParts[1]) - 1,
+      parseInt(dateParts[2]),
+    );
+    setCurrentDate(newDate);
+    setSearchTerm("");
+    onCloseDrawer();
+  };
+
   let activeKey = "home";
   if (activePath.includes("/venues")) activeKey = "venues";
   else if (activePath.includes("/calendar")) activeKey = "calendar";
@@ -221,9 +269,8 @@ export default function Menu({ activePath, onCloseDrawer }) {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() - 1);
     setCurrentDate(d);
-    onCloseDrawer(); // close drawer after action
+    onCloseDrawer();
   };
-
   const goToNextMonth = () => {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() + 1);
@@ -264,8 +311,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     return activeFilters.includes(filter);
   };
 
-  // NOTE: "3 days" view isn't wired into CalendarContext yet — kept as a
-  // duration option ("3day") so it's ready as soon as the context supports it.
   const durationOptions = [
     { key: "day", label: "Day", icon: <IconDay /> },
     { key: "3day", label: "3 days", icon: <IconThreeDays /> },
@@ -284,6 +329,34 @@ export default function Menu({ activePath, onCloseDrawer }) {
     <div className={styles.menuContainer}>
       {activeKey === "calendar" && (
         <div className={styles.calendarMenuContent}>
+          {/* Search Field */}
+          <div className={styles.searchWrapper}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search events..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && searchResults.length > 0 && (
+              <div className={styles.searchResults}>
+                {searchResults.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className={styles.searchResultItem}
+                    onClick={() => handleSelectResult(ev)}
+                  >
+                    <div className={styles.resultTitle}>{ev.title}</div>
+                    <div className={styles.resultDate}>{ev.date}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {searchTerm && searchResults.length === 0 && (
+              <div className={styles.searchNoResults}>No events found</div>
+            )}
+          </div>
+
           {/* Create Event */}
           <button className={styles.createEventBtn} onClick={handleCreateEvent}>
             + Create Event
@@ -325,7 +398,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
             </div>
           </div>
 
-          {/* View Switcher (Day, 3 days, Week, Month) */}
+          {/* View Switcher */}
           <div className={styles.listGroup}>
             {durationOptions.map((opt) => (
               <button
@@ -343,7 +416,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
           <div className={styles.listDivider} />
 
-          {/* Filter Buttons (All, Campus, Department, Private) */}
+          {/* Filter Buttons */}
           <div className={styles.listGroup}>
             {filterOptions.map((opt) => (
               <button

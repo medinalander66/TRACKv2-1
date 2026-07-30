@@ -1,59 +1,99 @@
 .container {
-  border: 1px dashed var(--input-background-color);
-  border-radius: 16px;
-  padding: 1rem;
-  background: var(--background-color);
-}
-
-.header {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--fifth-color);
-  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 .fileList {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 0;
-  /* removed bottom margin because it’s inside a flex row */
 }
 
 .fileItem {
-  background: #f3f4f6;
+  background: #f8f9fa;
+  border: 1px solid #eef0f2;
   border-radius: 12px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.85rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fileIcon {
+  color: var(--primary-color, #800000);
+  flex-shrink: 0;
+}
+
+.fileName {
+  font-size: 0.88rem;
+  color: var(--text-color, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fileSize {
   color: #6c757d;
-  font-size: 0.7rem;
-  margin-left: 0.5rem;
+  font-size: 0.72rem;
+  flex-shrink: 0;
 }
 
-.fileItem button {
+.removeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
+  color: #9ca3af;
   cursor: pointer;
-  font-size: 1rem;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.removeBtn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.addButton,
+.addButtonCompact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px dashed var(--primary-color, #800000);
+  color: var(--primary-color, #800000);
+  padding: 0.65rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
 }
 
 .addButton {
-  background: transparent;
-  border: 1px dashed var(--primary-color);
-  color: var(--primary-color);
-  padding: 0.6rem;
   width: 100%;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
-.addButton:hover {
-  background: var(--primary-color);
-  color: var(--tertiary-color);
+.addButtonCompact {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+}
+
+.addButton:hover,
+.addButtonCompact:hover {
+  background: var(--primary-color, #800000);
+  color: #fff;
 }

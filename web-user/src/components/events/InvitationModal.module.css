@@ -1,33 +1,10 @@
-.mainContent {
-  padding: 0;
-}
-
-.titleSection {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.titleSection h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #111827;
-}
-
-.closeBtn {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 4px;
-}
-
 .detailsGrid {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .detailItem {
@@ -38,12 +15,17 @@
   color: #374151;
 }
 
+.detailItem svg {
+  color: #800000;
+  flex-shrink: 0;
+}
+
 .responseSection {
   background: #f9fafb;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px;
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .responseSection p {
@@ -65,13 +47,19 @@
   gap: 6px;
   padding: 10px 20px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.acceptBtn:hover,
+.declineBtn:hover {
+  opacity: 0.9;
 }
 
 .acceptBtn {
-  background: var(--primary-color);
+  background: var(--primary-color, #800000);
   color: white;
 }
 
@@ -81,16 +69,26 @@
 }
 
 .section {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .section h3 {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 15px;
-  color: #111827;
-  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #800000;
+  margin-bottom: 10px;
+}
+
+.descriptionText {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .partGroup {
@@ -98,7 +96,7 @@
 }
 
 .partGroup h4 {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
   margin: 0 0 6px;
 }
@@ -114,11 +112,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f3f4f6;
+  background: #fef2f2;
+  color: #7c2d2d;
   padding: 4px 10px;
   border-radius: 16px;
   font-size: 12px;
-  color: #374151;
 }
 
 .showMoreBtn {
@@ -147,6 +145,7 @@
   color: var(--primary-color);
   font-size: 13px;
   text-decoration: none;
+  padding: 6px 0;
 }
 
 .attachItem:hover {
@@ -159,11 +158,20 @@
 }
 
 .archiveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: #e5e7eb;
   border: none;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   cursor: pointer;
   color: #374151;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.archiveBtn:hover {
+  background: #d1d5db;
 }

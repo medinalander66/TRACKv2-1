@@ -4,7 +4,6 @@ import {
   FiChevronDown,
   FiUser,
   FiCalendar,
-  FiClock,
   FiMapPin,
   FiUsers,
   FiAlertCircle,
@@ -69,20 +68,26 @@ const ConflictCard = ({
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
         <div className={styles.handle}>
-          <FiChevronDown size={24} />
+          <FiChevronDown size={22} />
         </div>
-        <button className={styles.closeBtn} onClick={onClose}>
-          <FiX size={24} />
+        <button
+          type="button"
+          className={styles.closeBtn}
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <FiX size={20} />
         </button>
 
         <h2 className={styles.title}>
-          <FiAlertCircle size={24} className={styles.titleIcon} />
+          <FiAlertCircle size={22} className={styles.titleIcon} />
           Schedule Conflicts
         </h2>
 
         <div className={styles.tabs}>
           {conflicts.venue.has && (
             <button
+              type="button"
               className={`${styles.tab} ${
                 activeTab === "venue" ? styles.activeTab : ""
               }`}
@@ -93,6 +98,7 @@ const ConflictCard = ({
           )}
           {conflicts.attendees.has && (
             <button
+              type="button"
               className={`${styles.tab} ${
                 activeTab === "attendees" ? styles.activeTab : ""
               }`}
@@ -103,6 +109,7 @@ const ConflictCard = ({
           )}
           {conflicts.creator.has && (
             <button
+              type="button"
               className={`${styles.tab} ${
                 activeTab === "creator" ? styles.activeTab : ""
               }`}
@@ -124,7 +131,7 @@ const ConflictCard = ({
                   <div className={styles.itemHeader}>
                     <span
                       className={styles.itemTitle}
-                      style={{ backgroundColor: ev.color || "#ccc" }}
+                      style={{ backgroundColor: ev.color || "#800000" }}
                     >
                       {ev.title}
                     </span>
@@ -162,8 +169,10 @@ const ConflictCard = ({
               {conflicts.attendees.users.map((u) => (
                 <div key={u.user.id} className={styles.attendeeConflict}>
                   <div className={styles.attendeeHeader}>
-                    <FiUser size={16} /> <strong>{u.user.username}</strong> (
-                    {u.user.email})
+                    <FiUser size={16} /> <strong>{u.user.username}</strong>{" "}
+                    <span className={styles.attendeeEmail}>
+                      ({u.user.email})
+                    </span>
                     <span className={styles.badge}>
                       {u.events.length} conflicting event(s)
                     </span>
@@ -173,7 +182,7 @@ const ConflictCard = ({
                       <div className={styles.itemHeader}>
                         <span
                           className={styles.itemTitle}
-                          style={{ backgroundColor: ev.color || "#ccc" }}
+                          style={{ backgroundColor: ev.color || "#800000" }}
                         >
                           {ev.title}
                         </span>
@@ -213,7 +222,7 @@ const ConflictCard = ({
                   <div className={styles.itemHeader}>
                     <span
                       className={styles.itemTitle}
-                      style={{ backgroundColor: ev.color || "#ccc" }}
+                      style={{ backgroundColor: ev.color || "#800000" }}
                     >
                       {ev.title}
                     </span>
@@ -245,6 +254,7 @@ const ConflictCard = ({
             </h3>
             <div className={styles.filterButtons}>
               <button
+                type="button"
                 className={`${styles.filterBtn} ${
                   recommendationFilter === "all" ? styles.activeFilter : ""
                 }`}
@@ -253,6 +263,7 @@ const ConflictCard = ({
                 All
               </button>
               <button
+                type="button"
                 className={`${styles.filterBtn} ${
                   recommendationFilter === "all-free" ? styles.activeFilter : ""
                 }`}
@@ -261,6 +272,7 @@ const ConflictCard = ({
                 All Free
               </button>
               <button
+                type="button"
                 className={`${styles.filterBtn} ${
                   recommendationFilter === "creator-venue-free"
                     ? styles.activeFilter
@@ -268,9 +280,10 @@ const ConflictCard = ({
                 }`}
                 onClick={() => setRecommendationFilter("creator-venue-free")}
               >
-                Venue+You Free
+                Venue + You Free
               </button>
               <button
+                type="button"
                 className={`${styles.filterBtn} ${
                   recommendationFilter === "creator-free"
                     ? styles.activeFilter
@@ -320,13 +333,16 @@ const ConflictCard = ({
                       <span className={styles.tagConflict}>You Conflict</span>
                     )}
                   </div>
-                  <button className={styles.selectSlotBtn}>Select</button>
+                  <button type="button" className={styles.selectSlotBtn}>
+                    Select
+                  </button>
                 </div>
               ))}
             </div>
 
             {filteredRecs.length > 3 && (
               <button
+                type="button"
                 className={styles.showMoreBtn}
                 onClick={() =>
                   setShowAllRecommendations(!showAllRecommendations)
@@ -340,7 +356,11 @@ const ConflictCard = ({
           </div>
         )}
 
-        <button className={styles.closeSheetBtn} onClick={onClose}>
+        <button
+          type="button"
+          className={styles.closeSheetBtn}
+          onClick={onClose}
+        >
           Close
         </button>
       </div>

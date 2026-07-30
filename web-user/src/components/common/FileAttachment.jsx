@@ -1,3 +1,4 @@
+import { FiTrash2, FiPlus, FiPaperclip } from "react-icons/fi";
 import styles from "./FileAttachment.module.css";
 
 export default function FileAttachment({ files = [], onRemove, onAdd }) {
@@ -5,49 +6,38 @@ export default function FileAttachment({ files = [], onRemove, onAdd }) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>ATTACHMENTS (OPTIONAL)</div>
-
-      {!hasFiles ? (
-        /* No files yet: show full‑width button */
-        <button type="button" className={styles.addButton} onClick={onAdd}>
-          + Add File
-        </button>
-      ) : (
-        /* Files present: file list on the left, button on the right */
-        <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-          <div className={styles.fileList} style={{ flex: 1 }}>
-            {files.map((file) => (
-              <div
-                key={file.name}
-                className={styles.fileItem}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div>
-                  <span>{file.name}</span>
-                  {file.size && (
-                    <span className={styles.fileSize}> {file.size}</span>
-                  )}
-                </div>
-                <button type="button" onClick={() => onRemove(file)}>
-                  🗑️
-                </button>
+      {hasFiles && (
+        <div className={styles.fileList}>
+          {files.map((file) => (
+            <div key={file.name} className={styles.fileItem}>
+              <div className={styles.fileInfo}>
+                <FiPaperclip size={14} className={styles.fileIcon} />
+                <span className={styles.fileName}>{file.name}</span>
+                {file.size && (
+                  <span className={styles.fileSize}>{file.size}</span>
+                )}
               </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className={styles.addButton}
-            style={{ width: "auto", padding: "0.6rem 1.2rem", flexShrink: 0 }}
-            onClick={onAdd}
-          >
-            + Add File
-          </button>
+              <button
+                type="button"
+                className={styles.removeBtn}
+                onClick={() => onRemove(file)}
+                aria-label={`Remove ${file.name}`}
+              >
+                <FiTrash2 size={15} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
+
+      <button
+        type="button"
+        className={hasFiles ? styles.addButtonCompact : styles.addButton}
+        onClick={onAdd}
+      >
+        <FiPlus size={16} />
+        Add File
+      </button>
     </div>
   );
 }

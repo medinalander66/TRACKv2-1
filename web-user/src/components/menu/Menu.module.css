@@ -1,9 +1,9 @@
 .menuContainer {
   display: flex;
   flex-direction: column;
-  /* padding: px; */
   height: 100%;
   overflow-y: auto;
+  padding: 0 4px;
 }
 
 .menuIcon {
@@ -49,6 +49,83 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Search */
+.searchWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #ffffff;
+}
+
+.searchInput:focus {
+  border-color: var(--primary-color, #800000);
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.searchResultItem {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.15s;
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.searchResultItem:hover {
+  background: #f9fafb;
+}
+
+.resultTitle {
+  font-weight: 500;
+  color: #111827;
+  font-size: 14px;
+}
+
+.resultDate {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.searchNoResults {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Create Event Button */
@@ -155,9 +232,7 @@
   font-weight: 600;
 }
 
-/* --- List-style buttons (Day/Week/Month + All/Campus/Department/Private) --- */
-/* Light theme version of the vertical icon-list pattern */
-
+/* List-style buttons (Day/Week/Month + filters) */
 .listGroup {
   display: flex;
   flex-direction: column;
