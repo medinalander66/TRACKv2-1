@@ -149,7 +149,6 @@ export default function AppLayout() {
                 >
                   <FiMenu size={24} />
                 </button>
-                <span className={styles.title}>TRACK</span>
               </div>
               <div className={styles.topActions}>
                 <button
