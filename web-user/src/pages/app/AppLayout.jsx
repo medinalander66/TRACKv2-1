@@ -19,6 +19,7 @@ import {
 import styles from "./AppLayout.module.css";
 import Menu from "../../components/menu/Menu";
 import { CalendarProvider } from "../../context/CalendarContext";
+import { EventsFilterProvider } from "../../context/EventsFilterContext";
 
 const FOCUSED_ROUTES = [
   "/notifications",
@@ -101,123 +102,128 @@ export default function AppLayout() {
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <CalendarProvider>
-      <div className={styles.mobileContainer}>
-        {/* Side Drawer */}
-        {!isFocused && (
-          <>
-            <div
-              className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ""}`}
-            >
-              <div className={styles.drawerHeader}>
-                <h2>Menu</h2>
-                <button onClick={closeDrawer} className={styles.closeBtn}>
-                  <FiX size={24} />
-                </button>
-              </div>
-              <div className={styles.drawerContent}>
-                <Menu
-                  activePath={location.pathname}
-                  onCloseDrawer={closeDrawer}
-                />
-              </div>
-            </div>
-            {drawerOpen && (
-              <div className={styles.overlay} onClick={closeDrawer} />
-            )}
-          </>
-        )}
-
-        {/* Top Bar */}
-        <header className={styles.topBar}>
-          {isFocused ? (
+    <EventsFilterProvider>
+      <CalendarProvider>
+        <div className={styles.mobileContainer}>
+          {/* Side Drawer */}
+          {!isFocused && (
             <>
-              <button className={styles.menuBtn} onClick={() => navigate(-1)}>
-                <FiArrowLeft size={24} />
-              </button>
-              <span className={styles.title}>
-                {pathToTitle(location.pathname)}
-              </span>
-              <div className={styles.topActions} />
-            </>
-          ) : (
-            <>
-              <div className={styles.topSideContent}>
-                <button
-                  className={styles.menuBtn}
-                  onClick={() => setDrawerOpen(true)}
-                >
-                  <FiMenu size={24} />
-                </button>
+              <div
+                className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ""}`}
+              >
+                <div className={styles.drawerHeader}>
+                  <h2>Menu</h2>
+                  <button onClick={closeDrawer} className={styles.closeBtn}>
+                    <FiX size={24} />
+                  </button>
+                </div>
+                <div className={styles.drawerContent}>
+                  <Menu
+                    activePath={location.pathname}
+                    onCloseDrawer={closeDrawer}
+                  />
+                </div>
               </div>
-              <div className={styles.topActions}>
-                <button
-                  onClick={() => navigate("/notifications")}
-                  className={styles.iconBtn}
-                >
-                  <FiBell size={22} />
-                </button>
-                <button
-                  onClick={() => navigate("/profile")}
-                  className={`${styles.iconBtn} ${styles.profileBtn}`}
-                >
-                  {profilePicture ? (
-                    <img
-                      src={profilePicture}
-                      alt="Profile"
-                      className={styles.profileImg}
-                    />
-                  ) : (
-                    <FiUser size={22} />
-                  )}
-                </button>
-              </div>
+              {drawerOpen && (
+                <div className={styles.overlay} onClick={closeDrawer} />
+              )}
             </>
           )}
-        </header>
 
-        {/* Main Content */}
-        <main className={styles.mainContent}>
-          <Outlet />
-        </main>
-
-        {/* FAB */}
-        {!isFocused && (
-          <div className={styles.fabContainer}>
-            {fabOpen && (
-              <div className={styles.fabMenu}>
-                <button onClick={() => navigate("/create-event")}>
-                  Create Event
+          {/* Top Bar */}
+          <header className={styles.topBar}>
+            {isFocused ? (
+              <>
+                <button className={styles.menuBtn} onClick={() => navigate(-1)}>
+                  <FiArrowLeft size={24} />
                 </button>
-                <button onClick={() => navigate("/create-task")}>
-                  Create Task
-                </button>
-              </div>
+                <span className={styles.title}>
+                  {pathToTitle(location.pathname)}
+                </span>
+                <div className={styles.topActions} />
+              </>
+            ) : (
+              <>
+                <div className={styles.topSideContent}>
+                  <button
+                    className={styles.menuBtn}
+                    onClick={() => setDrawerOpen(true)}
+                  >
+                    <FiMenu size={24} />
+                  </button>
+                </div>
+                <div className={styles.topActions}>
+                  <button
+                    onClick={() => navigate("/notifications")}
+                    className={styles.iconBtn}
+                  >
+                    <FiBell size={22} />
+                  </button>
+                  <button
+                    onClick={() => navigate("/profile")}
+                    className={`${styles.iconBtn} ${styles.profileBtn}`}
+                  >
+                    {profilePicture ? (
+                      <img
+                        src={profilePicture}
+                        alt="Profile"
+                        className={styles.profileImg}
+                      />
+                    ) : (
+                      <FiUser size={22} />
+                    )}
+                  </button>
+                </div>
+              </>
             )}
-            <button className={styles.fab} onClick={() => setFabOpen(!fabOpen)}>
-              <FiPlus size={24} />
-            </button>
-          </div>
-        )}
+          </header>
 
-        {/* Bottom Navigation */}
-        {!isFocused && bottomItems.length > 0 && (
-          <nav className={styles.bottomNav}>
-            {bottomItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `${styles.navItem} ${isActive ? styles.navItemActive : ""}`
-                }
+          {/* Main Content */}
+          <main className={styles.mainContent}>
+            <Outlet />
+          </main>
+
+          {/* FAB */}
+          {!isFocused && (
+            <div className={styles.fabContainer}>
+              {fabOpen && (
+                <div className={styles.fabMenu}>
+                  <button onClick={() => navigate("/create-event")}>
+                    Create Event
+                  </button>
+                  <button onClick={() => navigate("/create-task")}>
+                    Create Task
+                  </button>
+                </div>
+              )}
+              <button
+                className={styles.fab}
+                onClick={() => setFabOpen(!fabOpen)}
               >
-                <span className={styles.navIcon}>{item.icon}</span>
-                <span className={styles.navLabel}>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        )}
-      </div>
-    </CalendarProvider>
+                <FiPlus size={24} />
+              </button>
+            </div>
+          )}
+
+          {/* Bottom Navigation */}
+          {!isFocused && bottomItems.length > 0 && (
+            <nav className={styles.bottomNav}>
+              {bottomItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `${styles.navItem} ${isActive ? styles.navItemActive : ""}`
+                  }
+                >
+                  <span className={styles.navIcon}>{item.icon}</span>
+                  <span className={styles.navLabel}>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          )}
+        </div>
+      </CalendarProvider>
+    </EventsFilterProvider>
   );
 }

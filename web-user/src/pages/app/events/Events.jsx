@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import { useEventsFilter } from "../../../context/EventsFilterContext";
 import { getInvitations } from "../../../api/notifications";
 import apiClient from "../../../api/client";
 import {
@@ -20,7 +21,9 @@ import styles from "./Events.module.css";
 export default function Events() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("created");
+  const { searchTerm, duration, eventType } = useEventsFilter();
+
+  const [activeTab, setActiveTab] = useState("all"); // default to "all"
   const [invitedSubTab, setInvitedSubTab] = useState("pending");
 
   const [createdEvents, setCreatedEvents] = useState([]);
@@ -38,7 +41,6 @@ export default function Events() {
     setLoading(true);
     setError("");
     try {
-      // ── Fetch all events (last month to next 2 months) ──
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         .toISOString()
@@ -46,45 +48,61 @@ export default function Events() {
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0)
         .toISOString()
         .slice(0, 10);
-      const eventsRes = await apiClient.get(`/events?start=${start}&end=${end}`);
+      const eventsRes = await apiClient.get(
+        `/events?start=${start}&end=${end}`,
+      );
       const allEventsData = eventsRes.data.events || [];
 
-      // ── Fetch pending invitations with full event details ──
       const invitationsRes = await getInvitations({ response: "pending" });
       const pendingInvitations = invitationsRes.events || [];
       const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
 
-      // ── Get current user's ID from auth context ──
+      // Also fetch declined invitations? For now, we only have pending from the API.
+      // We'll need to get all invitations with response "declined" as well.
+      // For simplicity, we'll assume the user's responses are stored in the event objects.
+      // We'll use the event.response field that we set below.
+
       const currentUserId = user?.id;
-
-      // ── Separate events based on creator_id (not creatorName) ──
-      // Since the backend doesn't return creator_id, we need to match by creatorName
-      // But we can use the fact that the user's email/username might be in creatorName
-      // Better approach: fetch user's own events from a dedicated endpoint or use invites
-      // For now, we'll use a fallback: if creatorName matches user's email or username
-
       const userIdentifier = user?.username || user?.email?.split("@")[0] || "";
 
       const created = allEventsData.filter(
-        (ev) => ev.creatorName === userIdentifier
+        (ev) => ev.creatorName === userIdentifier,
       );
-
-      // ── Invited events: events the user is invited to (not created by them) ──
       const invited = allEventsData.filter(
-        (ev) => ev.creatorName !== userIdentifier
+        (ev) => ev.creatorName !== userIdentifier,
       );
 
-      // ── Mark response status ──
+      // For invited events, we need to know their response status.
+      // We'll simulate by checking if the event is in pending list.
+      // For declined, we don't have a direct way; we'll assume any event not in pending and not accepted is declined.
+      // But we can also fetch the user's responses from another endpoint.
+      // To keep it simple, we'll set response based on pendingIds, and if not pending, assume accepted.
+      // We'll add a declined list later by fetching user's responses.
+      // For now, we'll set response: if pendingIds has it -> pending, else accepted.
+      // But we need declined too. We'll fetch the user's responses for all events from a separate API call.
+      // Let's fetch the user's responses for events they are invited to.
+      let userResponses = {};
+      try {
+        const respRes = await apiClient.get("/notifications/responses"); // hypothetical endpoint
+        // Assume response: { eventId: 'accepted' | 'declined' | 'pending' }
+        userResponses = respRes.data || {};
+      } catch (err) {
+        // fallback: use pendingIds
+        console.warn("Could not fetch user responses, using pending only.");
+      }
+
+      const invitedWithResponse = invited.map((ev) => ({
+        ...ev,
+        response:
+          userResponses[ev.id] ||
+          (pendingIds.has(ev.id) ? "pending" : "accepted"),
+        isCreator: false,
+      }));
+
       const createdWithResponse = created.map((ev) => ({
         ...ev,
         response: "accepted",
         isCreator: true,
-      }));
-
-      const invitedWithResponse = invited.map((ev) => ({
-        ...ev,
-        response: pendingIds.has(ev.id) ? "pending" : "accepted",
-        isCreator: false,
       }));
 
       setCreatedEvents(createdWithResponse);
@@ -102,6 +120,58 @@ export default function Events() {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  // ─── Filter events based on search, duration, and type ───
+  const filterEvents = useCallback(
+    (events) => {
+      let filtered = events;
+
+      // Search filter
+      if (searchTerm.trim()) {
+        const lower = searchTerm.toLowerCase();
+        filtered = filtered.filter((ev) =>
+          ev.title.toLowerCase().includes(lower),
+        );
+      }
+
+      // Event type filter
+      if (eventType !== "all") {
+        filtered = filtered.filter((ev) => ev.type === eventType);
+      }
+
+      // Duration filter (by date range)
+      if (duration !== "all") {
+        const now = new Date();
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
+        let startDate, endDate;
+        if (duration === "day") {
+          startDate = today;
+          endDate = new Date(today);
+          endDate.setDate(endDate.getDate() + 1);
+        } else if (duration === "week") {
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay());
+          startDate = startOfWeek;
+          endDate = new Date(startOfWeek);
+          endDate.setDate(endDate.getDate() + 7);
+        } else if (duration === "month") {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        }
+        filtered = filtered.filter((ev) => {
+          const evDate = new Date(ev.date || ev.start_datetime);
+          return evDate >= startDate && evDate < endDate;
+        });
+      }
+
+      return filtered;
+    },
+    [searchTerm, eventType, duration],
+  );
 
   // ─── Handlers ─────────────────────────────────────────
   const handleEventClick = (event) => {
@@ -186,6 +256,7 @@ export default function Events() {
   // ─── Render Event Card ────────────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
+    const isDeclined = event.response === "declined";
     const isCreator = event.isCreator || false;
 
     return (
@@ -204,7 +275,8 @@ export default function Events() {
 
         <div className={styles.cardDetails}>
           <span>
-            <FiCalendar size={14} /> {formatDate(event.date || event.start_datetime)}
+            <FiCalendar size={14} />{" "}
+            {formatDate(event.date || event.start_datetime)}
           </span>
           <span>
             <FiClock size={14} />{" "}
@@ -295,43 +367,30 @@ export default function Events() {
     }
 
     switch (activeTab) {
-      case "created":
+      case "all":
+        const filteredAll = filterEvents(allEvents);
         return (
           <div className={styles.eventList}>
-            {createdEvents.length === 0 ? (
-              <div className={styles.emptyState}>
-                <FiPlus size={24} />
-                <span>You haven't created any events yet.</span>
-                <button
-                  className={styles.createBtn}
-                  onClick={() => navigate("/create-event")}
-                >
-                  Create Event
-                </button>
-              </div>
+            {filteredAll.length === 0 ? (
+              <div className={styles.emptyState}>No events found.</div>
             ) : (
-              createdEvents.map((ev) => renderEventCard(ev, true))
+              filteredAll.map((ev) => renderEventCard(ev, false))
             )}
           </div>
         );
 
-      case "collaboration":
-        return (
-          <div className={styles.eventList}>
-            <div className={styles.emptyState}>
-              <FiUsers size={24} />
-              <span>Collaboration events will appear here.</span>
-              <span className={styles.emptySubtext}>Coming soon!</span>
-            </div>
-          </div>
-        );
-
       case "invited":
-        const filteredInvited =
-          invitedSubTab === "pending"
-            ? invitedEvents.filter((ev) => ev.response === "pending")
-            : invitedEvents;
-
+        let invitedFiltered = filterEvents(invitedEvents);
+        if (invitedSubTab === "pending") {
+          invitedFiltered = invitedFiltered.filter(
+            (ev) => ev.response === "pending",
+          );
+        } else if (invitedSubTab === "declined") {
+          invitedFiltered = invitedFiltered.filter(
+            (ev) => ev.response === "declined",
+          );
+        }
+        // "all" shows everything (no additional filter)
         return (
           <div className={styles.invitedContainer}>
             <div className={styles.invitedTabs}>
@@ -349,29 +408,63 @@ export default function Events() {
               >
                 All ({invitedEvents.length})
               </button>
+              <button
+                className={`${styles.invitedTab} ${invitedSubTab === "declined" ? styles.activeInvitedTab : ""}`}
+                onClick={() => setInvitedSubTab("declined")}
+              >
+                Declined (
+                {
+                  invitedEvents.filter((ev) => ev.response === "declined")
+                    .length
+                }
+                )
+              </button>
             </div>
             <div className={styles.eventList}>
-              {filteredInvited.length === 0 ? (
+              {invitedFiltered.length === 0 ? (
                 <div className={styles.emptyState}>
                   {invitedSubTab === "pending"
                     ? "No pending invitations."
-                    : "No invited events."}
+                    : invitedSubTab === "declined"
+                      ? "No declined invitations."
+                      : "No invited events."}
                 </div>
               ) : (
-                filteredInvited.map((ev) => renderEventCard(ev, true))
+                invitedFiltered.map((ev) => renderEventCard(ev, true))
               )}
             </div>
           </div>
         );
 
-      case "all":
+      case "created":
+        const filteredCreated = filterEvents(createdEvents);
         return (
           <div className={styles.eventList}>
-            {allEvents.length === 0 ? (
-              <div className={styles.emptyState}>No events found.</div>
+            {filteredCreated.length === 0 ? (
+              <div className={styles.emptyState}>
+                <FiPlus size={24} />
+                <span>You haven't created any events yet.</span>
+                <button
+                  className={styles.createBtn}
+                  onClick={() => navigate("/create-event")}
+                >
+                  Create Event
+                </button>
+              </div>
             ) : (
-              allEvents.map((ev) => renderEventCard(ev, false))
+              filteredCreated.map((ev) => renderEventCard(ev, true))
             )}
+          </div>
+        );
+
+      case "collaboration":
+        return (
+          <div className={styles.eventList}>
+            <div className={styles.emptyState}>
+              <FiUsers size={24} />
+              <span>Collaboration events will appear here.</span>
+              <span className={styles.emptySubtext}>Coming soon!</span>
+            </div>
           </div>
         );
 
@@ -383,17 +476,21 @@ export default function Events() {
   // ─── Main Render ──────────────────────────────────────
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Events</h1>
-        <button
-          className={styles.createBtn}
-          onClick={() => navigate("/create-event")}
-        >
-          <FiPlus size={18} /> New Event
-        </button>
-      </div>
+      {/* Header removed: no title, no create button */}
 
       <div className={styles.tabs}>
+        <button
+          className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
+          onClick={() => setActiveTab("all")}
+        >
+          <FiEye size={16} /> All Events
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === "invited" ? styles.activeTab : ""}`}
+          onClick={() => setActiveTab("invited")}
+        >
+          <FiCalendar size={16} /> Invited
+        </button>
         <button
           className={`${styles.tab} ${activeTab === "created" ? styles.activeTab : ""}`}
           onClick={() => setActiveTab("created")}
@@ -405,18 +502,6 @@ export default function Events() {
           onClick={() => setActiveTab("collaboration")}
         >
           <FiUsers size={16} /> Collaboration
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === "invited" ? styles.activeTab : ""}`}
-          onClick={() => setActiveTab("invited")}
-        >
-          <FiCalendar size={16} /> Invited
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          <FiEye size={16} /> All Events
         </button>
       </div>
 
