@@ -1,0 +1,260 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(90vh - 80px);
+  overflow: hidden;
+}
+
+/* ─── Summary ─── */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f8fafb;
+  padding: 12px 8px;
+  border-radius: 12px;
+  gap: 2px;
+}
+
+.summaryItem svg {
+  color: var(--primary-color, #800000);
+}
+
+.summaryNumber {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.summaryLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ─── Tabs ─── */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.activeTab {
+  background: var(--primary-color, #800000);
+  color: #fff;
+}
+
+.activeTab:hover {
+  background: #660000;
+  color: #fff;
+}
+
+/* ─── Search ─── */
+.searchBar {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 12px;
+  padding: 8px 12px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.searchIcon {
+  color: #9ca3af;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  outline: none;
+  color: #111827;
+}
+
+.searchInput::placeholder {
+  color: #9ca3af;
+}
+
+.clearSearch {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.clearSearch:hover {
+  color: #6b7280;
+}
+
+/* ─── Content ─── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* ─── User List ─── */
+.userList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.userCard:hover {
+  border-color: #d1d5db;
+  background: #fafafa;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.userName {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+}
+
+.userDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.userTag {
+  font-size: 11px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.userEmail {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.statusAccepted {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.statusPending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.statusDeclined {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ─── List Grid (Departments & Offices) ─── */
+.listGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.listItem:hover {
+  border-color: #d1d5db;
+  background: #fafafa;
+}
+
+.listIcon {
+  color: var(--primary-color, #800000);
+  flex-shrink: 0;
+}
+
+.listName {
+  font-size: 14px;
+  color: #374151;
+}
+
+/* ─── Empty State ─── */
+.emptyState {
+  padding: 30px 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+}
