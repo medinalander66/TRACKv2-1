@@ -270,3 +270,43 @@
   gap: 0.5rem;
   padding-top: 0.5rem;
 }
+
+/* ─── Existing Files ─── */
+.existingFiles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.existingFile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafb;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.existingFileName {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.removeFileBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.removeFileBtn:hover {
+  background: #fecaca;
+}
