@@ -269,13 +269,11 @@ export default function Menu({ activePath, onCloseDrawer }) {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() - 1);
     setCurrentDate(d);
-    onCloseDrawer();
   };
   const goToNextMonth = () => {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() + 1);
     setCurrentDate(d);
-    onCloseDrawer();
   };
 
   const handleDateClick = (dateStr) => {
@@ -313,7 +311,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
   const durationOptions = [
     { key: "day", label: "Day", icon: <IconDay /> },
-    { key: "3day", label: "3 days", icon: <IconThreeDays /> },
     { key: "week", label: "Week", icon: <IconWeek /> },
     { key: "month", label: "Month", icon: <IconMonth /> },
   ];
