@@ -169,6 +169,7 @@ exports.listEvents = async (req, res) => {
       event_type: ev.event_type,
       color: ev.color,
       description: ev.description,
+      method: ev.method,
       location: ev.Venue ? ev.Venue.name : (ev.Location ? ev.Location.map_location : null),
       creatorName: ev.User ? ev.User.username : null,
       creatorId: ev.creator_id,
