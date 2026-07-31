@@ -168,7 +168,7 @@ export default function Events() {
 
   // ─── Format helpers ──────────────────────────────────
   const formatDate = (dateStr) => {
-    if (!dateStr) return "TBD";
+    if (!dateStr) return "";
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", {
       month: "short",
@@ -178,7 +178,7 @@ export default function Events() {
   };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return "TBD";
+    if (!timeStr) return "";
     if (timeStr.includes(":")) {
       const parts = timeStr.split(":");
       const hours = parseInt(parts[0]);
@@ -235,16 +235,35 @@ export default function Events() {
     const isPending = event.response === "pending";
     const isCreator = event.isCreator || false;
 
+    // ── Location display (katulad ng Home screen) ──
+    // Gumagamit ng venue, location, o fallback sa locationDisplay
+    // Kung online, "Online" ang ipapakita.
+    let locationDisplay = "";
+    if (event.method === "online") {
+      locationDisplay = "Online";
+    } else {
+      locationDisplay =
+        event.venue || event.location || event.locationDisplay || "";
+    }
+
     return (
       <div
         key={event.id}
         className={styles.eventCard}
-        style={{ borderColor: event.color || "#800000" }}
+        style={{ borderLeftColor: event.color || "#800000" }}
       >
-        {/* Title - malaki */}
+        {/* Title */}
         <div className={styles.cardTitleLarge}>{event.title}</div>
 
-        {/* Details row */}
+        {/* Hierarchy & Event Type */}
+        <div className={styles.cardMetaRow}>
+          <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
+          <span className={styles.metaBadge}>
+            {event.event_type || "Event"}
+          </span>
+        </div>
+
+        {/* Details */}
         <div className={styles.cardDetails}>
           <span>
             <FiCalendar size={14} />{" "}
@@ -256,7 +275,7 @@ export default function Events() {
             {formatTime(event.endTime || event.end_datetime)}
           </span>
           <span>
-            <FiMapPin size={14} /> {event.location || "TBD"}
+            <FiMapPin size={14} /> {locationDisplay}
           </span>
           {event.creatorName && (
             <span>
@@ -265,7 +284,7 @@ export default function Events() {
           )}
         </div>
 
-        {/* Badges sa baba */}
+        {/* Badges */}
         <div className={styles.cardBadges}>
           {getVisibilityBadge(event.type || event.visibility)}
           <span className={styles.methodBadge}>
@@ -277,10 +296,6 @@ export default function Events() {
             {getMethodLabel(event.method)}
           </span>
           {event.response && getStatusBadge(event.response)}
-          <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
-          <span className={styles.metaBadge}>
-            {event.event_type || "Event"}
-          </span>
         </div>
 
         {/* Actions */}
