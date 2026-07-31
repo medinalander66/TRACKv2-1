@@ -314,11 +314,12 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "month", label: "Month", icon: <IconMonth /> },
   ];
 
+  // ✅ Naitama: "personal" → "private"
   const filterOptions = [
     { key: "all", label: "All", icon: <IconAll /> },
     { key: "campus", label: "Campus", icon: <IconCampus /> },
     { key: "department", label: "Department", icon: <IconDepartment /> },
-    { key: "personal", label: "Private", icon: <IconPrivate /> },
+    { key: "private", label: "Private", icon: <IconPrivate /> },
   ];
 
   // --- Events specific options ---
@@ -329,11 +330,12 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "month", label: "This Month", icon: <IconMonth /> },
   ];
 
+  // ✅ Naitama: "personal" → "private"
   const eventsTypeOptions = [
     { key: "all", label: "All", icon: <IconAll /> },
     { key: "campus", label: "Campus", icon: <IconCampus /> },
     { key: "department", label: "Department", icon: <IconDepartment /> },
-    { key: "personal", label: "Private", icon: <IconPrivate /> },
+    { key: "private", label: "Private", icon: <IconPrivate /> },
   ];
 
   // --- Handlers for events filters ---
@@ -438,7 +440,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
           <div className={styles.listDivider} />
 
-          {/* Filter Buttons */}
+          {/* Filter Buttons (calendar) */}
           <div className={styles.listGroup}>
             {filterOptions.map((opt) => (
               <button
