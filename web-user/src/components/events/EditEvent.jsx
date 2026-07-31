@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { debounce } from "lodash";
+import { FiArrowLeft } from "react-icons/fi";
 import InputField from "../common/InputField";
 import Button from "../common/Button";
 import SelectDropdown from "../common/SelectDropdown";
@@ -80,13 +81,15 @@ export default function EditEvent() {
 
   const fileInputRef = useRef(null);
 
+  // ─── Go back ───
+  const goBack = () => navigate("/events");
+
   // ─── Fetch event data ──────────────────────────────────
   useEffect(() => {
     const fetchEventData = async () => {
       try {
         setFetchingEvent(true);
 
-        // Fetch event details, departments, and venues in parallel
         const [eventRes, deptRes, venueRes] = await Promise.all([
           apiClient.get(`/events/${id}`),
           apiClient.get("/lookups/departments"),
@@ -95,7 +98,6 @@ export default function EditEvent() {
 
         const event = eventRes.data.event;
 
-        // Format dates for input fields
         const startDate = new Date(event.start_datetime);
         const endDate = new Date(event.end_datetime);
 
@@ -127,13 +129,11 @@ export default function EditEvent() {
           event_type: event.event_type || "event",
         });
 
-        // Set attendees and collaborators
         const attendees = event.attendees || [];
         const collaborators = event.collaborators || [];
         setAttendeeIds(attendees.map((a) => a.user_id));
         setCollaboratorIds(collaborators.map((c) => c.user_id));
 
-        // Set existing attachments
         if (event.attachments) {
           setExistingAttachments(event.attachments);
         }
@@ -290,13 +290,13 @@ export default function EditEvent() {
         }
       }
 
-      // Delete removed existing attachments
-      // Note: You'd need a DELETE endpoint for this. For now, we'll just navigate.
-      // If you have a DELETE endpoint, you can call it here.
-
       navigate("/events");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Server error");
+      console.error("Update error:", err);
+      // Ipakita ang detalye ng error
+      const errorMsg =
+        err.response?.data?.message || err.message || "Server error";
+      setMessage(errorMsg);
       setLoading(false);
     }
   };
@@ -323,6 +323,12 @@ export default function EditEvent() {
   if (fetchingEvent) {
     return (
       <div className={styles.pageWrapper}>
+        <div className={styles.pageHeader}>
+          <button className={styles.backBtn} onClick={goBack}>
+            <FiArrowLeft size={24} />
+          </button>
+          <h1 className={styles.pageTitle}>Edit Event</h1>
+        </div>
         <div className={styles.sectionContent}>
           <p style={{ textAlign: "center", padding: "2rem 0" }}>
             Loading event data...
@@ -335,9 +341,15 @@ export default function EditEvent() {
   if (error) {
     return (
       <div className={styles.pageWrapper}>
+        <div className={styles.pageHeader}>
+          <button className={styles.backBtn} onClick={goBack}>
+            <FiArrowLeft size={24} />
+          </button>
+          <h1 className={styles.pageTitle}>Edit Event</h1>
+        </div>
         <div className={styles.sectionContent}>
           <p className={styles.error}>{error}</p>
-          <Button onClick={() => navigate("/events")}>Back to Events</Button>
+          <Button onClick={goBack}>Back to Events</Button>
         </div>
       </div>
     );
@@ -345,6 +357,14 @@ export default function EditEvent() {
 
   return (
     <div className={styles.pageWrapper}>
+      {/* ─── Header with Back Button ─── */}
+      <div className={styles.pageHeader}>
+        <button className={styles.backBtn} onClick={goBack}>
+          <FiArrowLeft size={24} />
+        </button>
+        <h1 className={styles.pageTitle}>Edit Event</h1>
+      </div>
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.titleSection}>
           <InputField
