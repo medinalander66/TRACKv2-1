@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useEventsFilter } from "../../../context/EventsFilterContext";
@@ -17,8 +17,69 @@ import {
   FiClock as FiClockIcon,
   FiGlobe,
   FiLink,
+  FiChevronLeft,
+  FiChevronRight,
 } from "react-icons/fi";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import styles from "./Events.module.css";
+
+// ── Same helpers as Home ──────────────────────────────
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  if (
+    typeof timeStr === "string" &&
+    timeStr.includes(":") &&
+    !timeStr.includes("T")
+  ) {
+    const parts = timeStr.split(":");
+    const hours = parseInt(parts[0]);
+    const mins = parts[1];
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${mins} ${ampm}`;
+  }
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return timeStr;
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0]?.slice(0, 2).toUpperCase() || "?";
+};
+
+const AVATAR_COLORS = [
+  "#f9a825",
+  "#43a047",
+  "#1e88e5",
+  "#8e24aa",
+  "#fb8c00",
+  "#00897b",
+  "#5e35b1",
+];
+const getAvatarColor = (str) => {
+  if (!str) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
 
 export default function Events() {
   const { user } = useAuth();
@@ -38,7 +99,32 @@ export default function Events() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
 
-  // ─── Fetch Data ──────────────────────────────────────
+  // ─── Today's Events (carousel) ──────────────────────
+  const [todayEvents, setTodayEvents] = useState([]);
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
+  const [todayTouchStartX, setTodayTouchStartX] = useState(0);
+
+  // ─── Fetch Today's Events (array, full details from backend) ──
+  const fetchTodayEvents = useCallback(async () => {
+    setTodayLoading(true);
+    try {
+      const res = await apiClient.get("/events/today");
+      if (res.data.ok) {
+        setTodayEvents(res.data.events || []);
+        setCurrentTodayIndex(0);
+      } else {
+        setTodayEvents([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch today's events:", err);
+      setTodayEvents([]);
+    } finally {
+      setTodayLoading(false);
+    }
+  }, []);
+
+  // ─── Fetch All Events (for tabs) ────────────────────
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -94,8 +180,9 @@ export default function Events() {
   }, [user]);
 
   useEffect(() => {
+    fetchTodayEvents();
     fetchEvents();
-  }, [fetchEvents]);
+  }, [fetchTodayEvents, fetchEvents]);
 
   // ─── Filter events ──────────────────────────────────
   const filterEvents = useCallback(
@@ -166,71 +253,257 @@ export default function Events() {
     }
   };
 
-  // ─── Format helpers ──────────────────────────────────
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatTime = (timeStr) => {
-    if (!timeStr) return "";
-    if (timeStr.includes(":")) {
-      const parts = timeStr.split(":");
-      const hours = parseInt(parts[0]);
-      const mins = parts[1];
-      const ampm = hours >= 12 ? "PM" : "AM";
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${mins} ${ampm}`;
-    }
-    return timeStr;
-  };
-
-  const getVisibilityBadge = (type) => {
-    const map = {
-      campus: { class: styles.badgeCampus, label: "Campus" },
-      department: { class: styles.badgeDepartment, label: "Department" },
-      private: { class: styles.badgePrivate, label: "Private" },
-    };
-    const s = map[type] || map.private;
-    return <span className={s.class}>{s.label}</span>;
-  };
-
-  const getStatusBadge = (status) => {
-    const map = {
-      accepted: {
-        class: styles.badgeAccepted,
-        icon: FiCheckCircle,
-        label: "Accepted",
-      },
-      declined: {
-        class: styles.badgeDeclined,
-        icon: FiXCircle,
-        label: "Declined",
-      },
-      pending: {
-        class: styles.badgePending,
-        icon: FiClockIcon,
-        label: "Pending",
-      },
-    };
-    const s = map[status] || map.pending;
-    return (
-      <span className={s.class}>
-        <s.icon size={12} /> {s.label}
-      </span>
+  // ─── Today's Events carousel handlers ───────────────
+  const handleTodayPrev = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === 0 ? todayEvents.length - 1 : prev - 1,
     );
   };
 
-  const getMethodLabel = (method) => {
-    return method === "online" ? "Online" : "Face-to-face";
+  const handleTodayNext = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === todayEvents.length - 1 ? 0 : prev + 1,
+    );
   };
 
-  // ─── Render Event Card ──────────────────────────────
+  const handleTodayTouchStart = (e) => {
+    setTodayTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTodayTouchEnd = (e) => {
+    const endX = e.changedTouches[0].clientX;
+    const diff = todayTouchStartX - endX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) handleTodayNext();
+      else handleTodayPrev();
+    }
+  };
+
+  // ─── Render a single Today's Event (featured card, same design as Home) ──
+  const renderTodayEventCard = (todayEvent) => {
+    if (!todayEvent) return null;
+
+    const creator = todayEvent.creator || {};
+    const creatorName = creator.full_name || creator.username || "Unknown";
+    const creatorPosition = creator.position || "";
+    const creatorAffiliation = [creator.department, creator.office]
+      .filter(Boolean)
+      .join(" | ");
+    const creatorSub = [creatorPosition, creatorAffiliation]
+      .filter(Boolean)
+      .join(" | ");
+
+    const participants = todayEvent.participants || {};
+    const depts = participants.departments || [];
+    const users = participants.users || [];
+
+    return (
+      <div className={styles.featuredEventSection}>
+        <div className={styles.featuredContainer}>
+          <div className={styles.featuredCard}>
+            <div className={styles.badgesStatus}>
+              <div className={styles.badgeRow}>
+                <div className={styles.badgePill}>
+                  {todayEvent.hierarchy || "Unknown Hierarchy"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.method || "Unknown Method"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.visibility || "Unknown Event Visibility"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.event_type || "Unknown Event Type"}
+                </div>
+              </div>
+
+              <div className={styles.heading2}>
+                <div className={styles.featuredTitle}>{todayEvent.title}</div>
+              </div>
+            </div>
+
+            <div className={styles.featuredCardContent}>
+              <div className={styles.titleDescription}>
+                <div className={styles.descriptionText}>
+                  {todayEvent.description}
+                </div>
+              </div>
+
+              <div className={styles.container8}>
+                <div className={styles.whenWhereGroup}>
+                  <div className={styles.sectionHeader}>
+                    <EventNoteOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>WHEN &amp; WHERE</div>
+                    </div>
+                  </div>
+                  <div className={styles.infoGrid}>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>DATE RANGE</div>
+                      <div className={styles.infoValue}>
+                        {formatDate(todayEvent.start_datetime)} —{" "}
+                        {formatDate(todayEvent.end_datetime)}
+                      </div>
+                    </div>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>TIME</div>
+                      <div className={styles.infoValue}>
+                        {formatTime(todayEvent.start_datetime)} —{" "}
+                        {formatTime(todayEvent.end_datetime)}
+                      </div>
+                    </div>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>LOCATION</div>
+                      <div className={styles.infoValue}>
+                        {todayEvent.venue || todayEvent.location || "Online"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.organizerSection}>
+                  <div className={styles.sectionHeader}>
+                    <PersonOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>ORGANIZER</div>
+                    </div>
+                  </div>
+                  <div className={styles.organizerRow}>
+                    <div className={styles.organizerAvatar}>
+                      {getInitials(creatorName)}
+                    </div>
+                    <div className={styles.organizerDetails}>
+                      <div className={styles.organizerName}>{creatorName}</div>
+                      <div className={styles.organizerTitle}>
+                        {creatorSub || "Organizer"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={styles.participatingBlock}>
+                    <div className={styles.infoLabel}>
+                      PARTICIPATING DEPARTMENTS
+                    </div>
+                    <div className={styles.deptBadges}>
+                      {depts.slice(0, 4).map((dept) => (
+                        <div key={dept} className={styles.deptBadge}>
+                          {dept}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.audienceSection}>
+                  <div className={styles.sectionHeader}>
+                    <GroupsOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>AUDIENCE</div>
+                    </div>
+                  </div>
+                  <div className={styles.audienceRow}>
+                    <div className={styles.attendeeStack}>
+                      {users.slice(0, 4).map((u) => {
+                        const name =
+                          u.full_name || u.username || u.email || "Unknown";
+                        return (
+                          <div
+                            key={u.id}
+                            className={styles.attendeeAvatar}
+                            style={{ background: getAvatarColor(name) }}
+                          >
+                            {getInitials(name)}
+                          </div>
+                        );
+                      })}
+                      {users.length >= 5 && (
+                        <div className={styles.attendeeMore}>
+                          +{users.length - 4}
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.audienceText}>
+                      {users.length > 0
+                        ? `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
+                        : "No attendees yet"}
+                    </div>
+                  </div>
+                  <button type="button" className={styles.viewAttendeesButton}>
+                    <VisibilityOutlinedIcon fontSize="small" />
+                    View Attendees
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.actionsRow}>
+                <button type="button" className={styles.viewEventButton}>
+                  View Event Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render Today's Events carousel wrapper ─────────
+  const renderTodayEventsCarousel = () => {
+    if (todayLoading)
+      return <p className={styles.noData}>Loading today's event...</p>;
+    if (todayEvents.length === 0)
+      return <p className={styles.noData}>No events today</p>;
+
+    return (
+      <div
+        className={styles.carouselWrapper}
+        onTouchStart={handleTodayTouchStart}
+        onTouchEnd={handleTodayTouchEnd}
+      >
+        <div
+          className={styles.carouselTrack}
+          style={{ transform: `translateX(-${currentTodayIndex * 100}%)` }}
+        >
+          {todayEvents.map((ev) => (
+            <div key={ev.id} className={styles.carouselSlide}>
+              {renderTodayEventCard(ev)}
+            </div>
+          ))}
+        </div>
+
+        {todayEvents.length > 1 && (
+          <>
+            <button
+              type="button"
+              className={`${styles.carouselArrow} ${styles.carouselArrowLeft}`}
+              onClick={handleTodayPrev}
+            >
+              <FiChevronLeft size={20} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.carouselArrow} ${styles.carouselArrowRight}`}
+              onClick={handleTodayNext}
+            >
+              <FiChevronRight size={20} />
+            </button>
+            <div className={styles.dotsContainer}>
+              {todayEvents.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`${styles.dot} ${
+                    idx === currentTodayIndex ? styles.dotActive : ""
+                  }`}
+                  onClick={() => setCurrentTodayIndex(idx)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // ─── Render Event Card (list) ──────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
     const isCreator = event.isCreator || false;
@@ -239,8 +512,7 @@ export default function Events() {
     if (event.method === "online") {
       locationDisplay = "Online";
     } else {
-      locationDisplay =
-        event.venue || event.location || event.locationDisplay || "";
+      locationDisplay = event.venue || event.location || "";
     }
 
     return (
@@ -249,10 +521,8 @@ export default function Events() {
         className={styles.eventCard}
         style={{ borderLeftColor: event.color || "#800000" }}
       >
-        {/* Title */}
         <div className={styles.cardTitleLarge}>{event.title}</div>
 
-        {/* Hierarchy & Event Type */}
         <div className={styles.cardMetaRow}>
           <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
           <span className={styles.metaBadge}>
@@ -260,7 +530,6 @@ export default function Events() {
           </span>
         </div>
 
-        {/* Details */}
         <div className={styles.cardDetails}>
           <span>
             <FiCalendar size={14} />{" "}
@@ -281,7 +550,6 @@ export default function Events() {
           )}
         </div>
 
-        {/* Badges */}
         <div className={styles.cardBadges}>
           {getVisibilityBadge(event.type || event.visibility)}
           <span className={styles.methodBadge}>
@@ -295,7 +563,6 @@ export default function Events() {
           {event.response && getStatusBadge(event.response)}
         </div>
 
-        {/* Actions */}
         {showActions && (
           <div className={styles.cardActions}>
             {isCreator ? (
@@ -348,6 +615,47 @@ export default function Events() {
     );
   };
 
+  // ─── Helpers for badges ──────────────────────────────
+  const getVisibilityBadge = (type) => {
+    const map = {
+      campus: { class: styles.badgeCampus, label: "Campus" },
+      department: { class: styles.badgeDepartment, label: "Department" },
+      private: { class: styles.badgePrivate, label: "Private" },
+    };
+    const s = map[type] || map.private;
+    return <span className={s.class}>{s.label}</span>;
+  };
+
+  const getStatusBadge = (status) => {
+    const map = {
+      accepted: {
+        class: styles.badgeAccepted,
+        icon: FiCheckCircle,
+        label: "Accepted",
+      },
+      declined: {
+        class: styles.badgeDeclined,
+        icon: FiXCircle,
+        label: "Declined",
+      },
+      pending: {
+        class: styles.badgePending,
+        icon: FiClockIcon,
+        label: "Pending",
+      },
+    };
+    const s = map[status] || map.pending;
+    return (
+      <span className={s.class}>
+        <s.icon size={12} /> {s.label}
+      </span>
+    );
+  };
+
+  const getMethodLabel = (method) => {
+    return method === "online" ? "Online" : "Face-to-face";
+  };
+
   // ─── Render Content ──────────────────────────────────
   const renderContent = () => {
     if (loading) return <p className={styles.loading}>Loading events...</p>;
@@ -357,13 +665,28 @@ export default function Events() {
       case "all": {
         const filteredAll = filterEvents(allEvents);
         return (
-          <div className={styles.eventList}>
-            {filteredAll.length === 0 ? (
-              <div className={styles.emptyState}>No events found.</div>
-            ) : (
-              filteredAll.map((ev) => renderEventCard(ev, false))
-            )}
-          </div>
+          <>
+            {/* ── Today's Event(s) ── */}
+            <div className={styles.todaySection}>
+              <div className={styles.todayHeader}>
+                <h2>Today's Event</h2>
+                <span className={styles.todayDate}>
+                  {formatDate(new Date())}
+                </span>
+              </div>
+              <div className={styles.todayContent}>
+                {renderTodayEventsCarousel()}
+              </div>
+            </div>
+
+            <div className={styles.eventList}>
+              {filteredAll.length === 0 ? (
+                <div className={styles.emptyState}>No events found.</div>
+              ) : (
+                filteredAll.map((ev) => renderEventCard(ev, false))
+              )}
+            </div>
+          </>
         );
       }
 
@@ -465,6 +788,7 @@ export default function Events() {
   // ─── Main Render ────────────────────────────────────
   return (
     <div className={styles.container}>
+      {/* ── Tabs ── */}
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
