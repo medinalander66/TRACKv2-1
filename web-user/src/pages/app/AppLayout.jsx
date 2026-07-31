@@ -26,6 +26,7 @@ const FOCUSED_ROUTES = [
   "/profile",
   "/create-event",
   "/create-task",
+  "/edit-event",
 ];
 
 export default function AppLayout() {
