@@ -26,7 +26,12 @@ import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import styles from "./Events.module.css";
 
-// ── Same helpers as Home ──────────────────────────────
+// ─── Import modals ───
+import EventCardView from "../../../components/events/EventCardView";
+import EventInvitation from "../../../components/events/EventInvitation";
+import AttendeesModal from "../../../components/events/AttendeesModal";
+
+// ─── Helpers ──────────────────────────────────────────────
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -96,10 +101,13 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // ─── Modal states ───
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
+  const [showAttendeesModal, setShowAttendeesModal] = useState(false);
 
-  // ─── Today's Events (carousel) ──────────────────────
+  // ─── Today's Events ──────────────────────────────────
   const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
   const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
@@ -124,7 +132,7 @@ export default function Events() {
     }
   }, []);
 
-  // ─── Fetch All Events (for tabs) ────────────────────
+  // ─── Fetch All Events ──────────────────────────────
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -141,7 +149,6 @@ export default function Events() {
       );
       const allEventsData = eventsRes.data.events || [];
 
-      // Invitations (pending)
       const invitationsRes = await getInvitations({ response: "pending" });
       const pendingInvitations = invitationsRes.events || [];
       const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
@@ -178,7 +185,7 @@ export default function Events() {
     }
   }, [user]);
 
-  // ─── Fetch Collaboration Events ──────────────────────
+  // ─── Fetch Collaboration Events ────────────────────
   const fetchCollaborationEvents = useCallback(async () => {
     try {
       const res = await apiClient.get("/events/collaborations");
@@ -249,9 +256,30 @@ export default function Events() {
   );
 
   // ─── Handlers ────────────────────────────────────────
-  const handleEventClick = (event) => {
-    setSelectedEvent(event);
-    setShowInvitationModal(true);
+  const handleViewEvent = async (event) => {
+    // If the event already has full details (from /events/today), use it
+    if (event.creator && event.participants) {
+      setSelectedEvent(event);
+      setShowViewModal(true);
+      return;
+    }
+
+    // Otherwise fetch full details
+    try {
+      const res = await apiClient.get(`/events/${event.id}`);
+      if (res.data.ok) {
+        setSelectedEvent(res.data.event);
+        setShowViewModal(true);
+      } else {
+        // Fallback: use what we have
+        setSelectedEvent(event);
+        setShowViewModal(true);
+      }
+    } catch (err) {
+      console.error("Failed to fetch event details:", err);
+      setSelectedEvent(event);
+      setShowViewModal(true);
+    }
   };
 
   const handleEditEvent = (eventId) => {
@@ -268,7 +296,32 @@ export default function Events() {
     }
   };
 
-  // ─── Today's Events carousel handlers ───────────────
+  const handleViewAttendees = async (event) => {
+    // If the event already has participants (from /events/today), use it
+    if (event.participants && event.participants.users) {
+      setSelectedEvent(event);
+      setShowAttendeesModal(true);
+      return;
+    }
+
+    // Otherwise fetch full details
+    try {
+      const res = await apiClient.get(`/events/${event.id}`);
+      if (res.data.ok) {
+        setSelectedEvent(res.data.event);
+        setShowAttendeesModal(true);
+      } else {
+        setSelectedEvent(event);
+        setShowAttendeesModal(true);
+      }
+    } catch (err) {
+      console.error("Failed to fetch event details:", err);
+      setSelectedEvent(event);
+      setShowAttendeesModal(true);
+    }
+  };
+
+  // ─── Carousel handlers ──────────────────────────────
   const handleTodayPrev = () => {
     setCurrentTodayIndex((prev) =>
       prev === 0 ? todayEvents.length - 1 : prev - 1,
@@ -294,7 +347,7 @@ export default function Events() {
     }
   };
 
-  // ─── Render a single Today's Event (featured card) ──
+  // ─── Render Today Event Card ────────────────────────
   const renderTodayEventCard = (todayEvent) => {
     if (!todayEvent) return null;
 
@@ -442,7 +495,11 @@ export default function Events() {
                         : "No attendees yet"}
                     </div>
                   </div>
-                  <button type="button" className={styles.viewAttendeesButton}>
+                  <button
+                    type="button"
+                    className={styles.viewAttendeesButton}
+                    onClick={() => handleViewAttendees(todayEvent)}
+                  >
                     <VisibilityOutlinedIcon fontSize="small" />
                     View Attendees
                   </button>
@@ -450,7 +507,11 @@ export default function Events() {
               </div>
 
               <div className={styles.actionsRow}>
-                <button type="button" className={styles.viewEventButton}>
+                <button
+                  type="button"
+                  className={styles.viewEventButton}
+                  onClick={() => handleViewEvent(todayEvent)}
+                >
                   View Event Details
                 </button>
               </div>
@@ -461,7 +522,7 @@ export default function Events() {
     );
   };
 
-  // ─── Render Today's Events carousel wrapper ─────────
+  // ─── Render Today's Events carousel ─────────────────
   const renderTodayEventsCarousel = () => {
     if (todayLoading)
       return <p className={styles.noData}>Loading today's event...</p>;
@@ -518,10 +579,12 @@ export default function Events() {
     );
   };
 
-  // ─── Render Event Card (list) ──────────────────────────
+  // ─── Render Event Card (list) ────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
     const isCreator = event.isCreator || false;
+    const isCollaborator =
+      !isCreator && !isPending && event.response === "accepted";
 
     let locationDisplay = "";
     if (event.method === "online") {
@@ -580,26 +643,85 @@ export default function Events() {
 
         {showActions && (
           <div className={styles.cardActions}>
-            {/* Always show Edit and View for collaboration events */}
-            <button
-              className={styles.editBtn}
-              onClick={() => handleEditEvent(event.id)}
-            >
-              <FiEdit size={14} /> Edit
-            </button>
-            <button
-              className={styles.viewBtn}
-              onClick={() => handleEventClick(event)}
-            >
-              <FiEye size={14} /> View
-            </button>
+            {/* ── Created events ── */}
+            {isCreator && (
+              <>
+                <button
+                  className={styles.editBtn}
+                  onClick={() => handleEditEvent(event.id)}
+                >
+                  <FiEdit size={14} /> Edit
+                </button>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleViewEvent(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              </>
+            )}
+
+            {/* ── Collaboration events ── */}
+            {isCollaborator && (
+              <>
+                <button
+                  className={styles.editBtn}
+                  onClick={() => handleEditEvent(event.id)}
+                >
+                  <FiEdit size={14} /> Edit
+                </button>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleViewEvent(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              </>
+            )}
+
+            {/* ── Invited & Accepted (View only) ── */}
+            {!isCreator &&
+              !isPending &&
+              !isCollaborator &&
+              event.response === "accepted" && (
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleViewEvent(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              )}
+
+            {/* ── Pending invitation ── */}
+            {isPending && (
+              <>
+                <button
+                  className={styles.acceptBtn}
+                  onClick={() => handleRespond(event.id, "accepted")}
+                >
+                  <FiCheckCircle size={14} /> Accept
+                </button>
+                <button
+                  className={styles.declineBtn}
+                  onClick={() => handleRespond(event.id, "declined")}
+                >
+                  <FiXCircle size={14} /> Decline
+                </button>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleViewEvent(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
     );
   };
 
-  // ─── Helpers for badges ──────────────────────────────
+  // ─── Badge helpers ──────────────────────────────────
   const getVisibilityBadge = (type) => {
     const map = {
       campus: { class: styles.badgeCampus, label: "Campus" },
@@ -776,7 +898,6 @@ export default function Events() {
   // ─── Main Render ────────────────────────────────────
   return (
     <div className={styles.container}>
-      {/* ── Tabs ── */}
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
@@ -805,6 +926,35 @@ export default function Events() {
       </div>
 
       <div className={styles.content}>{renderContent()}</div>
+
+      {/* ─── Modals ─── */}
+      <EventCardView
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+      />
+
+      <EventInvitation
+        isOpen={showInvitationModal}
+        onClose={() => {
+          setShowInvitationModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+        onRespond={handleRespond}
+      />
+
+      <AttendeesModal
+        isOpen={showAttendeesModal}
+        onClose={() => {
+          setShowAttendeesModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+      />
     </div>
   );
 }
