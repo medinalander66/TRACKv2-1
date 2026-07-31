@@ -143,7 +143,7 @@ exports.updateEvent = async (req, res) => {
       title, visibility, hierarchy, start_datetime, end_datetime,
       method, venue_id, map_location, department_id, description,
       color, attendee_ids, collaborator_ids, remind_before_minutes,
-      is_email_reminder, event_type
+      is_email_reminder, event_type, link
     } = req.body;
 
     // 1. Hanapin ang event
@@ -155,7 +155,6 @@ exports.updateEvent = async (req, res) => {
 
     // 2. I-verify na ang user ang creator (o collaborator)
     if (event.creator_id !== req.userId) {
-      // Check kung collaborator
       const collaborator = await EventCollaborator.findOne({
         where: { event_id: id, user_id: req.userId }
       });
@@ -177,7 +176,7 @@ exports.updateEvent = async (req, res) => {
     }
 
     // 4. I-handle ang department visibility
-    let finalDeptId = event.department_id;
+    let finalDeptId = null;
     if (visibility === 'department') {
       if (!department_id) {
         await t.rollback();
@@ -189,13 +188,11 @@ exports.updateEvent = async (req, res) => {
         return res.status(403).json({ ok: false, message: 'You can only create department events for your own department.' });
       }
       finalDeptId = department_id;
-    } else {
-      finalDeptId = null;
     }
 
     // 5. I-handle ang venue/location
-    let finalVenueId = event.venue_id;
-    let finalLocationId = event.location_id;
+    let finalVenueId = null;
+    let finalLocationId = null;
 
     if (method !== 'online') {
       if (hierarchy === 'local') {
@@ -206,32 +203,29 @@ exports.updateEvent = async (req, res) => {
             return res.status(404).json({ ok: false, message: 'Venue not found.' });
           }
           finalVenueId = venue.id;
-          finalLocationId = null;
-        } else {
-          finalVenueId = null;
-          finalLocationId = null;
         }
       } else {
         if (map_location) {
-          const newLoc = await Location.create({
-            id: uuidv4(),
-            exact_location: '',
-            street: null,
-            map_location: map_location.trim(),
-            created_by: req.userId,
-            is_active: true
-          }, { transaction: t });
-          finalLocationId = newLoc.id;
-          finalVenueId = null;
+          // Check if location already exists
+          let existingLocation = await Location.findOne({
+            where: { map_location: map_location.trim() }
+          });
+          if (!existingLocation) {
+            existingLocation = await Location.create({
+              id: uuidv4(),
+              exact_location: '',
+              street: null,
+              map_location: map_location.trim(),
+              created_by: req.userId,
+              is_active: true
+            }, { transaction: t });
+          }
+          finalLocationId = existingLocation.id;
         } else {
           await t.rollback();
           return res.status(400).json({ ok: false, message: 'map_location is required for external events.' });
         }
       }
-    } else {
-      // Online method
-      finalVenueId = null;
-      finalLocationId = null;
     }
 
     // 6. I-update ang event
@@ -239,7 +233,7 @@ exports.updateEvent = async (req, res) => {
       title,
       color,
       method,
-      link: method === 'online' ? req.body.link || null : null,
+      link: method === 'online' ? (link || null) : null,
       start_datetime,
       end_datetime,
       hierarchy,
@@ -252,10 +246,10 @@ exports.updateEvent = async (req, res) => {
       description,
       remind_before_minutes: remind_before_minutes || null,
       is_email_reminder: !!is_email_reminder,
+      updated_at: new Date()
     }, { transaction: t });
 
     // 7. I-update ang attendees
-    // Tanggalin muna ang lahat maliban sa creator
     await EventAttendee.destroy({
       where: {
         event_id: id,
@@ -264,7 +258,6 @@ exports.updateEvent = async (req, res) => {
       transaction: t
     });
 
-    // Idagdag ang mga bagong attendees
     if (attendee_ids && attendee_ids.length > 0) {
       const unique = [...new Set(attendee_ids)].filter(id => id !== req.userId);
       if (unique.length > 0) {
@@ -312,7 +305,7 @@ exports.updateEvent = async (req, res) => {
   } catch (error) {
     await t.rollback();
     console.error('Update event error:', error);
-    res.status(500).json({ ok: false, message: 'Server error.' });
+    res.status(500).json({ ok: false, message: error.message || 'Server error.' });
   }
 };
 
