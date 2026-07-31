@@ -171,6 +171,7 @@ exports.listEvents = async (req, res) => {
       description: ev.description,
       location: ev.Venue ? ev.Venue.name : (ev.Location ? ev.Location.map_location : null),
       creatorName: ev.User ? ev.User.username : null,
+      creatorId: ev.creator_id,
     }));
 
     res.json({ ok: true, events: result });
