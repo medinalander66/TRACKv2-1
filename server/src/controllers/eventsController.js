@@ -159,14 +159,25 @@ exports.listEvents = async (req, res) => {
     });
 
     const result = events.map(ev => {
-      // Determine location display
+      // ── Kunin ang venue at location nang hiwalay (tulad ng /events/today) ──
+      let venueName = null;
+      let locationName = null;
+
+      if (ev.Venue) {
+        venueName = ev.Venue.name;
+      }
+      if (ev.Location) {
+        locationName = ev.Location.map_location;
+      }
+
+      // Para sa backward compatibility, panatilihin ang `location` field
       let locationDisplay = null;
       if (ev.method === 'online') {
         locationDisplay = 'Online';
-      } else if (ev.Venue) {
-        locationDisplay = ev.Venue.name;
-      } else if (ev.Location) {
-        locationDisplay = ev.Location.map_location;
+      } else if (venueName) {
+        locationDisplay = venueName;
+      } else if (locationName) {
+        locationDisplay = locationName;
       }
 
       return {
@@ -181,7 +192,9 @@ exports.listEvents = async (req, res) => {
         color: ev.color,
         description: ev.description,
         method: ev.method,
-        location: locationDisplay,
+        venue: venueName,        // ← bagong field
+        location: locationName,  // ← bagong field (map_location)
+        locationDisplay: locationDisplay, // ← existing field (backward compatible)
         creatorName: ev.User ? ev.User.username : null,
         creatorId: ev.creator_id,
       };
