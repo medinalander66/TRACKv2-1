@@ -15,6 +15,8 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiClock as FiClockIcon,
+  FiGlobe,
+  FiLink,
 } from "react-icons/fi";
 import styles from "./Events.module.css";
 
@@ -53,14 +55,13 @@ export default function Events() {
       );
       const allEventsData = eventsRes.data.events || [];
 
-      // --- Invitations (pending) ---
+      // Invitations (pending)
       const invitationsRes = await getInvitations({ response: "pending" });
       const pendingInvitations = invitationsRes.events || [];
       const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
 
       const currentUserId = user?.id;
 
-      // --- Separate created vs invited using creatorId ---
       const created = allEventsData.filter(
         (ev) => ev.creatorId === currentUserId,
       );
@@ -68,8 +69,6 @@ export default function Events() {
         (ev) => ev.creatorId !== currentUserId,
       );
 
-      // --- Assign response status (pending or accepted) ---
-      // Walang endpoint para sa declined, kaya i‑assume na accepted ang hindi pending.
       const createdWithResponse = created.map((ev) => ({
         ...ev,
         response: "accepted",
@@ -103,7 +102,6 @@ export default function Events() {
     (events) => {
       let filtered = events;
 
-      // Search
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         filtered = filtered.filter((ev) =>
@@ -111,12 +109,10 @@ export default function Events() {
         );
       }
 
-      // Event type – gamitin ang `eventType` na nagmula sa menu
       if (eventType !== "all") {
         filtered = filtered.filter((ev) => ev.type === eventType);
       }
 
-      // Duration (date range)
       if (duration !== "all") {
         const now = new Date();
         const today = new Date(
@@ -230,25 +226,25 @@ export default function Events() {
     );
   };
 
+  const getMethodLabel = (method) => {
+    return method === "online" ? "Online" : "Face-to-face";
+  };
+
   // ─── Render Event Card ──────────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
     const isCreator = event.isCreator || false;
 
     return (
-      <div key={event.id} className={styles.eventCard}>
-        <div className={styles.cardHeader}>
-          <div className={styles.cardTitle}>
-            <span className={styles.eventTitle}>{event.title}</span>
-            {getVisibilityBadge(event.type || event.visibility)}
-          </div>
-          {event.response && (
-            <div className={styles.cardStatus}>
-              {getStatusBadge(event.response)}
-            </div>
-          )}
-        </div>
+      <div
+        key={event.id}
+        className={styles.eventCard}
+        style={{ borderColor: event.color || "#800000" }}
+      >
+        {/* Title - malaki */}
+        <div className={styles.cardTitleLarge}>{event.title}</div>
 
+        {/* Details row */}
         <div className={styles.cardDetails}>
           <span>
             <FiCalendar size={14} />{" "}
@@ -260,74 +256,82 @@ export default function Events() {
             {formatTime(event.endTime || event.end_datetime)}
           </span>
           <span>
-            <FiMapPin size={14} /> {event.location || "Online"}
+            <FiMapPin size={14} /> {event.location || "TBD"}
           </span>
           {event.creatorName && (
             <span>
-              <FiUsers size={14} /> Created by: {event.creatorName}
+              <FiUsers size={14} /> {event.creatorName}
             </span>
           )}
         </div>
 
-        {showActions && isCreator && (
-          <div className={styles.cardActions}>
-            <button
-              className={styles.editBtn}
-              onClick={() => handleEditEvent(event.id)}
-            >
-              <FiEdit size={14} /> Edit
-            </button>
-            <button
-              className={styles.viewBtn}
-              onClick={() => handleEventClick(event)}
-            >
-              <FiEye size={14} /> View
-            </button>
-          </div>
-        )}
-
-        {showActions && !isCreator && isPending && (
-          <div className={styles.cardActions}>
-            <button
-              className={styles.acceptBtn}
-              onClick={() => handleRespond(event.id, "accepted")}
-            >
-              <FiCheckCircle size={14} /> Accept
-            </button>
-            <button
-              className={styles.declineBtn}
-              onClick={() => handleRespond(event.id, "declined")}
-            >
-              <FiXCircle size={14} /> Decline
-            </button>
-            <button
-              className={styles.viewBtn}
-              onClick={() => handleEventClick(event)}
-            >
-              <FiEye size={14} /> View
-            </button>
-          </div>
-        )}
-
-        {showActions && !isCreator && !isPending && (
-          <div className={styles.cardActions}>
-            <button
-              className={styles.viewBtn}
-              onClick={() => handleEventClick(event)}
-            >
-              <FiEye size={14} /> View
-            </button>
-          </div>
-        )}
-
-        <div className={styles.cardFooter}>
-          <span className={styles.eventHierarchy}>
-            {event.hierarchy || "Local"}
+        {/* Badges sa baba */}
+        <div className={styles.cardBadges}>
+          {getVisibilityBadge(event.type || event.visibility)}
+          <span className={styles.methodBadge}>
+            {event.method === "online" ? (
+              <FiLink size={12} />
+            ) : (
+              <FiGlobe size={12} />
+            )}
+            {getMethodLabel(event.method)}
           </span>
-          <span className={styles.eventType}>
+          {event.response && getStatusBadge(event.response)}
+          <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
+          <span className={styles.metaBadge}>
             {event.event_type || "Event"}
           </span>
         </div>
+
+        {/* Actions */}
+        {showActions && (
+          <div className={styles.cardActions}>
+            {isCreator ? (
+              <>
+                <button
+                  className={styles.editBtn}
+                  onClick={() => handleEditEvent(event.id)}
+                >
+                  <FiEdit size={14} /> Edit
+                </button>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleEventClick(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              </>
+            ) : isPending ? (
+              <>
+                <button
+                  className={styles.acceptBtn}
+                  onClick={() => handleRespond(event.id, "accepted")}
+                >
+                  <FiCheckCircle size={14} /> Accept
+                </button>
+                <button
+                  className={styles.declineBtn}
+                  onClick={() => handleRespond(event.id, "declined")}
+                >
+                  <FiXCircle size={14} /> Decline
+                </button>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => handleEventClick(event)}
+                >
+                  <FiEye size={14} /> View
+                </button>
+              </>
+            ) : (
+              <button
+                className={styles.viewBtn}
+                onClick={() => handleEventClick(event)}
+              >
+                <FiEye size={14} /> View
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   };
