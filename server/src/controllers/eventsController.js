@@ -300,6 +300,7 @@ exports.getEventStats = async (req, res) => {
 // ─── GET TODAY'S EVENT (WITH PARTICIPANTS) ─────────────
 // ─── GET TODAY'S EVENT (MANUAL FETCH – NO ASSOCIATIONS) ──
 // ─── GET TODAY'S EVENT (MANUAL FETCH) ──
+// ─── GET TODAY'S EVENTS (ALL, WITH PARTICIPANTS) ─────────────
 exports.getTodayEvent = async (req, res) => {
   try {
     const userId = req.userId;
@@ -315,7 +316,7 @@ exports.getTodayEvent = async (req, res) => {
     });
     const eventIds = attendeeEvents.map(a => a.event_id);
 
-    const event = await Event.findOne({
+    const events = await Event.findAll({
       where: {
         is_archived: false,
         [Op.or]: [
@@ -327,129 +328,134 @@ exports.getTodayEvent = async (req, res) => {
       order: [['start_datetime', 'ASC']]
     });
 
-    if (!event) {
-      return res.json({ ok: true, event: null });
+    if (!events || events.length === 0) {
+      return res.json({ ok: true, events: [] });
     }
 
-    // ── 1. GET VENUE ──
-    let venueName = null;
-    if (event.venue_id) {
-      const venue = await Venue.findByPk(event.venue_id, { attributes: ['name'] });
-      if (venue) venueName = venue.name;
-    }
+    const formattedEvents = [];
 
-    // ── 2. GET LOCATION ──
-    let locationName = null;
-    if (event.location_id) {
-      const location = await Location.findByPk(event.location_id, { attributes: ['map_location'] });
-      if (location) locationName = location.map_location;
-    }
+    for (const event of events) {
+      // ── 1. GET VENUE ──
+      let venueName = null;
+      if (event.venue_id) {
+        const venue = await Venue.findByPk(event.venue_id, { attributes: ['name'] });
+        if (venue) venueName = venue.name;
+      }
 
-    // ── 3. GET CREATOR ──
-    let creatorData = null;
-    if (event.creator_id) {
-      const creatorUser = await User.findByPk(event.creator_id, { attributes: ['id', 'username', 'email'] });
-      if (creatorUser) {
-        const profile = await UserProfile.findOne({ where: { user_id: creatorUser.id } });
-        let position = null, department = null, office = null, fullName = null;
+      // ── 2. GET LOCATION ──
+      let locationName = null;
+      if (event.location_id) {
+        const location = await Location.findByPk(event.location_id, { attributes: ['map_location'] });
+        if (location) locationName = location.map_location;
+      }
+
+      // ── 3. GET CREATOR ──
+      let creatorData = null;
+      if (event.creator_id) {
+        const creatorUser = await User.findByPk(event.creator_id, { attributes: ['id', 'username', 'email'] });
+        if (creatorUser) {
+          const profile = await UserProfile.findOne({ where: { user_id: creatorUser.id } });
+          let position = null, department = null, office = null, fullName = null;
+          if (profile) {
+            fullName = profile.full_name;
+            if (profile.position_id) {
+              const pos = await Position.findByPk(profile.position_id);
+              if (pos) position = pos.name;
+            }
+            if (profile.department_id) {
+              const dept = await Department.findByPk(profile.department_id);
+              if (dept) department = dept.name;
+            }
+            if (profile.office_id) {
+              const off = await Office.findByPk(profile.office_id);
+              if (off) office = off.name;
+            }
+          }
+          creatorData = {
+            username: creatorUser.username || fullName || creatorUser.email || 'Unknown',
+            email: creatorUser.email,
+            full_name: fullName || creatorUser.username || creatorUser.email,
+            position,
+            department,
+            office
+          };
+        }
+      }
+
+      // ── 4. GET ATTENDEES ──
+      const attendees = await EventAttendee.findAll({
+        where: { event_id: event.id }
+      });
+
+      const departmentSet = new Set();
+      const officeSet = new Set();
+      const usersList = [];
+
+      for (const attendee of attendees) {
+        const user = await User.findByPk(attendee.user_id, { attributes: ['id', 'username', 'email'] });
+        if (!user) continue;
+
+        const profile = await UserProfile.findOne({ where: { user_id: user.id } });
+        let deptName = null, officeName = null, positionName = null, fullName = null;
+
         if (profile) {
           fullName = profile.full_name;
-          if (profile.position_id) {
-            const pos = await Position.findByPk(profile.position_id);
-            if (pos) position = pos.name;
-          }
           if (profile.department_id) {
             const dept = await Department.findByPk(profile.department_id);
-            if (dept) department = dept.name;
+            if (dept) {
+              deptName = dept.name;
+              departmentSet.add(deptName);
+            }
           }
           if (profile.office_id) {
             const off = await Office.findByPk(profile.office_id);
-            if (off) office = off.name;
+            if (off) {
+              officeName = off.name;
+              officeSet.add(officeName);
+            }
+          }
+          if (profile.position_id) {
+            const pos = await Position.findByPk(profile.position_id);
+            if (pos) positionName = pos.name;
           }
         }
-        creatorData = {
-          username: creatorUser.username || fullName || creatorUser.email || 'Unknown',
-          email: creatorUser.email,
-          full_name: fullName || creatorUser.username || creatorUser.email,
-          position,
-          department,
-          office
-        };
-      }
-    }
 
-    // ── 4. GET ATTENDEES ──
-    const attendees = await EventAttendee.findAll({
-      where: { event_id: event.id }
-    });
-
-    const departmentSet = new Set();
-    const officeSet = new Set();
-    const usersList = [];
-
-    for (const attendee of attendees) {
-      const user = await User.findByPk(attendee.user_id, { attributes: ['id', 'username', 'email'] });
-      if (!user) continue;
-
-      const profile = await UserProfile.findOne({ where: { user_id: user.id } });
-      let deptName = null, officeName = null, positionName = null, fullName = null;
-
-      if (profile) {
-        fullName = profile.full_name;
-        if (profile.department_id) {
-          const dept = await Department.findByPk(profile.department_id);
-          if (dept) {
-            deptName = dept.name;
-            departmentSet.add(deptName);
-          }
-        }
-        if (profile.office_id) {
-          const off = await Office.findByPk(profile.office_id);
-          if (off) {
-            officeName = off.name;
-            officeSet.add(officeName);
-          }
-        }
-        if (profile.position_id) {
-          const pos = await Position.findByPk(profile.position_id);
-          if (pos) positionName = pos.name;
-        }
+        usersList.push({
+          id: user.id,
+          username: user.username || fullName || user.email || 'Unknown',
+          email: user.email,
+          full_name: fullName || user.username || user.email,
+          department: deptName,
+          office: officeName,
+          position: positionName,
+          response: attendee.response
+        });
       }
 
-      usersList.push({
-        id: user.id,
-        username: user.username || fullName || user.email || 'Unknown',
-        email: user.email,
-        full_name: fullName || user.username || user.email,
-        department: deptName,
-        office: officeName,
-        position: positionName,
-        response: attendee.response
+      formattedEvents.push({
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        start_datetime: event.start_datetime,
+        end_datetime: event.end_datetime,
+        method: event.method,
+        hierarchy: event.hierarchy,
+        event_type: event.event_type,
+        visibility: event.visibility,
+        venue: venueName,
+        location: locationName,
+        creator: creatorData,
+        participants: {
+          departments: Array.from(departmentSet),
+          offices: Array.from(officeSet),
+          users: usersList
+        }
       });
     }
 
-    const formatted = {
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      start_datetime: event.start_datetime,
-      end_datetime: event.end_datetime,
-      method: event.method,
-      hierarchy: event.hierarchy,
-      event_type: event.event_type,
-      venue: venueName,
-      location: locationName,
-      creator: creatorData,
-      participants: {
-        departments: Array.from(departmentSet),
-        offices: Array.from(officeSet),
-        users: usersList
-      }
-    };
-
-    res.json({ ok: true, event: formatted });
+    res.json({ ok: true, events: formattedEvents });
   } catch (error) {
-    console.error('Get today event error:', error);
+    console.error('Get today events error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
