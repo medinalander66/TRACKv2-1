@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCalendar } from "../../context/CalendarContext";
+import { useEventsFilter } from "../../context/EventsFilterContext";
 import apiClient from "../../api/client";
 import styles from "./Menu.module.css";
 
@@ -48,7 +49,7 @@ const MENU_CONTENT = {
   },
 };
 
-/* --- Simple line icons (stroke uses currentColor so they inherit active/inactive color) --- */
+/* --- Simple line icons --- */
 const IconDay = () => (
   <svg
     width="20"
@@ -61,22 +62,6 @@ const IconDay = () => (
     <rect x="4" y="5" width="16" height="15" rx="2" />
     <line x1="4" y1="9" x2="20" y2="9" />
     <line x1="12" y1="9" x2="12" y2="20" />
-  </svg>
-);
-
-const IconThreeDays = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-  >
-    <rect x="3" y="5" width="18" height="15" rx="2" />
-    <line x1="3" y1="9" x2="21" y2="9" />
-    <line x1="9" y1="9" x2="9" y2="20" />
-    <line x1="15" y1="9" x2="15" y2="20" />
   </svg>
 );
 
@@ -192,6 +177,8 @@ const generateMonthGrid = (year, month) => {
 
 export default function Menu({ activePath, onCloseDrawer }) {
   const navigate = useNavigate();
+
+  // Calendar context
   const {
     currentDate,
     setCurrentDate,
@@ -203,11 +190,20 @@ export default function Menu({ activePath, onCloseDrawer }) {
     setActiveFilters,
   } = useCalendar();
 
-  // Search state
-  const [searchTerm, setSearchTerm] = useState("");
+  // Events filter context
+  const {
+    searchTerm: eventsSearchTerm,
+    setSearchTerm: setEventsSearchTerm,
+    duration: eventsDuration,
+    setDuration: setEventsDuration,
+    eventType,
+    setEventType,
+  } = useEventsFilter();
+
+  // --- Calendar search ---
+  const [calendarSearchTerm, setCalendarSearchTerm] = useState("");
   const [allEventsForSearch, setAllEventsForSearch] = useState([]);
 
-  // Fetch all events for search
   useEffect(() => {
     const fetchAllEvents = async () => {
       try {
@@ -229,15 +225,15 @@ export default function Menu({ activePath, onCloseDrawer }) {
     fetchAllEvents();
   }, []);
 
-  const searchResults = useMemo(() => {
-    if (!searchTerm.trim()) return [];
-    const lower = searchTerm.toLowerCase();
+  const calendarSearchResults = useMemo(() => {
+    if (!calendarSearchTerm.trim()) return [];
+    const lower = calendarSearchTerm.toLowerCase();
     return allEventsForSearch
       .filter((ev) => ev.title.toLowerCase().includes(lower))
       .slice(0, 10);
-  }, [searchTerm, allEventsForSearch]);
+  }, [calendarSearchTerm, allEventsForSearch]);
 
-  const handleSelectResult = (event) => {
+  const handleCalendarSelectResult = (event) => {
     setSelectedDate(event.date);
     const dateParts = event.date.split("-");
     const newDate = new Date(
@@ -246,10 +242,11 @@ export default function Menu({ activePath, onCloseDrawer }) {
       parseInt(dateParts[2]),
     );
     setCurrentDate(newDate);
-    setSearchTerm("");
+    setCalendarSearchTerm("");
     onCloseDrawer();
   };
 
+  // --- Determine active menu key ---
   let activeKey = "home";
   if (activePath.includes("/venues")) activeKey = "venues";
   else if (activePath.includes("/calendar")) activeKey = "calendar";
@@ -258,6 +255,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
   const menu = MENU_CONTENT[activeKey];
 
+  // --- Calendar specific logic ---
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthGrid = useMemo(
@@ -265,6 +263,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
     [year, month],
   );
 
+  // Arrow functions - NO onCloseDrawer() here
   const goToPrevMonth = () => {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() - 1);
@@ -322,6 +321,32 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "personal", label: "Private", icon: <IconPrivate /> },
   ];
 
+  // --- Events specific options ---
+  const eventsDurationOptions = [
+    { key: "all", label: "All", icon: <IconAll /> },
+    { key: "day", label: "Today", icon: <IconDay /> },
+    { key: "week", label: "This Week", icon: <IconWeek /> },
+    { key: "month", label: "This Month", icon: <IconMonth /> },
+  ];
+
+  const eventsTypeOptions = [
+    { key: "all", label: "All", icon: <IconAll /> },
+    { key: "campus", label: "Campus", icon: <IconCampus /> },
+    { key: "department", label: "Department", icon: <IconDepartment /> },
+    { key: "personal", label: "Private", icon: <IconPrivate /> },
+  ];
+
+  // --- Handlers for events filters ---
+  const handleEventsDurationChange = (key) => {
+    setEventsDuration(key);
+    onCloseDrawer();
+  };
+
+  const handleEventsTypeChange = (key) => {
+    setEventType(key);
+    onCloseDrawer();
+  };
+
   return (
     <div className={styles.menuContainer}>
       {activeKey === "calendar" && (
@@ -332,16 +357,16 @@ export default function Menu({ activePath, onCloseDrawer }) {
               type="text"
               className={styles.searchInput}
               placeholder="Search events..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={calendarSearchTerm}
+              onChange={(e) => setCalendarSearchTerm(e.target.value)}
             />
-            {searchTerm && searchResults.length > 0 && (
+            {calendarSearchTerm && calendarSearchResults.length > 0 && (
               <div className={styles.searchResults}>
-                {searchResults.map((ev) => (
+                {calendarSearchResults.map((ev) => (
                   <div
                     key={ev.id}
                     className={styles.searchResultItem}
-                    onClick={() => handleSelectResult(ev)}
+                    onClick={() => handleCalendarSelectResult(ev)}
                   >
                     <div className={styles.resultTitle}>{ev.title}</div>
                     <div className={styles.resultDate}>{ev.date}</div>
@@ -349,7 +374,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
                 ))}
               </div>
             )}
-            {searchTerm && searchResults.length === 0 && (
+            {calendarSearchTerm && calendarSearchResults.length === 0 && (
               <div className={styles.searchNoResults}>No events found</div>
             )}
           </div>
@@ -431,7 +456,61 @@ export default function Menu({ activePath, onCloseDrawer }) {
         </div>
       )}
 
-      {activeKey !== "calendar" && (
+      {activeKey === "events" && (
+        <div className={styles.eventsMenuContent}>
+          {/* Search Field */}
+          <div className={styles.searchWrapper}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search events..."
+              value={eventsSearchTerm}
+              onChange={(e) => setEventsSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* Create Event */}
+          <button className={styles.createEventBtn} onClick={handleCreateEvent}>
+            + Create Event
+          </button>
+
+          {/* Duration Filters */}
+          <div className={styles.listGroup}>
+            {eventsDurationOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  eventsDuration === opt.key ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleEventsDurationChange(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.listDivider} />
+
+          {/* Event Type Filters */}
+          <div className={styles.listGroup}>
+            {eventsTypeOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  eventType === opt.key ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleEventsTypeChange(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeKey !== "calendar" && activeKey !== "events" && (
         <div className={styles.menuPlaceholder}>
           <p>
             Menu content for <strong>{menu.title}</strong> will be placed here.

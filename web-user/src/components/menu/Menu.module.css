@@ -292,3 +292,10 @@
   background: var(--primary-color, #800000);
   opacity: 0.95;
 }
+
+/* events content */
+.eventsMenuContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
