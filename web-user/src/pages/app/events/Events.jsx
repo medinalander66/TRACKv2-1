@@ -105,7 +105,7 @@ export default function Events() {
   const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
   const [todayTouchStartX, setTodayTouchStartX] = useState(0);
 
-  // ─── Fetch Today's Events (array, full details from backend) ──
+  // ─── Fetch Today's Events ──────────────────────────
   const fetchTodayEvents = useCallback(async () => {
     setTodayLoading(true);
     try {
@@ -170,7 +170,6 @@ export default function Events() {
       setCreatedEvents(createdWithResponse);
       setInvitedEvents(invitedWithResponse);
       setAllEvents([...createdWithResponse, ...invitedWithResponse]);
-      setCollaborationEvents([]);
     } catch (err) {
       console.error("Failed to fetch events:", err);
       setError("Unable to load events. Please try again.");
@@ -179,10 +178,26 @@ export default function Events() {
     }
   }, [user]);
 
+  // ─── Fetch Collaboration Events ──────────────────────
+  const fetchCollaborationEvents = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/events/collaborations");
+      if (res.data.ok) {
+        setCollaborationEvents(res.data.events || []);
+      } else {
+        setCollaborationEvents([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch collaboration events:", err);
+      setCollaborationEvents([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTodayEvents();
     fetchEvents();
-  }, [fetchTodayEvents, fetchEvents]);
+    fetchCollaborationEvents();
+  }, [fetchTodayEvents, fetchEvents, fetchCollaborationEvents]);
 
   // ─── Filter events ──────────────────────────────────
   const filterEvents = useCallback(
@@ -279,7 +294,7 @@ export default function Events() {
     }
   };
 
-  // ─── Render a single Today's Event (featured card, same design as Home) ──
+  // ─── Render a single Today's Event (featured card) ──
   const renderTodayEventCard = (todayEvent) => {
     if (!todayEvent) return null;
 
@@ -565,50 +580,19 @@ export default function Events() {
 
         {showActions && (
           <div className={styles.cardActions}>
-            {isCreator ? (
-              <>
-                <button
-                  className={styles.editBtn}
-                  onClick={() => handleEditEvent(event.id)}
-                >
-                  <FiEdit size={14} /> Edit
-                </button>
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleEventClick(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              </>
-            ) : isPending ? (
-              <>
-                <button
-                  className={styles.acceptBtn}
-                  onClick={() => handleRespond(event.id, "accepted")}
-                >
-                  <FiCheckCircle size={14} /> Accept
-                </button>
-                <button
-                  className={styles.declineBtn}
-                  onClick={() => handleRespond(event.id, "declined")}
-                >
-                  <FiXCircle size={14} /> Decline
-                </button>
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleEventClick(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              </>
-            ) : (
-              <button
-                className={styles.viewBtn}
-                onClick={() => handleEventClick(event)}
-              >
-                <FiEye size={14} /> View
-              </button>
-            )}
+            {/* Always show Edit and View for collaboration events */}
+            <button
+              className={styles.editBtn}
+              onClick={() => handleEditEvent(event.id)}
+            >
+              <FiEdit size={14} /> Edit
+            </button>
+            <button
+              className={styles.viewBtn}
+              onClick={() => handleEventClick(event)}
+            >
+              <FiEye size={14} /> View
+            </button>
           </div>
         )}
       </div>
@@ -666,7 +650,6 @@ export default function Events() {
         const filteredAll = filterEvents(allEvents);
         return (
           <>
-            {/* ── Today's Event(s) ── */}
             <div className={styles.todaySection}>
               <div className={styles.todayHeader}>
                 <h2>Today's Event</h2>
@@ -769,16 +752,21 @@ export default function Events() {
         );
       }
 
-      case "collaboration":
+      case "collaboration": {
+        const filteredCollaboration = filterEvents(collaborationEvents);
         return (
           <div className={styles.eventList}>
-            <div className={styles.emptyState}>
-              <FiUsers size={24} />
-              <span>Collaboration events will appear here.</span>
-              <span className={styles.emptySubtext}>Coming soon!</span>
-            </div>
+            {filteredCollaboration.length === 0 ? (
+              <div className={styles.emptyState}>
+                <FiUsers size={24} />
+                <span>You are not a collaborator on any events.</span>
+              </div>
+            ) : (
+              filteredCollaboration.map((ev) => renderEventCard(ev, true))
+            )}
           </div>
         );
+      }
 
       default:
         return null;
