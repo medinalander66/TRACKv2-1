@@ -26,6 +26,7 @@ import Profile from "./pages/app/profile/Profile";
 import CreateEvent from "./pages/app/events/CreateEvent";
 import CreateTask from "./pages/app/tasks/CreateTask";
 import Events from "./pages/app/events/Events";
+import EditEvent from "./components/events/EditEvent";
 
 const RoleRedirect = () => {
   const { user } = useAuth();
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/create-event" element={<CreateEvent />} />
             <Route path="/create-task" element={<CreateTask />} />
+            <Route path="/edit-event/:id" element={<EditEvent />} />
             <Route path="*" element={<RoleRedirect />} />
           </Route>
 
