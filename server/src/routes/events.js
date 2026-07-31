@@ -10,6 +10,7 @@ const {
   getUpcomingEvents,
   getCollaborationEvents,
   getEventById,
+  updateEvent,
 } = require('../controllers/eventsController');
 
 router.get('/', authenticate, listEvents);
@@ -18,6 +19,7 @@ router.get('/today', authenticate, getTodayEvent);
 router.get('/upcoming', authenticate, getUpcomingEvents);
 router.get('/collaborations', authenticate, getCollaborationEvents);
 router.get('/:id', authenticate, getEventById);
+router.put('/:id', authenticate, updateEvent); 
 
 router.post('/', authenticate, (req, res, next) => {
   const visibility = req.body.visibility;
