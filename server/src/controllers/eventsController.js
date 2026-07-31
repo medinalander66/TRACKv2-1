@@ -250,6 +250,7 @@ exports.updateEvent = async (req, res) => {
     }, { transaction: t });
 
     // 7. I-update ang attendees
+    // Tanggalin ang lahat maliban sa creator
     await EventAttendee.destroy({
       where: {
         event_id: id,
@@ -258,14 +259,16 @@ exports.updateEvent = async (req, res) => {
       transaction: t
     });
 
-    if (attendee_ids && attendee_ids.length > 0) {
-      const unique = [...new Set(attendee_ids)].filter(id => id !== req.userId);
-      if (unique.length > 0) {
-        await EventAttendee.bulkCreate(
-          unique.map(userId => ({ id: uuidv4(), event_id: id, user_id: userId, response: 'pending' })),
-          { transaction: t }
-        );
-      }
+    // I-filter ang mga null/undefined na user IDs
+    const validAttendeeIds = (attendee_ids || [])
+      .filter(id => id && id !== req.userId && typeof id === 'string' && id.trim() !== '');
+
+    if (validAttendeeIds.length > 0) {
+      const uniqueAttendees = [...new Set(validAttendeeIds)];
+      await EventAttendee.bulkCreate(
+        uniqueAttendees.map(userId => ({ id: uuidv4(), event_id: id, user_id: userId, response: 'pending' })),
+        { transaction: t }
+      );
     }
 
     // 8. I-update ang collaborators
@@ -274,14 +277,15 @@ exports.updateEvent = async (req, res) => {
       transaction: t
     });
 
-    if (collaborator_ids && collaborator_ids.length > 0) {
-      const unique = [...new Set(collaborator_ids)];
-      if (unique.length > 0) {
-        await EventCollaborator.bulkCreate(
-          unique.map(userId => ({ id: uuidv4(), event_id: id, user_id: userId, permission: 'edit' })),
-          { transaction: t }
-        );
-      }
+    const validCollaboratorIds = (collaborator_ids || [])
+      .filter(id => id && typeof id === 'string' && id.trim() !== '');
+
+    if (validCollaboratorIds.length > 0) {
+      const uniqueCollaborators = [...new Set(validCollaboratorIds)];
+      await EventCollaborator.bulkCreate(
+        uniqueCollaborators.map(userId => ({ id: uuidv4(), event_id: id, user_id: userId, permission: 'edit' })),
+        { transaction: t }
+      );
     }
 
     await t.commit();
