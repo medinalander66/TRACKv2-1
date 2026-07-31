@@ -235,9 +235,6 @@ export default function Events() {
     const isPending = event.response === "pending";
     const isCreator = event.isCreator || false;
 
-    // ── Location display (katulad ng Home screen) ──
-    // Gumagamit ng venue, location, o fallback sa locationDisplay
-    // Kung online, "Online" ang ipapakita.
     let locationDisplay = "";
     if (event.method === "online") {
       locationDisplay = "Online";
