@@ -158,22 +158,34 @@ exports.listEvents = async (req, res) => {
       order: [['start_datetime', 'ASC']]
     });
 
-    const result = events.map(ev => ({
-      id: ev.id,
-      title: ev.title,
-      date: ev.start_datetime.toISOString().slice(0, 10),
-      time: ev.start_datetime.toTimeString().slice(0, 5),
-      endTime: ev.end_datetime.toTimeString().slice(0, 5),
-      type: ev.visibility,
-      hierarchy: ev.hierarchy,
-      event_type: ev.event_type,
-      color: ev.color,
-      description: ev.description,
-      method: ev.method,
-      location: ev.Venue ? ev.Venue.name : (ev.Location ? ev.Location.map_location : null),
-      creatorName: ev.User ? ev.User.username : null,
-      creatorId: ev.creator_id,
-    }));
+    const result = events.map(ev => {
+      // Determine location display
+      let locationDisplay = null;
+      if (ev.method === 'online') {
+        locationDisplay = 'Online';
+      } else if (ev.Venue) {
+        locationDisplay = ev.Venue.name;
+      } else if (ev.Location) {
+        locationDisplay = ev.Location.map_location;
+      }
+
+      return {
+        id: ev.id,
+        title: ev.title,
+        date: ev.start_datetime.toISOString().slice(0, 10),
+        time: ev.start_datetime.toTimeString().slice(0, 5),
+        endTime: ev.end_datetime.toTimeString().slice(0, 5),
+        type: ev.visibility,
+        hierarchy: ev.hierarchy,
+        event_type: ev.event_type,
+        color: ev.color,
+        description: ev.description,
+        method: ev.method,
+        location: locationDisplay,
+        creatorName: ev.User ? ev.User.username : null,
+        creatorId: ev.creator_id,
+      };
+    });
 
     res.json({ ok: true, events: result });
   } catch (error) {
