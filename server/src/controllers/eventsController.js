@@ -142,35 +142,46 @@ exports.listEvents = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'start and end dates are required (YYYY-MM-DD).' });
     }
 
+    // Kunin ang events (WITHOUT include muna)
     const events = await Event.findAll({
       where: {
         is_archived: false,
         start_datetime: { [Op.lte]: new Date(`${end}T23:59:59`) },
         end_datetime: { [Op.gte]: new Date(`${start}T00:00:00`) }
       },
-      include: [
-        { model: Venue, attributes: ['id', 'name'] },
-        { model: Location, attributes: ['id', 'map_location'] },
-        { model: Department, attributes: ['id', 'name'] },
-        { model: Office, attributes: ['id', 'name'] },
-        { model: User, attributes: ['id', 'username', 'email'] },
-      ],
       order: [['start_datetime', 'ASC']]
     });
 
-    const result = events.map(ev => {
-      // ── Kunin ang venue at location nang hiwalay (tulad ng /events/today) ──
+    // ── I-loop ang events at manual fetch ang venue/location ──
+    const result = [];
+    for (const ev of events) {
       let venueName = null;
       let locationName = null;
 
-      if (ev.Venue) {
-        venueName = ev.Venue.name;
-      }
-      if (ev.Location) {
-        locationName = ev.Location.map_location;
+      // ── 1. GET VENUE (kung may venue_id) ──
+      if (ev.venue_id) {
+        const venue = await Venue.findByPk(ev.venue_id, { attributes: ['name'] });
+        if (venue) venueName = venue.name;
       }
 
-      // Para sa backward compatibility, panatilihin ang `location` field
+      // ── 2. GET LOCATION (kung may location_id) ──
+      if (ev.location_id) {
+        const location = await Location.findByPk(ev.location_id, { attributes: ['map_location'] });
+        if (location) locationName = location.map_location;
+      }
+
+      // ── 3. GET CREATOR USER ──
+      let creatorName = null;
+      let creatorId = null;
+      if (ev.creator_id) {
+        const user = await User.findByPk(ev.creator_id, { attributes: ['id', 'username', 'email'] });
+        if (user) {
+          creatorName = user.username || user.email;
+          creatorId = user.id;
+        }
+      }
+
+      // ── 4. Determine location display ──
       let locationDisplay = null;
       if (ev.method === 'online') {
         locationDisplay = 'Online';
@@ -180,7 +191,7 @@ exports.listEvents = async (req, res) => {
         locationDisplay = locationName;
       }
 
-      return {
+      result.push({
         id: ev.id,
         title: ev.title,
         date: ev.start_datetime.toISOString().slice(0, 10),
@@ -192,13 +203,13 @@ exports.listEvents = async (req, res) => {
         color: ev.color,
         description: ev.description,
         method: ev.method,
-        venue: venueName,        // ← bagong field
-        location: locationName,  // ← bagong field (map_location)
-        locationDisplay: locationDisplay, // ← existing field (backward compatible)
-        creatorName: ev.User ? ev.User.username : null,
-        creatorId: ev.creator_id,
-      };
-    });
+        venue: venueName,
+        location: locationName,
+        locationDisplay: locationDisplay,
+        creatorName: creatorName,
+        creatorId: creatorId,
+      });
+    }
 
     res.json({ ok: true, events: result });
   } catch (error) {
