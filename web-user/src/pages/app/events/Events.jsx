@@ -23,7 +23,7 @@ export default function Events() {
   const navigate = useNavigate();
   const { searchTerm, duration, eventType } = useEventsFilter();
 
-  const [activeTab, setActiveTab] = useState("all"); // default to "all"
+  const [activeTab, setActiveTab] = useState("all");
   const [invitedSubTab, setInvitedSubTab] = useState("pending");
 
   const [createdEvents, setCreatedEvents] = useState([]);
@@ -53,56 +53,33 @@ export default function Events() {
       );
       const allEventsData = eventsRes.data.events || [];
 
+      // --- Invitations (pending) ---
       const invitationsRes = await getInvitations({ response: "pending" });
       const pendingInvitations = invitationsRes.events || [];
       const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
 
-      // Also fetch declined invitations? For now, we only have pending from the API.
-      // We'll need to get all invitations with response "declined" as well.
-      // For simplicity, we'll assume the user's responses are stored in the event objects.
-      // We'll use the event.response field that we set below.
-
       const currentUserId = user?.id;
-      const userIdentifier = user?.username || user?.email?.split("@")[0] || "";
 
+      // --- Separate created vs invited using creatorId ---
       const created = allEventsData.filter(
-        (ev) => ev.creatorName === userIdentifier,
+        (ev) => ev.creatorId === currentUserId,
       );
       const invited = allEventsData.filter(
-        (ev) => ev.creatorName !== userIdentifier,
+        (ev) => ev.creatorId !== currentUserId,
       );
 
-      // For invited events, we need to know their response status.
-      // We'll simulate by checking if the event is in pending list.
-      // For declined, we don't have a direct way; we'll assume any event not in pending and not accepted is declined.
-      // But we can also fetch the user's responses from another endpoint.
-      // To keep it simple, we'll set response based on pendingIds, and if not pending, assume accepted.
-      // We'll add a declined list later by fetching user's responses.
-      // For now, we'll set response: if pendingIds has it -> pending, else accepted.
-      // But we need declined too. We'll fetch the user's responses for all events from a separate API call.
-      // Let's fetch the user's responses for events they are invited to.
-      let userResponses = {};
-      try {
-        const respRes = await apiClient.get("/notifications/responses"); // hypothetical endpoint
-        // Assume response: { eventId: 'accepted' | 'declined' | 'pending' }
-        userResponses = respRes.data || {};
-      } catch (err) {
-        // fallback: use pendingIds
-        console.warn("Could not fetch user responses, using pending only.");
-      }
-
-      const invitedWithResponse = invited.map((ev) => ({
-        ...ev,
-        response:
-          userResponses[ev.id] ||
-          (pendingIds.has(ev.id) ? "pending" : "accepted"),
-        isCreator: false,
-      }));
-
+      // --- Assign response status (pending or accepted) ---
+      // Walang endpoint para sa declined, kaya i‑assume na accepted ang hindi pending.
       const createdWithResponse = created.map((ev) => ({
         ...ev,
         response: "accepted",
         isCreator: true,
+      }));
+
+      const invitedWithResponse = invited.map((ev) => ({
+        ...ev,
+        response: pendingIds.has(ev.id) ? "pending" : "accepted",
+        isCreator: false,
       }));
 
       setCreatedEvents(createdWithResponse);
@@ -121,12 +98,12 @@ export default function Events() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // ─── Filter events based on search, duration, and type ───
+  // ─── Filter events ──────────────────────────────────
   const filterEvents = useCallback(
     (events) => {
       let filtered = events;
 
-      // Search filter
+      // Search
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         filtered = filtered.filter((ev) =>
@@ -134,12 +111,12 @@ export default function Events() {
         );
       }
 
-      // Event type filter
+      // Event type – gamitin ang `eventType` na nagmula sa menu
       if (eventType !== "all") {
         filtered = filtered.filter((ev) => ev.type === eventType);
       }
 
-      // Duration filter (by date range)
+      // Duration (date range)
       if (duration !== "all") {
         const now = new Date();
         const today = new Date(
@@ -173,7 +150,7 @@ export default function Events() {
     [searchTerm, eventType, duration],
   );
 
-  // ─── Handlers ─────────────────────────────────────────
+  // ─── Handlers ────────────────────────────────────────
   const handleEventClick = (event) => {
     setSelectedEvent(event);
     setShowInvitationModal(true);
@@ -253,10 +230,9 @@ export default function Events() {
     );
   };
 
-  // ─── Render Event Card ────────────────────────────────
+  // ─── Render Event Card ──────────────────────────────
   const renderEventCard = (event, showActions = true) => {
     const isPending = event.response === "pending";
-    const isDeclined = event.response === "declined";
     const isCreator = event.isCreator || false;
 
     return (
@@ -358,16 +334,11 @@ export default function Events() {
 
   // ─── Render Content ──────────────────────────────────
   const renderContent = () => {
-    if (loading) {
-      return <p className={styles.loading}>Loading events...</p>;
-    }
-
-    if (error) {
-      return <p className={styles.error}>{error}</p>;
-    }
+    if (loading) return <p className={styles.loading}>Loading events...</p>;
+    if (error) return <p className={styles.error}>{error}</p>;
 
     switch (activeTab) {
-      case "all":
+      case "all": {
         const filteredAll = filterEvents(allEvents);
         return (
           <div className={styles.eventList}>
@@ -378,8 +349,9 @@ export default function Events() {
             )}
           </div>
         );
+      }
 
-      case "invited":
+      case "invited": {
         let invitedFiltered = filterEvents(invitedEvents);
         if (invitedSubTab === "pending") {
           invitedFiltered = invitedFiltered.filter(
@@ -390,7 +362,6 @@ export default function Events() {
             (ev) => ev.response === "declined",
           );
         }
-        // "all" shows everything (no additional filter)
         return (
           <div className={styles.invitedContainer}>
             <div className={styles.invitedTabs}>
@@ -435,8 +406,9 @@ export default function Events() {
             </div>
           </div>
         );
+      }
 
-      case "created":
+      case "created": {
         const filteredCreated = filterEvents(createdEvents);
         return (
           <div className={styles.eventList}>
@@ -456,6 +428,7 @@ export default function Events() {
             )}
           </div>
         );
+      }
 
       case "collaboration":
         return (
@@ -473,11 +446,9 @@ export default function Events() {
     }
   };
 
-  // ─── Main Render ──────────────────────────────────────
+  // ─── Main Render ────────────────────────────────────
   return (
     <div className={styles.container}>
-      {/* Header removed: no title, no create button */}
-
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
