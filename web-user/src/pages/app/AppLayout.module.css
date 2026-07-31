@@ -79,8 +79,8 @@
 
 /* ── Profile button with border ── */
 .profileBtn {
-  background: var(--primary-color);
-  border: 1px solid var(--tertiary-color);
+  background: var(--tertiary-color);
+  border: 1px solid var(--secondary-color);
   padding: 0;
   overflow: hidden;
 }
