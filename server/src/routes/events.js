@@ -7,13 +7,15 @@ const {
   listEvents,
   getEventStats,
   getTodayEvent,
-  getUpcomingEvents
+  getUpcomingEvents,
+  getCollaborationEvents,
 } = require('../controllers/eventsController');
 
 router.get('/', authenticate, listEvents);
 router.get('/stats', authenticate, getEventStats);
 router.get('/today', authenticate, getTodayEvent);
 router.get('/upcoming', authenticate, getUpcomingEvents);
+router.get('/collaborations', authenticate, getCollaborationEvents);
 
 router.post('/', authenticate, (req, res, next) => {
   const visibility = req.body.visibility;
