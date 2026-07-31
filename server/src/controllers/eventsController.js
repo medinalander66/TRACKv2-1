@@ -512,3 +512,86 @@ exports.getUpcomingEvents = async (req, res) => {
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
+
+
+// ─── GET COLLABORATION EVENTS (where user is a collaborator) ──
+exports.getCollaborationEvents = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // 1. Kunin ang lahat ng event_id kung saan ang user ay collaborator
+    const collaborations = await EventCollaborator.findAll({
+      where: { user_id: userId },
+      attributes: ['event_id']
+    });
+    const eventIds = collaborations.map(c => c.event_id);
+
+    if (eventIds.length === 0) {
+      return res.json({ ok: true, events: [] });
+    }
+
+    // 2. Kunin ang mga event na iyon
+    const events = await Event.findAll({
+      where: {
+        id: { [Op.in]: eventIds },
+        is_archived: false
+      },
+      order: [['start_datetime', 'ASC']]
+    });
+
+    // 3. I-format ang mga event (katulad ng listEvents)
+    const result = [];
+    for (const ev of events) {
+      let venueName = null;
+      let locationName = null;
+
+      if (ev.venue_id) {
+        const venue = await Venue.findByPk(ev.venue_id, { attributes: ['name'] });
+        if (venue) venueName = venue.name;
+      }
+      if (ev.location_id) {
+        const location = await Location.findByPk(ev.location_id, { attributes: ['map_location'] });
+        if (location) locationName = location.map_location;
+      }
+
+      let creatorName = null;
+      if (ev.creator_id) {
+        const user = await User.findByPk(ev.creator_id, { attributes: ['username', 'email'] });
+        if (user) creatorName = user.username || user.email;
+      }
+
+      let locationDisplay = null;
+      if (ev.method === 'online') {
+        locationDisplay = 'Online';
+      } else if (venueName) {
+        locationDisplay = venueName;
+      } else if (locationName) {
+        locationDisplay = locationName;
+      }
+
+      result.push({
+        id: ev.id,
+        title: ev.title,
+        date: ev.start_datetime.toISOString().slice(0, 10),
+        time: ev.start_datetime.toTimeString().slice(0, 5),
+        endTime: ev.end_datetime.toTimeString().slice(0, 5),
+        type: ev.visibility,
+        hierarchy: ev.hierarchy,
+        event_type: ev.event_type,
+        color: ev.color,
+        description: ev.description,
+        method: ev.method,
+        venue: venueName,
+        location: locationName,
+        locationDisplay: locationDisplay,
+        creatorName: creatorName,
+        creatorId: ev.creator_id,
+      });
+    }
+
+    res.json({ ok: true, events: result });
+  } catch (error) {
+    console.error('Get collaboration events error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
