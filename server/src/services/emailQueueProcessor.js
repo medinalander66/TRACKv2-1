@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { EmailQueue } = require('../models');
-const { sendEmailNow } = require('./emailService');
+const { sendEmailNow } = require('./mailService');
 
 const POLL_INTERVAL_MS = 60 * 1000; // 1 minute
 let intervalHandle = null;
