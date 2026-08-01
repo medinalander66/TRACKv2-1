@@ -5,6 +5,7 @@ import apiClient from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 import styles from "./Home.module.css";
 import { FaCalendarAlt, FaClipboard, FaRegCalendar } from "react-icons/fa";
+
 import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
@@ -15,6 +16,16 @@ import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import KeyboardArrowDownOutlinedIcon from "@mui/icons-material/KeyboardArrowDownOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
+import EventRepeatOutlinedIcon from "@mui/icons-material/EventRepeatOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
+import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+import SelectDropdown from "../../../components/common/SelectDropdown";
 
 // Helper to format datea
 const formatDate = (dateStr) => {
@@ -80,12 +91,42 @@ const getPriorityClass = (priority) => {
 
 // Config for quick-stat cards so the icon/label/color live in one place
 const EVENT_STAT_CONFIG = [
-  { key: "total", label: "Events", color: styles.statGreen },
-  { key: "accepted", label: "Accepted", color: styles.statGreen },
-  { key: "declined", label: "Declined", color: styles.statMaroon },
-  { key: "missed", label: "Missed", color: styles.statDarkred },
-  { key: "pending", label: "Pending", color: styles.statGold },
-  { key: "conflicted", label: "Conflicted", color: styles.statMaroon },
+  {
+    key: "active_events",
+    label: "Active Events",
+    color: styles.statGreen,
+    Icon: CalendarTodayIcon,
+  },
+  {
+    key: "accepted",
+    label: "Accepted",
+    color: styles.statGreen,
+    Icon: CheckCircleOutlineOutlinedIcon,
+  },
+  {
+    key: "declined",
+    label: "Declined",
+    color: styles.statMaroon,
+    Icon: CancelOutlinedIcon,
+  },
+  {
+    key: "missed",
+    label: "Missed",
+    color: styles.statDarkred,
+    Icon: EventBusyOutlinedIcon,
+  },
+  {
+    key: "pending",
+    label: "Pending",
+    color: styles.statGold,
+    Icon: EventRepeatOutlinedIcon,
+  },
+  {
+    key: "conflicted",
+    label: "Conflicted",
+    color: styles.statMaroon,
+    Icon: ReportProblemOutlinedIcon,
+  },
 ];
 
 const TASK_STAT_CONFIG = [
@@ -207,8 +248,13 @@ function Home() {
   const [quickStats, setQuickStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsRange, setStatsRange] = useState("week");
-  const [todayEvent, setTodayEvent] = useState(null);
+
+  // ── Today's Events (carousel) ──
+  const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
+  const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
+  const [todayTouchStartX, setTodayTouchStartX] = useState(0);
+
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
   const [upcomingEventsOffset, setUpcomingEventsOffset] = useState(0);
@@ -254,17 +300,20 @@ function Home() {
     }
   }, []);
 
-  // ── Today's Event ──
-  const fetchTodayEvent = useCallback(async () => {
+  // ── Today's Events (array now — carousel) ──
+  const fetchTodayEvents = useCallback(async () => {
     setTodayLoading(true);
     try {
       const res = await apiClient.get("/events/today");
       if (res.data.ok) {
-        setTodayEvent(res.data.event);
+        setTodayEvents(res.data.events || []);
+        setCurrentTodayIndex(0);
+      } else {
+        setTodayEvents([]);
       }
     } catch (err) {
-      console.error("Failed to fetch today's event:", err);
-      setTodayEvent(null);
+      console.error("Failed to fetch today's events:", err);
+      setTodayEvents([]);
     } finally {
       setTodayLoading(false);
     }
@@ -342,14 +391,14 @@ function Home() {
   // ── Initial loads ──
   useEffect(() => {
     fetchQuickStats(quickStatType, statsRange);
-    fetchTodayEvent();
+    fetchTodayEvents();
     fetchUpcomingEvents(true);
     fetchUpcomingTasks(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     quickStatType,
     fetchQuickStats,
-    fetchTodayEvent,
+    fetchTodayEvents,
     fetchUpcomingEvents,
     fetchUpcomingTasks,
   ]);
@@ -375,6 +424,32 @@ function Home() {
   const gotoCalendar = () => navigate("/calendar");
   const gotoAnalytics = () => navigate("/analytics");
   const gotoTaskLists = () => navigate("/tasks");
+
+  // ── Today's Events carousel handlers ──
+  const handleTodayPrev = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === 0 ? todayEvents.length - 1 : prev - 1,
+    );
+  };
+
+  const handleTodayNext = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === todayEvents.length - 1 ? 0 : prev + 1,
+    );
+  };
+
+  const handleTodayTouchStart = (e) => {
+    setTodayTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTodayTouchEnd = (e) => {
+    const endX = e.changedTouches[0].clientX;
+    const diff = todayTouchStartX - endX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) handleTodayNext();
+      else handleTodayPrev();
+    }
+  };
 
   // ── Determine display user ──
   const displayUser = fullUser || user || {};
@@ -409,35 +484,130 @@ function Home() {
   // ── Render stats numbers ──
   const renderStats = () => {
     if (!quickStats) return <p className={styles.noData}>No data</p>;
-
     const config =
       quickStatType === "task" ? TASK_STAT_CONFIG : EVENT_STAT_CONFIG;
-    const Icon = quickStatType === "task" ? FaClipboard : FaCalendarAlt;
+
+    // Helper to get config by key (may be undefined for task view)
+    const getCfg = (k) => config.find((c) => c.key === k) || {};
+
+    // If viewing tasks, keep original compact grid
+    if (quickStatType === "task") {
+      return (
+        <div className={styles.statsGrid}>
+          {config.map(({ key, label, color }) => (
+            <div className={styles.statItem} key={key}>
+              <span className={styles.statIconBox}>
+                <FaClipboard />
+              </span>
+              <div className={styles.statTextWrap}>
+                <span className={styles.statCardLabel}>{label}</span>
+                <span className={`${styles.statNumber} ${color}`}>
+                  {quickStats[key] || 0}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Event layout: Active Events full width, then grouped sections
+    const activeCfg = getCfg("active_events");
+    const acceptedCfg = getCfg("accepted");
+    const declinedCfg = getCfg("declined");
+    const pendingCfg = getCfg("pending");
+    const conflictedCfg = getCfg("conflicted");
+    const missedCfg = getCfg("missed");
+
+    // map stat color classes to icon variant classes
+    const getIconClass = (cfg) => {
+      if (!cfg || !cfg.color) return "";
+      if (cfg.color === styles.statGreen) return styles.statIconGreen;
+      if (cfg.color === styles.statMaroon) return styles.statIconMaroon;
+      if (cfg.color === styles.statDarkred) return styles.statIconDarkred;
+      if (cfg.color === styles.statGold) return styles.statIconGold;
+      return "";
+    };
+
+    const renderCard = (cfg, k) => {
+      const iconCls = getIconClass(cfg);
+      return (
+        <div className={styles.statItem} key={k}>
+          <span className={`${styles.statIconBox} ${iconCls}`}>
+            {cfg.Icon ? (
+              <cfg.Icon fontSize="small" />
+            ) : (
+              <FaCalendarAlt style={{ color: "inherit" }} />
+            )}
+          </span>
+          <div className={styles.statTextWrap}>
+            <span className={styles.statCardLabel}>{cfg.label}</span>
+            <span className={`${styles.statNumber} ${cfg.color}`}>
+              {quickStats[k] || 0}
+            </span>
+          </div>
+        </div>
+      );
+    };
 
     return (
-      <div className={styles.statsGrid}>
-        {config.map(({ key, label, color }) => (
-          <div className={styles.statItem} key={key}>
-            <span className={styles.statIconBox}>
-              <FaCalendarAlt />
+      <div className={styles.statsGridWrapper}>
+        {/* Active Events - full width */}
+        <div className={`${styles.statItem} ${styles.statPrimary}`}>
+          <span className={`${styles.statIconBox} ${styles.statIconPrimary}`}>
+            {activeCfg.Icon ? (
+              <activeCfg.Icon fontSize="small" />
+            ) : (
+              <FaCalendarAlt style={{ color: "inherit" }} />
+            )}
+          </span>
+          <div className={styles.statTextWrap}>
+            <span className={styles.statCardLabel}>
+              {activeCfg.label || "Active Events"}
             </span>
-            <div className={styles.statTextWrap}>
-              <span className={styles.statCardLabel}>{label}</span>
-              <span className={`${styles.statNumber} ${color}`}>
-                {quickStats[key] || 0}
-              </span>
-            </div>
+            <span
+              className={`${styles.statNumber} ${styles.statNumberPrimary}`}
+            >
+              {quickStats["active_events"] || 0}
+            </span>
           </div>
-        ))}
+          <span className={styles.statTrailingIcon}>
+            <TrendingUpOutlinedIcon fontSize="small" />
+          </span>
+        </div>
+
+        {/* Responses */}
+        <div className={styles.sectionContainer}>
+          <h4 className={styles.sectionTitle}>Responses</h4>
+          <div className={styles.twoColGrid}>
+            {renderCard(acceptedCfg, "accepted")}
+            {renderCard(declinedCfg, "declined")}
+          </div>
+        </div>
+
+        {/* Action Needed */}
+        <div className={styles.sectionContainer}>
+          <h4 className={styles.sectionTitle}>Action Needed</h4>
+          <div className={styles.twoColGrid}>
+            {renderCard(pendingCfg, "pending")}
+            {renderCard(conflictedCfg, "conflicted")}
+          </div>
+        </div>
+
+        {/* Post Event */}
+        <div className={styles.sectionContainer}>
+          <h4 className={styles.sectionTitle}>Post Event</h4>
+          <div className={styles.oneColGrid}>
+            {renderCard(missedCfg, "missed")}
+          </div>
+        </div>
       </div>
     );
   };
 
-  // ── Render today's event ──
-  const renderTodayEvent = () => {
-    if (todayLoading)
-      return <p className={styles.noData}>Loading today's event...</p>;
-    if (!todayEvent) return <p className={styles.noData}>No events today</p>;
+  // ── Render a single today event (featured card) ──
+  const renderTodayEvent = (todayEvent) => {
+    if (!todayEvent) return null;
 
     const creator = todayEvent.creator || {};
     const creatorName = creator.full_name || creator.username || "Unknown";
@@ -451,127 +621,207 @@ function Home() {
 
     const participants = todayEvent.participants || {};
     const depts = participants.departments || [];
-    const offices = participants.offices || [];
     const users = participants.users || [];
 
     return (
-      <div className={styles.todayCard}>
-        <h3>{todayEvent.title}</h3>
-        <p className={styles.todayDesc}>{todayEvent.description}</p>
-        <div className={styles.todayMeta}>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <CalendarTodayOutlinedIcon fontSize="small" />
-            </span>
-            {formatDate(todayEvent.start_datetime)} -{" "}
-            {formatDate(todayEvent.end_datetime)}
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <AccessTimeOutlinedIcon fontSize="small" />
-            </span>
-            <strong>
-              {formatTime(todayEvent.start_datetime)} -{" "}
-              {formatTime(todayEvent.end_datetime)}
-            </strong>
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <GroupOutlinedIcon fontSize="small" />
-            </span>
-            {todayEvent.method}
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <LocationCityOutlinedIcon fontSize="small" />
-            </span>
-            {todayEvent.hierarchy}
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <EventOutlinedIcon fontSize="small" />
-            </span>
-            {todayEvent.event_type}
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <LocationOnOutlinedIcon fontSize="small" />
-            </span>
-            {todayEvent.venue || todayEvent.location || "Online"}
-          </span>
-          <span className={styles.metaContent}>
-            <span className={styles.icon}>
-              <PersonOutlinedIcon fontSize="small" />
-            </span>
-            <span className={styles.creatorLabel}>
-              <strong>{creatorName}</strong>
-              {creatorSub && (
-                <span className={styles.creatorContent}>
-                  <span className={styles.creatorSub}>{creatorSub}</span>
-                </span>
-              )}
-            </span>
-          </span>
+      <div className={styles.featuredEventSection}>
+        <div className={styles.featuredContainer}>
+          <div className={styles.featuredCard}>
+            <div className={styles.badgesStatus}>
+              <div className={styles.badgeRow}>
+                <div className={styles.badgePill}>
+                  {todayEvent.hierarchy || "Unknown Hierarchy"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.method || "Unknown Method"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.visibility || "Unknown Event Visibility"}
+                </div>
+                <div className={styles.badgePill}>
+                  {todayEvent.event_type || "Unknown Event Type"}
+                </div>
+              </div>
+
+              <div className={styles.heading2}>
+                <div className={styles.featuredTitle}>{todayEvent.title}</div>
+              </div>
+            </div>
+
+            <div className={styles.featuredCardContent}>
+              <div className={styles.titleDescription}>
+                <div className={styles.descriptionText}>
+                  {todayEvent.description}
+                </div>
+              </div>
+
+              <div className={styles.container8}>
+                <div className={styles.whenWhereGroup}>
+                  <div className={styles.sectionHeader}>
+                    <EventNoteOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>WHEN &amp; WHERE</div>
+                    </div>
+                  </div>
+                  <div className={styles.infoGrid}>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>DATE RANGE</div>
+                      <div className={styles.infoValue}>
+                        {formatDate(todayEvent.start_datetime)} —{" "}
+                        {formatDate(todayEvent.end_datetime)}
+                      </div>
+                    </div>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>TIME</div>
+                      <div className={styles.infoValue}>
+                        {formatTime(todayEvent.start_datetime)} —{" "}
+                        {formatTime(todayEvent.end_datetime)}
+                      </div>
+                    </div>
+                    <div className={styles.infoBlock}>
+                      <div className={styles.infoLabel}>LOCATION</div>
+                      <div className={styles.infoValue}>
+                        {todayEvent.venue || todayEvent.location || "Online"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.organizerSection}>
+                  <div className={styles.sectionHeader}>
+                    <PersonOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>ORGANIZER</div>
+                    </div>
+                  </div>
+                  <div className={styles.organizerRow}>
+                    <div className={styles.organizerAvatar}>
+                      {getInitials(creatorName)}
+                    </div>
+                    <div className={styles.organizerDetails}>
+                      <div className={styles.organizerName}>{creatorName}</div>
+                      <div className={styles.organizerTitle}>
+                        {creatorSub || "Organizer"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={styles.participatingBlock}>
+                    <div className={styles.infoLabel}>
+                      PARTICIPATING DEPARTMENTS
+                    </div>
+                    <div className={styles.deptBadges}>
+                      {depts.slice(0, 4).map((dept) => (
+                        <div key={dept} className={styles.deptBadge}>
+                          {dept}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.audienceSection}>
+                  <div className={styles.sectionHeader}>
+                    <GroupsOutlinedIcon fontSize="small" />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>AUDIENCE</div>
+                    </div>
+                  </div>
+                  <div className={styles.audienceRow}>
+                    <div className={styles.attendeeStack}>
+                      {users.slice(0, 4).map((u) => {
+                        const name =
+                          u.full_name || u.username || u.email || "Unknown";
+                        return (
+                          <div
+                            key={u.id}
+                            className={styles.attendeeAvatar}
+                            style={{ background: getAvatarColor(name) }}
+                          >
+                            {getInitials(name)}
+                          </div>
+                        );
+                      })}
+                      {users.length >= 5 && (
+                        <div className={styles.attendeeMore}>
+                          +{users.length - 4}
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.audienceText}>
+                      {users.length > 0
+                        ? `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
+                        : "No attendees yet"}
+                    </div>
+                  </div>
+                  <button type="button" className={styles.viewAttendeesButton}>
+                    <VisibilityOutlinedIcon fontSize="small" />
+                    View Attendees
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.actionsRow}>
+                <button type="button" className={styles.viewEventButton}>
+                  View Event Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Render Today's Events carousel ──
+  const renderTodayEventsCarousel = () => {
+    if (todayLoading)
+      return <p className={styles.noData}>Loading today's event...</p>;
+    if (todayEvents.length === 0)
+      return <p className={styles.noData}>No events today</p>;
+
+    return (
+      <div
+        className={styles.todayCarouselWrapper}
+        onTouchStart={handleTodayTouchStart}
+        onTouchEnd={handleTodayTouchEnd}
+      >
+        <div
+          className={styles.todayCarouselTrack}
+          style={{ transform: `translateX(-${currentTodayIndex * 100}%)` }}
+        >
+          {todayEvents.map((ev) => (
+            <div key={ev.id} className={styles.todayCarouselSlide}>
+              {renderTodayEvent(ev)}
+            </div>
+          ))}
         </div>
 
-        {/* ── Participants Section ── */}
-        {(depts.length > 0 || offices.length > 0 || users.length > 0) && (
-          <div className={styles.todayParticipants}>
-            {depts.length > 0 && (
-              <div className={styles.participantGroup}>
-                <span className={styles.participantLabel}>
-                  Colleges Represented:
-                </span>
-                <div className={styles.tagRow}>
-                  {depts.map((d, i) => (
-                    <span key={i} className={styles.tagPill}>
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {offices.length > 0 && (
-              <div className={styles.participantGroup}>
-                <span className={styles.participantLabel}>
-                  Offices Represented:
-                </span>
-                <div className={styles.tagRow}>
-                  {offices.map((o, i) => (
-                    <span key={i} className={styles.tagPill}>
-                      {o}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {users.length > 0 && (
-              <div className={styles.participantGroup}>
-                <span className={styles.participantLabel}>Attendees:</span>
-                <div className={styles.avatarRow}>
-                  {users.slice(0, 5).map((u) => {
-                    const name =
-                      u.full_name || u.username || u.email || "Unknown";
-                    return (
-                      <span
-                        key={u.id}
-                        className={styles.avatarCircle}
-                        style={{ background: getAvatarColor(name) }}
-                        title={`${name}${u.department ? ` (${u.department})` : ""}`}
-                      >
-                        {getInitials(name)}
-                      </span>
-                    );
-                  })}
-                  {users.length > 5 && (
-                    <span className={styles.avatarMore}>
-                      +{users.length - 5}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        {todayEvents.length > 1 && (
+          <>
+            <button
+              type="button"
+              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowLeft}`}
+              onClick={handleTodayPrev}
+            >
+              <IoIosArrowBack />
+            </button>
+            <button
+              type="button"
+              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowRight}`}
+              onClick={handleTodayNext}
+            >
+              <IoIosArrowForward />
+            </button>
+            <div className={styles.todayDotsContainer}>
+              {todayEvents.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`${styles.todayDot} ${idx === currentTodayIndex ? styles.todayDotActive : ""}`}
+                  onClick={() => setCurrentTodayIndex(idx)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     );
@@ -752,17 +1002,17 @@ function Home() {
       {/* Quick Stats */}
       <div className={styles.quickStat}>
         <div className={styles.quickTop}>
+          <h2>Quick Stats</h2>
+        </div>
+        <div className={styles.quickTopRow}>
           <div className={styles.quickTopLeft}>
-            <h2>
-              Quick Stats,{" "}
-              <span className={styles.quickStatType}>
-                {quickStatType === "task"
-                  ? "Tasks"
-                  : quickStatType.charAt(0).toUpperCase() +
-                    quickStatType.slice(1) +
-                    " Events"}
-              </span>
-            </h2>
+            <h3 className={styles.quickStatType}>
+              {quickStatType === "task"
+                ? "Tasks"
+                : quickStatType.charAt(0).toUpperCase() +
+                  quickStatType.slice(1) +
+                  " Events"}
+            </h3>
             <div className={styles.quickNav}>
               <div className={styles.filterButtons}>
                 <button
@@ -827,12 +1077,9 @@ function Home() {
               View Calendar
             </button>
           </div>
-          <div className={styles.subTitle}>
-            <h2>{formatDate(new Date())}</h2>
-          </div>
         </div>
 
-        <div className={styles.todayContent}>{renderTodayEvent()}</div>
+        <div className={styles.todayContent}>{renderTodayEventsCarousel()}</div>
       </div>
 
       {/* Upcoming Events */}
@@ -848,39 +1095,28 @@ function Home() {
           </button>
         </div>
 
-        {/* ─── Pill Filters for Events ─── */}
         <div className={styles.filterRow}>
-          {[
-            { value: "all", label: "All Types" },
-            { value: "campus", label: "Campus" },
-            { value: "department", label: "Department" },
-            { value: "private", label: "Private" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`${styles.pillBtn} ${eventTypeFilter === opt.value ? styles.pillBtnActive : ""}`}
-              onClick={() => setEventTypeFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.filterRow}>
-          {[
-            { value: "all", label: "All Time" },
-            { value: "week", label: "This Week" },
-            { value: "month", label: "This Month" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`${styles.pillBtn} ${eventDurationFilter === opt.value ? styles.pillBtnActive : ""}`}
-              onClick={() => setEventDurationFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <SelectDropdown
+            label="Event Type"
+            options={[
+              { value: "all", label: "All Types" },
+              { value: "campus", label: "Campus" },
+              { value: "department", label: "Department" },
+              { value: "private", label: "Private" },
+            ]}
+            value={eventTypeFilter}
+            onChange={(e) => setEventTypeFilter(e.target.value)}
+          />
+          <SelectDropdown
+            label="Time Range"
+            options={[
+              { value: "all", label: "All Time" },
+              { value: "week", label: "This Week" },
+              { value: "month", label: "This Month" },
+            ]}
+            value={eventDurationFilter}
+            onChange={(e) => setEventDurationFilter(e.target.value)}
+          />
         </div>
 
         <div className={styles.upcomingContent}>
@@ -905,39 +1141,28 @@ function Home() {
           </button>
         </div>
 
-        {/* ─── Pill Filters for Tasks ─── */}
         <div className={styles.filterRow}>
-          {[
-            { value: "all", label: "All Task" },
-            { value: "personal", label: "Personal Task" },
-            { value: "campus", label: "Campus Task" },
-            { value: "department", label: "Department Task" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`${styles.pillBtn} ${taskTypeFilter === opt.value ? styles.pillBtnActive : ""}`}
-              onClick={() => setTaskTypeFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.filterRow}>
-          {[
-            { value: "all", label: "All Time" },
-            { value: "week", label: "This Week" },
-            { value: "month", label: "This Month" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`${styles.pillBtn} ${taskDurationFilter === opt.value ? styles.pillBtnActive : ""}`}
-              onClick={() => setTaskDurationFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <SelectDropdown
+            label="Task Type"
+            options={[
+              { value: "all", label: "All Tasks" },
+              { value: "personal", label: "Personal Task" },
+              { value: "campus", label: "Campus Task" },
+              { value: "department", label: "Department Task" },
+            ]}
+            value={taskTypeFilter}
+            onChange={(e) => setTaskTypeFilter(e.target.value)}
+          />
+          <SelectDropdown
+            label="Time Range"
+            options={[
+              { value: "all", label: "All Time" },
+              { value: "week", label: "This Week" },
+              { value: "month", label: "This Month" },
+            ]}
+            value={taskDurationFilter}
+            onChange={(e) => setTaskDurationFilter(e.target.value)}
+          />
         </div>
 
         <div className={styles.upcomingContent}>
