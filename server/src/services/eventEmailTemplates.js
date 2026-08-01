@@ -73,3 +73,22 @@ exports.buildReminderEmail = (event, recipientName) => {
   `;
   return { subject, body };
 };
+
+// ─── Edited-event notice (only sent to pending/accepted attendees) ───
+exports.buildEventEditedEmail = (event, recipientName, status) => {
+  const subject = `Event updated: ${event.title}`;
+  const intro = status === 'pending'
+    ? `The event you were invited to, "${event.title}", has been edited by the organizer. Please review the updated details and respond.`
+    : `An event you accepted, "${event.title}", has been updated by the organizer. Please review the changes below.`;
+  const body = `
+    <h2>Hello ${recipientName || 'there'},</h2>
+    <p>${intro}</p>
+    <div style="background:#f4f4f4;padding:16px;border-radius:8px;">
+      <h3 style="margin:0 0 8px 0;">${event.title}</h3>
+      <p style="margin:4px 0;"><strong>When:</strong> ${formatDateTime(event.start_datetime)} — ${formatDateTime(event.end_datetime)}</p>
+      <p style="margin:4px 0;"><strong>Method:</strong> ${event.method}</p>
+    </div>
+    <p><a href="${process.env.FRONTEND_URL}/events">View Event</a></p>
+  `;
+  return { subject, body };
+};
