@@ -26,10 +26,7 @@ import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import SelectDropdown from "../../../components/common/SelectDropdown";
-<<<<<<< HEAD
 import EventModalView from "../../../components/events/EventModalView";
-=======
->>>>>>> ce0b9bd03a07fcea7fa86fdf1421b56d690e405c
 
 // Helper to format datea
 const formatDate = (dateStr) => {
@@ -252,13 +249,8 @@ function Home() {
   const [quickStats, setQuickStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsRange, setStatsRange] = useState("week");
-
-  // ── Today's Events (carousel) ──
-  const [todayEvents, setTodayEvents] = useState([]);
+  const [todayEvent, setTodayEvent] = useState(null);
   const [todayLoading, setTodayLoading] = useState(false);
-  const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
-  const [todayTouchStartX, setTodayTouchStartX] = useState(0);
-
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
   const [upcomingEventsOffset, setUpcomingEventsOffset] = useState(0);
@@ -305,20 +297,17 @@ function Home() {
     }
   }, []);
 
-  // ── Today's Events (array now — carousel) ──
-  const fetchTodayEvents = useCallback(async () => {
+  // ── Today's Event ──
+  const fetchTodayEvent = useCallback(async () => {
     setTodayLoading(true);
     try {
       const res = await apiClient.get("/events/today");
       if (res.data.ok) {
-        setTodayEvents(res.data.events || []);
-        setCurrentTodayIndex(0);
-      } else {
-        setTodayEvents([]);
+        setTodayEvent(res.data.event);
       }
     } catch (err) {
-      console.error("Failed to fetch today's events:", err);
-      setTodayEvents([]);
+      console.error("Failed to fetch today's event:", err);
+      setTodayEvent(null);
     } finally {
       setTodayLoading(false);
     }
@@ -396,14 +385,14 @@ function Home() {
   // ── Initial loads ──
   useEffect(() => {
     fetchQuickStats(quickStatType, statsRange);
-    fetchTodayEvents();
+    fetchTodayEvent();
     fetchUpcomingEvents(true);
     fetchUpcomingTasks(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     quickStatType,
     fetchQuickStats,
-    fetchTodayEvents,
+    fetchTodayEvent,
     fetchUpcomingEvents,
     fetchUpcomingTasks,
   ]);
@@ -429,32 +418,6 @@ function Home() {
   const gotoCalendar = () => navigate("/calendar");
   const gotoAnalytics = () => navigate("/analytics");
   const gotoTaskLists = () => navigate("/tasks");
-
-  // ── Today's Events carousel handlers ──
-  const handleTodayPrev = () => {
-    setCurrentTodayIndex((prev) =>
-      prev === 0 ? todayEvents.length - 1 : prev - 1,
-    );
-  };
-
-  const handleTodayNext = () => {
-    setCurrentTodayIndex((prev) =>
-      prev === todayEvents.length - 1 ? 0 : prev + 1,
-    );
-  };
-
-  const handleTodayTouchStart = (e) => {
-    setTodayTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTodayTouchEnd = (e) => {
-    const endX = e.changedTouches[0].clientX;
-    const diff = todayTouchStartX - endX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) handleTodayNext();
-      else handleTodayPrev();
-    }
-  };
 
   // ── Determine display user ──
   const displayUser = fullUser || user || {};
@@ -610,9 +573,11 @@ function Home() {
     );
   };
 
-  // ── Render a single today event (featured card) ──
-  const renderTodayEvent = (todayEvent) => {
-    if (!todayEvent) return null;
+  // ── Render today's event ──
+  const renderTodayEvent = () => {
+    if (todayLoading)
+      return <p className={styles.noData}>Loading today's event...</p>;
+    if (!todayEvent) return <p className={styles.noData}>No events today</p>;
 
     const creator = todayEvent.creator || {};
     const creatorName = creator.full_name || creator.username || "Unknown";
@@ -626,6 +591,7 @@ function Home() {
 
     const participants = todayEvent.participants || {};
     const depts = participants.departments || [];
+    const offices = participants.offices || [];
     const users = participants.users || [];
 
     return (
@@ -641,7 +607,6 @@ function Home() {
                   {todayEvent.method || "Unknown Method"}
                 </div>
                 <div className={styles.badgePill}>
-<<<<<<< HEAD
                   {todayEvent.visibility || "Unknown Event Visibility"}{" "}
                   {/*Update getting the event Visibility in the backend server */}
                 </div>
@@ -781,195 +746,6 @@ function Home() {
             </div>
           </div>
         </div>
-=======
-                  {todayEvent.visibility || "Unknown Event Visibility"}
-                </div>
-                <div className={styles.badgePill}>
-                  {todayEvent.event_type || "Unknown Event Type"}
-                </div>
-              </div>
-
-              <div className={styles.heading2}>
-                <div className={styles.featuredTitle}>{todayEvent.title}</div>
-              </div>
-            </div>
-
-            <div className={styles.featuredCardContent}>
-              <div className={styles.titleDescription}>
-                <div className={styles.descriptionText}>
-                  {todayEvent.description}
-                </div>
-              </div>
-
-              <div className={styles.container8}>
-                <div className={styles.whenWhereGroup}>
-                  <div className={styles.sectionHeader}>
-                    <EventNoteOutlinedIcon fontSize="small" />
-                    <div className={styles.heading4}>
-                      <div className={styles.text7}>WHEN &amp; WHERE</div>
-                    </div>
-                  </div>
-                  <div className={styles.infoGrid}>
-                    <div className={styles.infoBlock}>
-                      <div className={styles.infoLabel}>DATE RANGE</div>
-                      <div className={styles.infoValue}>
-                        {formatDate(todayEvent.start_datetime)} —{" "}
-                        {formatDate(todayEvent.end_datetime)}
-                      </div>
-                    </div>
-                    <div className={styles.infoBlock}>
-                      <div className={styles.infoLabel}>TIME</div>
-                      <div className={styles.infoValue}>
-                        {formatTime(todayEvent.start_datetime)} —{" "}
-                        {formatTime(todayEvent.end_datetime)}
-                      </div>
-                    </div>
-                    <div className={styles.infoBlock}>
-                      <div className={styles.infoLabel}>LOCATION</div>
-                      <div className={styles.infoValue}>
-                        {todayEvent.venue || todayEvent.location || "Online"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.organizerSection}>
-                  <div className={styles.sectionHeader}>
-                    <PersonOutlinedIcon fontSize="small" />
-                    <div className={styles.heading4}>
-                      <div className={styles.text7}>ORGANIZER</div>
-                    </div>
-                  </div>
-                  <div className={styles.organizerRow}>
-                    <div className={styles.organizerAvatar}>
-                      {getInitials(creatorName)}
-                    </div>
-                    <div className={styles.organizerDetails}>
-                      <div className={styles.organizerName}>{creatorName}</div>
-                      <div className={styles.organizerTitle}>
-                        {creatorSub || "Organizer"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={styles.participatingBlock}>
-                    <div className={styles.infoLabel}>
-                      PARTICIPATING DEPARTMENTS
-                    </div>
-                    <div className={styles.deptBadges}>
-                      {depts.slice(0, 4).map((dept) => (
-                        <div key={dept} className={styles.deptBadge}>
-                          {dept}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.audienceSection}>
-                  <div className={styles.sectionHeader}>
-                    <GroupsOutlinedIcon fontSize="small" />
-                    <div className={styles.heading4}>
-                      <div className={styles.text7}>AUDIENCE</div>
-                    </div>
-                  </div>
-                  <div className={styles.audienceRow}>
-                    <div className={styles.attendeeStack}>
-                      {users.slice(0, 4).map((u) => {
-                        const name =
-                          u.full_name || u.username || u.email || "Unknown";
-                        return (
-                          <div
-                            key={u.id}
-                            className={styles.attendeeAvatar}
-                            style={{ background: getAvatarColor(name) }}
-                          >
-                            {getInitials(name)}
-                          </div>
-                        );
-                      })}
-                      {users.length >= 5 && (
-                        <div className={styles.attendeeMore}>
-                          +{users.length - 4}
-                        </div>
-                      )}
-                    </div>
-                    <div className={styles.audienceText}>
-                      {users.length > 0
-                        ? `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
-                        : "No attendees yet"}
-                    </div>
-                  </div>
-                  <button type="button" className={styles.viewAttendeesButton}>
-                    <VisibilityOutlinedIcon fontSize="small" />
-                    View Attendees
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.actionsRow}>
-                <button type="button" className={styles.viewEventButton}>
-                  View Event Details
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── Render Today's Events carousel ──
-  const renderTodayEventsCarousel = () => {
-    if (todayLoading)
-      return <p className={styles.noData}>Loading today's event...</p>;
-    if (todayEvents.length === 0)
-      return <p className={styles.noData}>No events today</p>;
-
-    return (
-      <div
-        className={styles.todayCarouselWrapper}
-        onTouchStart={handleTodayTouchStart}
-        onTouchEnd={handleTodayTouchEnd}
-      >
-        <div
-          className={styles.todayCarouselTrack}
-          style={{ transform: `translateX(-${currentTodayIndex * 100}%)` }}
-        >
-          {todayEvents.map((ev) => (
-            <div key={ev.id} className={styles.todayCarouselSlide}>
-              {renderTodayEvent(ev)}
-            </div>
-          ))}
-        </div>
-
-        {todayEvents.length > 1 && (
-          <>
-            <button
-              type="button"
-              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowLeft}`}
-              onClick={handleTodayPrev}
-            >
-              <IoIosArrowBack />
-            </button>
-            <button
-              type="button"
-              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowRight}`}
-              onClick={handleTodayNext}
-            >
-              <IoIosArrowForward />
-            </button>
-            <div className={styles.todayDotsContainer}>
-              {todayEvents.map((_, idx) => (
-                <span
-                  key={idx}
-                  className={`${styles.todayDot} ${idx === currentTodayIndex ? styles.todayDotActive : ""}`}
-                  onClick={() => setCurrentTodayIndex(idx)}
-                />
-              ))}
-            </div>
-          </>
-        )}
->>>>>>> ce0b9bd03a07fcea7fa86fdf1421b56d690e405c
       </div>
     );
   };
@@ -1226,16 +1002,12 @@ function Home() {
           </div>
         </div>
 
-<<<<<<< HEAD
         <div className={styles.todayContent}>{renderTodayEvent()}</div>
         <EventModalView
           isOpen={isTodayEventModalOpen}
           onClose={() => setIsTodayEventModalOpen(false)}
           event={todayEvent}
         />
-=======
-        <div className={styles.todayContent}>{renderTodayEventsCarousel()}</div>
->>>>>>> ce0b9bd03a07fcea7fa86fdf1421b56d690e405c
       </div>
 
       {/* Upcoming Events */}

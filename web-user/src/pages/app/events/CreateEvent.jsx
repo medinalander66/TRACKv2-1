@@ -297,7 +297,7 @@ export default function CreateEvent() {
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.titleSection } style={{backgroundColor: form.color, transition: "background-color 0.15s ease"}}>
+        <div className={styles.titleSection} style={{backgroundColor: form.color, transition:"background-color 0.15s ease"}}>
           <InputField
             className={styles.titleInput}
             value={form.title}
@@ -319,6 +319,19 @@ export default function CreateEvent() {
               onChange={(color) => updateField("color", color)}
             />
             <div className={styles.stackRow}>
+              {showVisibilityRadio ? (
+                <RadioGroup
+                  name="visibility"
+                  label="VISIBILITY OF EVENT"
+                  options={visibilityOptions}
+                  value={form.visibility}
+                  onChange={(e) => updateField("visibility", e.target.value)}
+                />
+              ) : (
+                <div className={styles.staticVisibility}>
+                  <span className={styles.label}>VISIBILITY: Private</span>
+                </div>
+              )}
               <RadioGroup
                 name="method"
                 label="METHOD"
@@ -403,58 +416,62 @@ export default function CreateEvent() {
               )}
             </div>
           )}
-          <div className={styles.row}>
-            {/* ── Attendees ── */}
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <FiUsers size={16} className={styles.cardHeaderIcon} />
-                <span>Attendees</span>
-              </div>
-              {form.visibility === "department" && (
-                <p className={styles.helperText}>
-                  All users belonging to your department{" "}
-                  <strong>{currentProfile?.department}</strong> will be
-                  automatically invited.
-                </p>
-              )}
-              <button
-                type="button"
-                className={styles.inviteBtn}
-                onClick={() => setShowAttendeeModal(true)}
-              >
-                <FiUserPlus size={16} />
-                Invite Attendees ({attendeeIds.length})
-              </button>
-            </div>
 
-            {/* ── Collaborators ── */}
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <FiUserPlus size={16} className={styles.cardHeaderIcon} />
-                <span>Collaborators</span>
-              </div>
-              <button
-                type="button"
-                className={styles.collabBtn}
-                onClick={() => setShowCollabModal(true)}
-              >
-                Add Collaborators ({collaboratorIds.length})
-              </button>
+          {/* ── Attendees ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiUsers size={16} className={styles.cardHeaderIcon} />
+              <span>Attendees</span>
             </div>
+            {form.visibility === "department" && (
+              <p className={styles.helperText}>
+                All users belonging to your department{" "}
+                <strong>{currentProfile?.department}</strong> will be
+                automatically invited.
+              </p>
+            )}
+            <button
+              type="button"
+              className={styles.inviteBtn}
+              onClick={() => setShowAttendeeModal(true)}
+            >
+              <FiUserPlus size={16} />
+              Invite Attendees ({attendeeIds.length})
+            </button>
           </div>
 
-          {/* ── Date  ── */}
+          {/* ── Date & Time ── */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <FiCalendar size={16} className={styles.cardHeaderIcon} />
-              <span>Date </span>
+              <span>Date &amp; Time</span>
             </div>
             <div className={styles.row}>
               <InputField
-                label="DEADLINE DATE"
+                label="START DATE"
                 type="date"
                 value={form.start_date}
                 onChange={(e) => updateField("start_date", e.target.value)}
+              />
+              <InputField
+                label="END DATE"
+                type="date"
+                value={form.end_date}
+                onChange={(e) => updateField("end_date", e.target.value)}
+              />
+            </div>
+            <div className={styles.row}>
+              <InputField
+                label="START TIME"
+                type="time"
+                value={form.start_time}
+                onChange={(e) => updateField("start_time", e.target.value)}
+              />
+              <InputField
+                label="END TIME"
+                type="time"
+                value={form.end_time}
+                onChange={(e) => updateField("end_time", e.target.value)}
               />
             </div>
 
@@ -565,6 +582,21 @@ export default function CreateEvent() {
               }}
               onAdd={handleFileAdd}
             />
+          </div>
+
+          {/* ── Collaborators ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiUserPlus size={16} className={styles.cardHeaderIcon} />
+              <span>Collaborators</span>
+            </div>
+            <button
+              type="button"
+              className={styles.collabBtn}
+              onClick={() => setShowCollabModal(true)}
+            >
+              Add Collaborators ({collaboratorIds.length})
+            </button>
           </div>
 
           <div className={styles.card}>
