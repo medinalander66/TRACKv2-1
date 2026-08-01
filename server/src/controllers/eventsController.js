@@ -5,7 +5,8 @@ const {
   Venue, Location, UserProfile, Department, Office, User, Position
 } = require('../models');
 const {
-  queueEmail, buildInvitationEmail, buildCollaboratorEmail, buildReminderEmail
+  queueEmail, buildInvitationEmail, buildCollaboratorEmail,
+  buildReminderEmail, buildEventEditedEmail
 } = require('../services/eventEmailTemplates');
 
 // ─── Helper: get recipient email + display name ────────
@@ -14,6 +15,37 @@ const getUserContact = async (userId) => {
   if (!u) return null;
   const profile = await UserProfile.findOne({ where: { user_id: userId } });
   return { email: u.email, full_name: profile?.full_name || u.email };
+};
+
+// ─── Helper: get a user's full profile object (for creator display) ────
+const getUserProfileSummary = async (userId) => {
+  const user = await User.findByPk(userId, { attributes: ['id', 'username', 'email'] });
+  if (!user) return null;
+  const profile = await UserProfile.findOne({ where: { user_id: user.id } });
+  let department = null, office = null, position = null, fullName = null;
+  if (profile) {
+    fullName = profile.full_name;
+    if (profile.department_id) {
+      const d = await Department.findByPk(profile.department_id);
+      if (d) department = d.name;
+    }
+    if (profile.office_id) {
+      const o = await Office.findByPk(profile.office_id);
+      if (o) office = o.name;
+    }
+    if (profile.position_id) {
+      const p = await Position.findByPk(profile.position_id);
+      if (p) position = p.name;
+    }
+  }
+  return {
+    id: user.id,
+    full_name: fullName || user.username || user.email,
+    email: user.email,
+    department,
+    office,
+    position
+  };
 };
 
 // ─── CREATE EVENT ──────────────────────────────────────
@@ -105,7 +137,8 @@ exports.createEvent = async (req, res) => {
       id: uuidv4(),
       event_id: event.id,
       user_id: req.userId,
-      response: 'accepted'
+      response: 'accepted',
+      is_original: true
     }, { transaction: t });
 
     const uniqueAttendeeIds = attendee_ids
@@ -113,7 +146,10 @@ exports.createEvent = async (req, res) => {
       : [];
     if (uniqueAttendeeIds.length > 0) {
       await EventAttendee.bulkCreate(
-        uniqueAttendeeIds.map(userId => ({ id: uuidv4(), event_id: event.id, user_id: userId, response: 'pending' })),
+        uniqueAttendeeIds.map(userId => ({
+          id: uuidv4(), event_id: event.id, user_id: userId,
+          response: 'pending', is_original: true
+        })),
         { transaction: t }
       );
     }
@@ -214,7 +250,6 @@ exports.updateEvent = async (req, res) => {
       return res.status(404).json({ ok: false, message: 'Event not found.' });
     }
 
-    // ── Determine if the editor is a collaborator (not the creator) ──
     const isCollaboratorEdit = event.creator_id !== req.userId;
 
     if (isCollaboratorEdit) {
@@ -242,7 +277,6 @@ exports.updateEvent = async (req, res) => {
     let finalDeptId = null;
 
     if (isCollaboratorEdit) {
-      // Preserve the event's original visibility/department — ignore whatever was submitted
       finalVisibility = event.visibility;
       finalDeptId = event.department_id;
     } else {
@@ -309,12 +343,23 @@ exports.updateEvent = async (req, res) => {
       venue_id: finalVenueId,
       location_id: finalLocationId,
       department_id: finalDeptId,
-      office_id: req.body.office_id || null,
+      // Preserve existing office_id when the frontend doesn't send one, instead of wiping it
+      office_id: req.body.office_id !== undefined ? req.body.office_id : event.office_id,
       description,
       remind_before_minutes: remind_before_minutes || null,
       is_email_reminder: !!is_email_reminder,
       updated_at: new Date()
     }, { transaction: t });
+
+    // ── Capture existing attendees BEFORE wiping them (to preserve response + is_original) ──
+    const existingAttendees = await EventAttendee.findAll({
+      where: { event_id: id, user_id: { [Op.ne]: req.userId } }
+    });
+    const existingMap = {};
+    existingAttendees.forEach(a => {
+      existingMap[a.user_id] = { response: a.response, is_original: a.is_original };
+    });
+    const originalIds = existingAttendees.filter(a => a.is_original).map(a => a.user_id);
 
     await EventAttendee.destroy({
       where: {
@@ -324,15 +369,26 @@ exports.updateEvent = async (req, res) => {
       transaction: t
     });
 
-    const validAttendeeIds = (attendee_ids || [])
-      .filter(id => id && id !== req.userId && typeof id === 'string' && id.trim() !== '');
+    const submittedIds = (attendee_ids || [])
+      .filter(uid => uid && uid !== req.userId && typeof uid === 'string' && uid.trim() !== '');
 
-    if (validAttendeeIds.length > 0) {
-      const uniqueAttendees = [...new Set(validAttendeeIds)];
-      await EventAttendee.bulkCreate(
-        uniqueAttendees.map(userId => ({ id: uuidv4(), event_id: id, user_id: userId, response: 'pending' })),
-        { transaction: t }
-      );
+    // Original attendees can never be removed — force-include them regardless of submission
+    const finalAttendeeIds = [...new Set([...submittedIds, ...originalIds])];
+
+    const attendeeRecordsToCreate = finalAttendeeIds.map(userId => {
+      const prior = existingMap[userId];
+      return {
+        id: uuidv4(),
+        event_id: id,
+        user_id: userId,
+        // Preserve prior response for continuing attendees; new ones start pending
+        response: prior ? prior.response : 'pending',
+        is_original: prior ? prior.is_original : false
+      };
+    });
+
+    if (attendeeRecordsToCreate.length > 0) {
+      await EventAttendee.bulkCreate(attendeeRecordsToCreate, { transaction: t });
     }
 
     await EventCollaborator.destroy({
@@ -341,7 +397,7 @@ exports.updateEvent = async (req, res) => {
     });
 
     const validCollaboratorIds = (collaborator_ids || [])
-      .filter(id => id && typeof id === 'string' && id.trim() !== '');
+      .filter(cid => cid && typeof cid === 'string' && cid.trim() !== '');
 
     if (validCollaboratorIds.length > 0) {
       const uniqueCollaborators = [...new Set(validCollaboratorIds)];
@@ -352,6 +408,44 @@ exports.updateEvent = async (req, res) => {
     }
 
     await t.commit();
+
+    // ─── Queue "event edited" / "new invitation" emails (best-effort) ───
+    try {
+      const eventForEmail = {
+        title: event.title,
+        description: event.description,
+        start_datetime: event.start_datetime,
+        end_datetime: event.end_datetime,
+        method: event.method,
+        link: event.link
+      };
+
+      for (const record of attendeeRecordsToCreate) {
+        const wasExisting = !!existingMap[record.user_id];
+        const contact = await getUserContact(record.user_id);
+        if (!contact?.email) continue;
+
+        if (wasExisting) {
+          // Existing attendee whose event details changed — notify only if pending/accepted
+          if (record.response === 'pending' || record.response === 'accepted') {
+            const { subject, body } = buildEventEditedEmail(eventForEmail, contact.full_name, record.response);
+            await queueEmail({
+              recipient_email: contact.email, subject, body,
+              event_id: id, email_type: 'edited'
+            });
+          }
+        } else {
+          // Brand-new attendee added during this edit — send a fresh invitation
+          const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            event_id: id, email_type: 'invitation'
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue update emails:', emailErr);
+    }
 
     res.json({
       ok: true,
@@ -392,10 +486,10 @@ exports.getEventById = async (req, res) => {
       if (venue) venueName = venue.name;
     }
 
-    let locationName = null;
+    let locationMapValue = null;
     if (event.location_id) {
       const location = await Location.findByPk(event.location_id, { attributes: ['map_location'] });
-      if (location) locationName = location.map_location;
+      if (location) locationMapValue = location.map_location;
     }
 
     let creatorData = null;
@@ -470,7 +564,8 @@ exports.getEventById = async (req, res) => {
         department: deptName,
         office: officeName,
         position: positionName,
-        response: attendee.response
+        response: attendee.response,
+        is_original: !!attendee.is_original
       });
     }
 
@@ -480,7 +575,6 @@ exports.getEventById = async (req, res) => {
     });
     const collaboratorIds = collaborators.map(c => c.user_id);
 
-    // ── Current viewer's own response (kung invited sya) ──
     let viewerResponse = null;
     const viewerAttendee = await EventAttendee.findOne({
       where: { event_id: event.id, user_id: req.userId }
@@ -494,12 +588,20 @@ exports.getEventById = async (req, res) => {
       start_datetime: event.start_datetime,
       end_datetime: event.end_datetime,
       method: event.method,
+      link: event.link,
       hierarchy: event.hierarchy,
       event_type: event.event_type,
       visibility: event.visibility,
       color: event.color,
       venue: venueName,
-      location: locationName,
+      location: locationMapValue,
+      map_location: locationMapValue,
+      venue_id: event.venue_id,
+      location_id: event.location_id,
+      department_id: event.department_id,
+      office_id: event.office_id,
+      remind_before_minutes: event.remind_before_minutes,
+      is_email_reminder: event.is_email_reminder,
       creator: creatorData,
       attendees: usersList,
       collaborators: collaboratorIds,
@@ -520,7 +622,7 @@ exports.getEventById = async (req, res) => {
   }
 };
 
-// ─── LIST EVENTS ──────────────────────────────────────
+// ─── LIST EVENTS (scoped to creator or invited attendee only) ────────
 exports.listEvents = async (req, res) => {
   try {
     const { start, end } = req.query;
@@ -528,16 +630,25 @@ exports.listEvents = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'start and end dates are required (YYYY-MM-DD).' });
     }
 
+    const attendeeEvents = await EventAttendee.findAll({
+      where: { user_id: req.userId },
+      attributes: ['event_id']
+    });
+    const myEventIds = attendeeEvents.map(a => a.event_id);
+
     const events = await Event.findAll({
       where: {
         is_archived: false,
+        [Op.or]: [
+          { creator_id: req.userId },
+          { id: { [Op.in]: myEventIds } }
+        ],
         start_datetime: { [Op.lte]: new Date(`${end}T23:59:59`) },
         end_datetime: { [Op.gte]: new Date(`${start}T00:00:00`) }
       },
       order: [['start_datetime', 'ASC']]
     });
 
-    // ── Actual response ng current user per event (para tama ang accepted/declined/pending) ──
     const eventIds = events.map(e => e.id);
     const myAttendances = await EventAttendee.findAll({
       where: { user_id: req.userId, event_id: { [Op.in]: eventIds } }
@@ -560,15 +671,7 @@ exports.listEvents = async (req, res) => {
         if (location) locationName = location.map_location;
       }
 
-      let creatorName = null;
-      let creatorId = null;
-      if (ev.creator_id) {
-        const user = await User.findByPk(ev.creator_id, { attributes: ['id', 'username', 'email'] });
-        if (user) {
-          creatorName = user.username || user.email;
-          creatorId = user.id;
-        }
-      }
+      const creatorObj = ev.creator_id ? await getUserProfileSummary(ev.creator_id) : null;
 
       let locationDisplay = null;
       if (ev.method === 'online') {
@@ -594,8 +697,8 @@ exports.listEvents = async (req, res) => {
         venue: venueName,
         location: locationName,
         locationDisplay: locationDisplay,
-        creatorName: creatorName,
-        creatorId: creatorId,
+        creator: creatorObj,
+        creatorId: ev.creator_id,
         userResponse: myResponseMap[ev.id] || null,
       });
     }
@@ -926,11 +1029,7 @@ exports.getCollaborationEvents = async (req, res) => {
         if (location) locationName = location.map_location;
       }
 
-      let creatorName = null;
-      if (ev.creator_id) {
-        const user = await User.findByPk(ev.creator_id, { attributes: ['username', 'email'] });
-        if (user) creatorName = user.username || user.email;
-      }
+      const creatorObj = ev.creator_id ? await getUserProfileSummary(ev.creator_id) : null;
 
       let locationDisplay = null;
       if (ev.method === 'online') {
@@ -956,7 +1055,7 @@ exports.getCollaborationEvents = async (req, res) => {
         venue: venueName,
         location: locationName,
         locationDisplay: locationDisplay,
-        creatorName: creatorName,
+        creator: creatorObj,
         creatorId: ev.creator_id,
       });
     }

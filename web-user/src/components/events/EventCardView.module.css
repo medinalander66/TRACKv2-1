@@ -44,14 +44,40 @@
   font-weight: 700;
 }
 
+.viewerResponseBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.viewerResponseAccepted {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.viewerResponseDeclined {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.viewerResponsePending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .heading2 {
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .featuredTitle {
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.1rem;
+  font-weight: 800;
   line-height: 1.1;
 }
 
@@ -82,7 +108,8 @@
 
 .whenWhereGroup,
 .organizerSection,
-.audienceSection {
+.audienceSection,
+.attachmentsSection {
   background: #f8f8f8;
   border-radius: 14px;
   padding: 1rem;
@@ -156,7 +183,7 @@
 .organizerDetails {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .organizerName {
@@ -167,6 +194,14 @@
 .organizerTitle {
   font-size: 0.85rem;
   color: #555;
+}
+
+.organizerEmail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--fifth-color, #6c757d);
 }
 
 .participatingBlock {
@@ -224,7 +259,7 @@
   flex-shrink: 0;
 }
 
-.attendeeStack > :first-child {
+.attendeeStack> :first-child {
   margin-left: 0;
 }
 
@@ -247,4 +282,44 @@
   font-size: 0.95rem;
   color: #333;
   flex: 1;
+}
+
+/* ─── Attachments ─── */
+.attachList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attachItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  text-decoration: none;
+  color: var(--text-color, #333);
+  transition: all 0.2s;
+}
+
+.attachItem:hover {
+  border-color: var(--primary-color, #800000);
+  background: #fafafa;
+}
+
+.attachName {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachSize {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
 }

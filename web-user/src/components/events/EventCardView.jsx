@@ -4,8 +4,14 @@ import styles from "./EventCardView.module.css";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import { FiCalendar, FiClock, FiMapPin, FiUser, FiGlobe } from "react-icons/fi";
+import {
+  FiMail,
+  FiPaperclip,
+  FiDownload,
+  FiCheckCircle,
+  FiXCircle,
+  FiClock,
+} from "react-icons/fi";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -24,6 +30,13 @@ const formatTime = (dateStr) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const getInitials = (name) => {
@@ -52,6 +65,24 @@ const getAvatarColor = (str) => {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
+const hexToRgba = (hex, alpha = 0.15) => {
+  if (!hex) return `rgba(255, 2, 0, ${alpha})`;
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(255, 2, 0, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const RESPONSE_CONFIG = {
+  accepted: { class: "viewerResponseAccepted", icon: FiCheckCircle, label: "You accepted" },
+  declined: { class: "viewerResponseDeclined", icon: FiXCircle, label: "You declined" },
+  pending: { class: "viewerResponsePending", icon: FiClock, label: "Awaiting your response" },
+};
+
 export default function EventCardView({ isOpen, onClose, event }) {
   if (!event) {
     return (
@@ -74,15 +105,21 @@ export default function EventCardView({ isOpen, onClose, event }) {
   const participants = event.participants || {};
   const depts = participants.departments || [];
   const offices = participants.offices || [];
-  const users = participants.users || [];
+  const allUsers = participants.users || [];
+  const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
+  const attachments = event.attachments || [];
 
   const locationDisplay = event.venue || event.location || "Online";
+  const respCfg = event.viewerResponse ? RESPONSE_CONFIG[event.viewerResponse] : null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Event Details">
       <div className={styles.mainContent}>
         <div className={styles.featuredCard}>
-          <div className={styles.badgesStatus}>
+          <div
+            className={styles.badgesStatus}
+            style={{ background: hexToRgba(event.color) }}
+          >
             <div className={styles.badgeRow}>
               <div className={styles.badgePill}>
                 {event.hierarchy || "Unknown Hierarchy"}
@@ -97,6 +134,11 @@ export default function EventCardView({ isOpen, onClose, event }) {
                 {event.event_type || "Unknown Type"}
               </div>
             </div>
+            {respCfg && (
+              <div className={`${styles.viewerResponseBadge} ${styles[respCfg.class]}`}>
+                <respCfg.icon size={13} /> {respCfg.label}
+              </div>
+            )}
             <div className={styles.heading2}>
               <div className={styles.featuredTitle}>{event.title}</div>
             </div>
@@ -160,6 +202,11 @@ export default function EventCardView({ isOpen, onClose, event }) {
                     <div className={styles.organizerTitle}>
                       {creatorSub || "Organizer"}
                     </div>
+                    {creator.email && (
+                      <div className={styles.organizerEmail}>
+                        <FiMail size={12} /> {creator.email}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className={styles.participatingBlock}>
@@ -183,6 +230,27 @@ export default function EventCardView({ isOpen, onClose, event }) {
                     )}
                   </div>
                 </div>
+                <div className={styles.participatingBlock}>
+                  <div className={styles.infoLabel}>
+                    PARTICIPATING OFFICES
+                  </div>
+                  <div className={styles.deptBadges}>
+                    {offices.length > 0 ? (
+                      offices.slice(0, 4).map((office) => (
+                        <div key={office} className={styles.deptBadge}>
+                          {office}
+                        </div>
+                      ))
+                    ) : (
+                      <span className={styles.noDataText}>No offices</span>
+                    )}
+                    {offices.length > 4 && (
+                      <div className={styles.deptBadge}>
+                        +{offices.length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* AUDIENCE */}
@@ -195,7 +263,7 @@ export default function EventCardView({ isOpen, onClose, event }) {
                 </div>
                 <div className={styles.audienceRow}>
                   <div className={styles.attendeeStack}>
-                    {users.slice(0, 4).map((u) => {
+                    {acceptedUsers.slice(0, 4).map((u) => {
                       const name =
                         u.full_name || u.username || u.email || "Unknown";
                       return (
@@ -209,21 +277,53 @@ export default function EventCardView({ isOpen, onClose, event }) {
                         </div>
                       );
                     })}
-                    {users.length > 4 && (
+                    {acceptedUsers.length > 4 && (
                       <div className={styles.attendeeMore}>
-                        +{users.length - 4}
+                        +{acceptedUsers.length - 4}
                       </div>
                     )}
                   </div>
                   <div className={styles.audienceText}>
-                    {users.length > 0
-                      ? users.length === 1
-                        ? `${users[0].full_name || users[0].username || users[0].email} attending`
-                        : `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
+                    {acceptedUsers.length > 0
+                      ? acceptedUsers.length === 1
+                        ? `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} attending`
+                        : `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} and ${acceptedUsers.length - 1} others attending`
                       : "No attendees yet"}
                   </div>
                 </div>
               </div>
+
+              {/* ATTACHMENTS */}
+              {attachments.length > 0 && (
+                <div className={styles.attachmentsSection}>
+                  <div className={styles.sectionHeader}>
+                    <FiPaperclip size={16} />
+                    <div className={styles.heading4}>
+                      <div className={styles.text7}>ATTACHMENTS</div>
+                    </div>
+                  </div>
+                  <div className={styles.attachList}>
+                    {attachments.map((file) => (
+                      <a
+                        key={file.id}
+                        href={file.file_url}
+                        download
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachItem}
+                      >
+                        <FiDownload size={14} />
+                        <span className={styles.attachName}>{file.file_name}</span>
+                        {(file.file_size || file.file_size === 0) && (
+                          <span className={styles.attachSize}>
+                            {formatFileSize(file.file_size)}
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

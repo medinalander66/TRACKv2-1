@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useEventsFilter } from "../../../context/EventsFilterContext";
-import { getInvitations } from "../../../api/notifications";
 import apiClient from "../../../api/client";
 import {
   FiCalendar,
@@ -26,7 +25,7 @@ import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import styles from "./Events.module.css";
 
-// ─── Import modals ───
+// ─── Modals ───
 import EventCardView from "../../../components/events/EventCardView";
 import EventInvitation from "../../../components/events/EventInvitation";
 import AttendeesModal from "../../../components/events/AttendeesModal";
@@ -132,7 +131,7 @@ export default function Events() {
     }
   }, []);
 
-  // ─── Fetch All Events ──────────────────────────────
+  // ─── Fetch All Events (now includes userResponse per event) ──
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -149,10 +148,6 @@ export default function Events() {
       );
       const allEventsData = eventsRes.data.events || [];
 
-      const invitationsRes = await getInvitations({ response: "pending" });
-      const pendingInvitations = invitationsRes.events || [];
-      const pendingIds = new Set(pendingInvitations.map((ev) => ev.id));
-
       const currentUserId = user?.id;
 
       const created = allEventsData.filter(
@@ -164,13 +159,13 @@ export default function Events() {
 
       const createdWithResponse = created.map((ev) => ({
         ...ev,
-        response: "accepted",
+        response: ev.userResponse || "accepted",
         isCreator: true,
       }));
 
       const invitedWithResponse = invited.map((ev) => ({
         ...ev,
-        response: pendingIds.has(ev.id) ? "pending" : "accepted",
+        response: ev.userResponse || "accepted",
         isCreator: false,
       }));
 
@@ -255,30 +250,57 @@ export default function Events() {
     [searchTerm, eventType, duration],
   );
 
-  // ─── Handlers ────────────────────────────────────────
+  // ─── View handlers (always fetch full details for the modal) ──
   const handleViewEvent = async (event) => {
-    // If the event already has full details (from /events/today), use it
-    if (event.creator && event.participants) {
-      setSelectedEvent(event);
-      setShowViewModal(true);
-      return;
-    }
-
-    // Otherwise fetch full details
     try {
       const res = await apiClient.get(`/events/${event.id}`);
       if (res.data.ok) {
         setSelectedEvent(res.data.event);
-        setShowViewModal(true);
       } else {
-        // Fallback: use what we have
         setSelectedEvent(event);
-        setShowViewModal(true);
       }
     } catch (err) {
       console.error("Failed to fetch event details:", err);
       setSelectedEvent(event);
+    } finally {
       setShowViewModal(true);
+    }
+  };
+
+  const handleViewInvitation = async (event) => {
+    try {
+      const res = await apiClient.get(`/events/${event.id}`);
+      if (res.data.ok) {
+        setSelectedEvent(res.data.event);
+      } else {
+        setSelectedEvent(event);
+      }
+    } catch (err) {
+      console.error("Failed to fetch invitation details:", err);
+      setSelectedEvent(event);
+    } finally {
+      setShowInvitationModal(true);
+    }
+  };
+
+  const handleViewAttendees = async (event) => {
+    if (event.participants && event.participants.users) {
+      setSelectedEvent(event);
+      setShowAttendeesModal(true);
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/events/${event.id}`);
+      if (res.data.ok) {
+        setSelectedEvent(res.data.event);
+      } else {
+        setSelectedEvent(event);
+      }
+    } catch (err) {
+      console.error("Failed to fetch event details:", err);
+      setSelectedEvent(event);
+    } finally {
+      setShowAttendeesModal(true);
     }
   };
 
@@ -293,31 +315,6 @@ export default function Events() {
       setShowInvitationModal(false);
     } catch (err) {
       console.error("Failed to respond:", err);
-    }
-  };
-
-  const handleViewAttendees = async (event) => {
-    // If the event already has participants (from /events/today), use it
-    if (event.participants && event.participants.users) {
-      setSelectedEvent(event);
-      setShowAttendeesModal(true);
-      return;
-    }
-
-    // Otherwise fetch full details
-    try {
-      const res = await apiClient.get(`/events/${event.id}`);
-      if (res.data.ok) {
-        setSelectedEvent(res.data.event);
-        setShowAttendeesModal(true);
-      } else {
-        setSelectedEvent(event);
-        setShowAttendeesModal(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch event details:", err);
-      setSelectedEvent(event);
-      setShowAttendeesModal(true);
     }
   };
 
@@ -363,7 +360,9 @@ export default function Events() {
 
     const participants = todayEvent.participants || {};
     const depts = participants.departments || [];
-    const users = participants.users || [];
+    const offices = participants.offices || [];
+    const allUsers = participants.users || [];
+    const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
 
     return (
       <div className={styles.featuredEventSection}>
@@ -452,11 +451,33 @@ export default function Events() {
                       PARTICIPATING DEPARTMENTS
                     </div>
                     <div className={styles.deptBadges}>
-                      {depts.slice(0, 4).map((dept) => (
-                        <div key={dept} className={styles.deptBadge}>
-                          {dept}
-                        </div>
-                      ))}
+                      {depts.length > 0 ? (
+                        depts.slice(0, 4).map((dept) => (
+                          <div key={dept} className={styles.deptBadge}>
+                            {dept}
+                          </div>
+                        ))
+                      ) : (
+                        <span className={styles.noDataText}>
+                          No departments
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.participatingBlock}>
+                    <div className={styles.infoLabel}>
+                      PARTICIPATING OFFICES
+                    </div>
+                    <div className={styles.deptBadges}>
+                      {offices.length > 0 ? (
+                        offices.slice(0, 4).map((office) => (
+                          <div key={office} className={styles.deptBadge}>
+                            {office}
+                          </div>
+                        ))
+                      ) : (
+                        <span className={styles.noDataText}>No offices</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -470,7 +491,7 @@ export default function Events() {
                   </div>
                   <div className={styles.audienceRow}>
                     <div className={styles.attendeeStack}>
-                      {users.slice(0, 4).map((u) => {
+                      {acceptedUsers.slice(0, 4).map((u) => {
                         const name =
                           u.full_name || u.username || u.email || "Unknown";
                         return (
@@ -483,15 +504,15 @@ export default function Events() {
                           </div>
                         );
                       })}
-                      {users.length >= 5 && (
+                      {acceptedUsers.length >= 5 && (
                         <div className={styles.attendeeMore}>
-                          +{users.length - 4}
+                          +{acceptedUsers.length - 4}
                         </div>
                       )}
                     </div>
                     <div className={styles.audienceText}>
-                      {users.length > 0
-                        ? `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
+                      {acceptedUsers.length > 0
+                        ? `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} and ${acceptedUsers.length - 1} others attending`
                         : "No attendees yet"}
                     </div>
                   </div>
@@ -579,13 +600,8 @@ export default function Events() {
     );
   };
 
-  // ─── Render Event Card (list) ────────────────────────
-  const renderEventCard = (event, showActions = true) => {
-    const isPending = event.response === "pending";
-    const isCreator = event.isCreator || false;
-    const isCollaborator =
-      !isCreator && !isPending && event.response === "accepted";
-
+  // ─── Render Event Card (list) — whole card is clickable ──
+  const renderEventCard = (event, variant = "all") => {
     let locationDisplay = "";
     if (event.method === "online") {
       locationDisplay = "Online";
@@ -593,12 +609,37 @@ export default function Events() {
       locationDisplay = event.venue || event.location || "";
     }
 
+    const handleCardClick = () => {
+      if (variant === "invited" && event.response === "pending") {
+        handleViewInvitation(event);
+      } else {
+        handleViewEvent(event);
+      }
+    };
+
+    const showEditIcon = variant === "created" || variant === "collaboration";
+
     return (
       <div
         key={event.id}
         className={styles.eventCard}
         style={{ borderLeftColor: event.color || "#800000" }}
+        onClick={handleCardClick}
       >
+        {showEditIcon && (
+          <button
+            type="button"
+            className={styles.editIconBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditEvent(event.id);
+            }}
+            title="Edit event"
+          >
+            <FiEdit size={14} />
+          </button>
+        )}
+
         <div className={styles.cardTitleLarge}>{event.title}</div>
 
         <div className={styles.cardMetaRow}>
@@ -621,12 +662,43 @@ export default function Events() {
           <span>
             <FiMapPin size={14} /> {locationDisplay}
           </span>
-          {event.creatorName && (
-            <span>
-              <FiUsers size={14} /> {event.creatorName}
-            </span>
-          )}
         </div>
+
+        {event.creator && (
+          <div className={styles.creatorBlock}>
+            <div
+              className={styles.creatorAvatar}
+              style={{
+                background: getAvatarColor(
+                  event.creator.full_name || event.creator.email,
+                ),
+              }}
+            >
+              {getInitials(event.creator.full_name || event.creator.email)}
+            </div>
+            <div className={styles.creatorInfo}>
+              <span className={styles.creatorName}>
+                {event.creator.full_name}
+              </span>
+              <span className={styles.creatorEmail}>{event.creator.email}</span>
+              {[
+                event.creator.department,
+                event.creator.office,
+                event.creator.position,
+              ].filter(Boolean).length > 0 && (
+                <span className={styles.creatorAffiliation}>
+                  {[
+                    event.creator.department,
+                    event.creator.office,
+                    event.creator.position,
+                  ]
+                    .filter(Boolean)
+                    .join(" | ")}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className={styles.cardBadges}>
           {getVisibilityBadge(event.type || event.visibility)}
@@ -640,83 +712,6 @@ export default function Events() {
           </span>
           {event.response && getStatusBadge(event.response)}
         </div>
-
-        {showActions && (
-          <div className={styles.cardActions}>
-            {/* ── Created events ── */}
-            {isCreator && (
-              <>
-                <button
-                  className={styles.editBtn}
-                  onClick={() => handleEditEvent(event.id)}
-                >
-                  <FiEdit size={14} /> Edit
-                </button>
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              </>
-            )}
-
-            {/* ── Collaboration events ── */}
-            {isCollaborator && (
-              <>
-                <button
-                  className={styles.editBtn}
-                  onClick={() => handleEditEvent(event.id)}
-                >
-                  <FiEdit size={14} /> Edit
-                </button>
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              </>
-            )}
-
-            {/* ── Invited & Accepted (View only) ── */}
-            {!isCreator &&
-              !isPending &&
-              !isCollaborator &&
-              event.response === "accepted" && (
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              )}
-
-            {/* ── Pending invitation ── */}
-            {isPending && (
-              <>
-                <button
-                  className={styles.acceptBtn}
-                  onClick={() => handleRespond(event.id, "accepted")}
-                >
-                  <FiCheckCircle size={14} /> Accept
-                </button>
-                <button
-                  className={styles.declineBtn}
-                  onClick={() => handleRespond(event.id, "declined")}
-                >
-                  <FiXCircle size={14} /> Decline
-                </button>
-                <button
-                  className={styles.viewBtn}
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <FiEye size={14} /> View
-                </button>
-              </>
-            )}
-          </div>
-        )}
       </div>
     );
   };
@@ -788,7 +783,7 @@ export default function Events() {
               {filteredAll.length === 0 ? (
                 <div className={styles.emptyState}>No events found.</div>
               ) : (
-                filteredAll.map((ev) => renderEventCard(ev, false))
+                filteredAll.map((ev) => renderEventCard(ev, "all"))
               )}
             </div>
           </>
@@ -845,7 +840,7 @@ export default function Events() {
                       : "No invited events."}
                 </div>
               ) : (
-                invitedFiltered.map((ev) => renderEventCard(ev, true))
+                invitedFiltered.map((ev) => renderEventCard(ev, "invited"))
               )}
             </div>
           </div>
@@ -868,7 +863,7 @@ export default function Events() {
                 </button>
               </div>
             ) : (
-              filteredCreated.map((ev) => renderEventCard(ev, true))
+              filteredCreated.map((ev) => renderEventCard(ev, "created"))
             )}
           </div>
         );
@@ -884,7 +879,9 @@ export default function Events() {
                 <span>You are not a collaborator on any events.</span>
               </div>
             ) : (
-              filteredCollaboration.map((ev) => renderEventCard(ev, true))
+              filteredCollaboration.map((ev) =>
+                renderEventCard(ev, "collaboration"),
+              )
             )}
           </div>
         );

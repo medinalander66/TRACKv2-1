@@ -29,6 +29,9 @@ const FOCUSED_ROUTES = [
   "/edit-event",
 ];
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function AppLayout() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -70,7 +73,6 @@ export default function AppLayout() {
         },
         { label: "Events", path: "/events", icon: <FiList size={20} /> },
         { label: "Tasks", path: "/tasks", icon: <FiCheckSquare size={20} /> },
-        // { label: "Analytics", path: "/analytics", icon: <FiBarChart2 size={20} /> },
       );
     } else {
       bottomItems.push(
@@ -91,10 +93,15 @@ export default function AppLayout() {
     }
   }
 
+  // ── Turns a URL path into a top-bar title. Skips segments that look
+  // like a UUID (e.g. /edit-event/:id) and uses the previous segment instead ──
   const pathToTitle = (path) => {
     const parts = path.split("/").filter(Boolean);
     if (parts.length === 0) return "Home";
-    const last = parts[parts.length - 1];
+    let last = parts[parts.length - 1];
+    if (UUID_REGEX.test(last) && parts.length > 1) {
+      last = parts[parts.length - 2];
+    }
     return last
       .replace(/-/g, " ")
       .replace(/\b\w/g, (char) => char.toUpperCase());
