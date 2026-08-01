@@ -12,11 +12,16 @@ import styles from "./CreateTask.module.css";
 import radioStyles from "./../../../components/common/RadioGroup.module.css";
 
 import { IoCreateOutline } from "react-icons/io5";
+import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
 
 import {
   FiCalendar,
+  FiCheckCircle,
+  FiCircle,
   FiFileText,
   FiInfo,
+  FiList,
+  FiPlus,
   FiUserPlus,
   FiUsers,
 } from "react-icons/fi";
@@ -40,6 +45,24 @@ export default function CreateTask() {
   const [showAssigneeModal, setShowAssigneeModal] = useState(false);
   const [collaboratorIds, setCollaboratorIds] = useState([]);
   const [assigneeIds, setAssigneeIds] = useState([]);
+  const [checklistItems, setChecklistItems] = useState([
+    { id: 1, text: "Title Slide", done: true },
+    { id: 2, text: "Keynote Content", done: false },
+    { id: 3, text: "Resource Links", done: false },
+  ]);
+  const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [checklistCards, setChecklistCards] = useState([
+    {
+      id: 1,
+      title: "Slide Design",
+      items: [
+        { id: 1, text: "Title Slide", done: true },
+        { id: 2, text: "Keynote Content", done: false },
+        { id: 3, text: "Resource Links", done: false },
+      ],
+      newItemText: "",
+    },
+  ]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -47,6 +70,50 @@ export default function CreateTask() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const toggleChecklistItem = (cardId, itemId) => {
+    setChecklistCards((prev) =>
+      prev.map((card) =>
+        card.id === cardId
+          ? { ...card, items: card.items.map((it) => (it.id === itemId ? { ...it, done: !it.done } : it)) }
+          : card,
+      ),
+    );
+  };
+
+  const handleAddChecklistItem = (cardId) => {
+    setChecklistCards((prev) =>
+      prev.map((card) => {
+        if (card.id !== cardId) return card;
+        const trimmedValue = (card.newItemText || "").trim();
+        if (!trimmedValue) return card;
+        return {
+          ...card,
+          items: [...card.items, { id: Date.now(), text: trimmedValue, done: false }],
+          newItemText: "",
+        };
+      }),
+    );
+  };
+
+  const handleNewItemTextChange = (cardId, value) => {
+    setChecklistCards((prev) => prev.map((card) => (card.id === cardId ? { ...card, newItemText: value } : card)));
+  };
+
+  const handleAddChecklistCard = () => {
+    setChecklistCards((prev) => [
+      ...prev,
+      { id: Date.now(), title: "New Checklist", items: [], newItemText: "" },
+    ]);
+  };
+
+  const handleDeleteChecklistCard = (cardId) => {
+    setChecklistCards((prev) => prev.filter((c) => c.id !== cardId));
+  };
+
+  const handleEditChecklistTitle = (cardId, value) => {
+    setChecklistCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, title: value } : c)));
   };
 
   const handleSubmit = async (e) => {
@@ -85,12 +152,18 @@ export default function CreateTask() {
     }
   };
 
+  const totalCompleted = (items) => items.filter((it) => it.done).length;
+  const progressFor = (items) => (items.length ? Math.round((totalCompleted(items) / items.length) * 100) : 0);
+
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
         <div
           className={styles.titleSection}
-          style={{ backgroundColor: formData.color, transition: "background-color 0.15s ease" }}
+          style={{
+            backgroundColor: formData.color,
+            transition: "background-color 0.15s ease",
+          }}
         >
           <InputField
             className={styles.titleInput}
@@ -178,6 +251,100 @@ export default function CreateTask() {
                   value={formData.dueDate}
                   onChange={handleInputChange}
                 />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiList size={16} className={styles.cardHeaderIcon} />
+              <span>Checklist</span>
+            </div>
+
+            <div className={styles.multiChecklistWrapper}>
+              {checklistCards.map((card) => {
+                const completed = totalCompleted(card.items);
+                const prog = progressFor(card.items);
+                return (
+                  <div key={card.id} className={styles.checklistCardMulti}>
+                    <div className={styles.checklistHeaderRow}>
+                      <div className={styles.checklistTitleBlockRow}>
+                        <input
+                          className={styles.checklistTitleInput}
+                          value={card.title}
+                          onChange={(e) => handleEditChecklistTitle(card.id, e.target.value)}
+                        />
+                        <span className={styles.checklistSubtitleSmall}>{card.items.length} items</span>
+                      </div>
+                      <div className={styles.checklistActions}>
+                        <button
+                          type="button"
+                          className={styles.deleteChecklistBtn}
+                          onClick={() => handleDeleteChecklistCard(card.id)}
+                          aria-label="Delete checklist"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className={styles.progressTrack}>
+                      <div className={styles.progressFill} style={{ width: `${prog}%` }} />
+                    </div>
+
+                    <div className={styles.checklistList}>
+                      {card.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`${styles.checklistItem} ${item.done ? styles.checklistItemCompleted : ""}`}
+                        >
+                          <button
+                            type="button"
+                            className={styles.checklistToggle}
+                            onClick={() => toggleChecklistItem(card.id, item.id)}
+                          >
+                            {item.done ? (
+                              <FaCheckSquare className={styles.checklistToggleIcon} />
+                            ) : (
+                              <FaRegSquare className={styles.checklistToggleIcon} />
+                            )}
+                          </button>
+                          <span className={`${styles.checklistText} ${item.done ? styles.checklistTextCompleted : ""}`}>
+                            {item.text}
+                          </span>
+                        </div>
+                      ))}
+
+                      <div className={styles.checklistAddRow}>
+                        <button
+                          type="button"
+                          className={styles.checklistAddButton}
+                          onClick={() => handleAddChecklistItem(card.id)}
+                        >
+                          <FiPlus />
+                        </button>
+                        <input
+                          className={styles.checklistAddInput}
+                          value={card.newItemText}
+                          placeholder="Add item..."
+                          onChange={(e) => handleNewItemTextChange(card.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddChecklistItem(card.id);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className={styles.addChecklistCardRow}>
+                <button type="button" className={styles.addChecklistCardBtn} onClick={handleAddChecklistCard}>
+                  + Add checklist card
+                </button>
               </div>
             </div>
           </div>

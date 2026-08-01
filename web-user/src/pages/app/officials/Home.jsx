@@ -51,6 +51,23 @@ const formatTime = (dateStr) => {
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 };
 
+const hexToRgba = (hex, alpha = 0.18) => {
+  if (!hex) return `rgba(0,0,0,${alpha})`;
+  let clean = hex.replace("#", "").trim();
+  if (clean.length === 3) {
+    clean = clean
+      .split("")
+      .map((ch) => ch + ch)
+      .join("");
+  }
+  if (clean.length !== 6) return `rgba(0,0,0,${alpha})`;
+  const int = parseInt(clean, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 // ── Small display helpers (UI only, no data/logic changes) ──
 const getInitials = (name) => {
   if (!name) return "?";
@@ -249,13 +266,18 @@ function Home() {
   const [quickStats, setQuickStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsRange, setStatsRange] = useState("week");
-  const [todayEvent, setTodayEvent] = useState(null);
+
+  // ── Today's Events (carousel) ──
+  const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
+  const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
+  const [todayTouchStartX, setTodayTouchStartX] = useState(0);
+  const [isTodayEventModalOpen, setIsTodayEventModalOpen] = useState(false);
+
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
   const [upcomingEventsOffset, setUpcomingEventsOffset] = useState(0);
   const [upcomingEventsHasMore, setUpcomingEventsHasMore] = useState(true);
-  const [isTodayEventModalOpen, setIsTodayEventModalOpen] = useState(false);
 
   // Upcoming Events filters
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
@@ -297,17 +319,20 @@ function Home() {
     }
   }, []);
 
-  // ── Today's Event ──
-  const fetchTodayEvent = useCallback(async () => {
+  // ── Today's Events (array now — carousel) ──
+  const fetchTodayEvents = useCallback(async () => {
     setTodayLoading(true);
     try {
       const res = await apiClient.get("/events/today");
       if (res.data.ok) {
-        setTodayEvent(res.data.event);
+        setTodayEvents(res.data.events || []);
+        setCurrentTodayIndex(0);
+      } else {
+        setTodayEvents([]);
       }
     } catch (err) {
-      console.error("Failed to fetch today's event:", err);
-      setTodayEvent(null);
+      console.error("Failed to fetch today's events:", err);
+      setTodayEvents([]);
     } finally {
       setTodayLoading(false);
     }
@@ -385,14 +410,14 @@ function Home() {
   // ── Initial loads ──
   useEffect(() => {
     fetchQuickStats(quickStatType, statsRange);
-    fetchTodayEvent();
+    fetchTodayEvents();
     fetchUpcomingEvents(true);
     fetchUpcomingTasks(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     quickStatType,
     fetchQuickStats,
-    fetchTodayEvent,
+    fetchTodayEvents,
     fetchUpcomingEvents,
     fetchUpcomingTasks,
   ]);
@@ -418,6 +443,32 @@ function Home() {
   const gotoCalendar = () => navigate("/calendar");
   const gotoAnalytics = () => navigate("/analytics");
   const gotoTaskLists = () => navigate("/tasks");
+
+  // ── Today's Events carousel handlers ──
+  const handleTodayPrev = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === 0 ? todayEvents.length - 1 : prev - 1,
+    );
+  };
+
+  const handleTodayNext = () => {
+    setCurrentTodayIndex((prev) =>
+      prev === todayEvents.length - 1 ? 0 : prev + 1,
+    );
+  };
+
+  const handleTodayTouchStart = (e) => {
+    setTodayTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTodayTouchEnd = (e) => {
+    const endX = e.changedTouches[0].clientX;
+    const diff = todayTouchStartX - endX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) handleTodayNext();
+      else handleTodayPrev();
+    }
+  };
 
   // ── Determine display user ──
   const displayUser = fullUser || user || {};
@@ -573,11 +624,9 @@ function Home() {
     );
   };
 
-  // ── Render today's event ──
-  const renderTodayEvent = () => {
-    if (todayLoading)
-      return <p className={styles.noData}>Loading today's event...</p>;
-    if (!todayEvent) return <p className={styles.noData}>No events today</p>;
+  // ── Render a single today event (featured card) ──
+  const renderTodayEvent = (todayEvent) => {
+    if (!todayEvent) return null;
 
     const creator = todayEvent.creator || {};
     const creatorName = creator.full_name || creator.username || "Unknown";
@@ -591,14 +640,20 @@ function Home() {
 
     const participants = todayEvent.participants || {};
     const depts = participants.departments || [];
-    const offices = participants.offices || [];
     const users = participants.users || [];
 
     return (
       <div className={styles.featuredEventSection}>
         <div className={styles.featuredContainer}>
           <div className={styles.featuredCard}>
-            <div className={styles.badgesStatus}>
+            <div
+              className={styles.badgesStatus}
+              style={{
+                backgroundColor: todayEvent.color
+                  ? hexToRgba(todayEvent.color, 0.18)
+                  : "rgb(255 2 0 / 18%)",
+              }}
+            >
               <div className={styles.badgeRow}>
                 <div className={styles.badgePill}>
                   {todayEvent.hierarchy || "Unknown Hierarchy"}
@@ -607,19 +662,16 @@ function Home() {
                   {todayEvent.method || "Unknown Method"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.visibility || "Unknown Event Visibility"}{" "}
-                  {/*Update getting the event Visibility in the backend server */}
+                  {todayEvent.visibility || "Unknown Event Visibility"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.event_type || "Unknown Event Visibility"}{" "}
-                  {/*Update getting the event Visibility in the backend server */}
+                  {todayEvent.event_type || "Unknown Event Type"}
                 </div>
               </div>
 
               <div className={styles.heading2}>
                 <div className={styles.featuredTitle}>{todayEvent.title}</div>
               </div>
-              
             </div>
 
             <div className={styles.featuredCardContent}>
@@ -746,6 +798,61 @@ function Home() {
             </div>
           </div>
         </div>
+      </div>
+    );
+  };
+
+  // ── Render Today's Events carousel ──
+  const renderTodayEventsCarousel = () => {
+    if (todayLoading)
+      return <p className={styles.noData}>Loading today's event...</p>;
+    if (todayEvents.length === 0)
+      return <p className={styles.noData}>No events today</p>;
+
+    return (
+      <div
+        className={styles.todayCarouselWrapper}
+        onTouchStart={handleTodayTouchStart}
+        onTouchEnd={handleTodayTouchEnd}
+      >
+        <div
+          className={styles.todayCarouselTrack}
+          style={{ transform: `translateX(-${currentTodayIndex * 100}%)` }}
+        >
+          {todayEvents.map((ev) => (
+            <div key={ev.id} className={styles.todayCarouselSlide}>
+              {renderTodayEvent(ev)}
+            </div>
+          ))}
+        </div>
+
+        {todayEvents.length > 1 && (
+          <>
+            <button
+              type="button"
+              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowLeft}`}
+              onClick={handleTodayPrev}
+            >
+              <IoIosArrowBack />
+            </button>
+            <button
+              type="button"
+              className={`${styles.todayCarouselArrow} ${styles.todayCarouselArrowRight}`}
+              onClick={handleTodayNext}
+            >
+              <IoIosArrowForward />
+            </button>
+            <div className={styles.todayDotsContainer}>
+              {todayEvents.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`${styles.todayDot} ${idx === currentTodayIndex ? styles.todayDotActive : ""}`}
+                  onClick={() => setCurrentTodayIndex(idx)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     );
   };
@@ -991,7 +1098,7 @@ function Home() {
       <div className={styles.todaysEvent}>
         <div className={styles.titleContainer}>
           <div className={styles.titleContent}>
-            <h1>Todays Event</h1>
+            <h1>Today's Event</h1>
             <button
               type="button"
               className={styles.viewLink}
@@ -1000,14 +1107,16 @@ function Home() {
               View Calendar
             </button>
           </div>
-        </div>
+          <div className={styles.todayContent}>
+            {renderTodayEventsCarousel()}
+          </div>
 
-        <div className={styles.todayContent}>{renderTodayEvent()}</div>
-        <EventModalView
-          isOpen={isTodayEventModalOpen}
-          onClose={() => setIsTodayEventModalOpen(false)}
-          event={todayEvent}
-        />
+          <EventModalView
+            isOpen={isTodayEventModalOpen}
+            onClose={() => setIsTodayEventModalOpen(false)}
+            event={todayEvents}
+          />
+        </div>
       </div>
 
       {/* Upcoming Events */}

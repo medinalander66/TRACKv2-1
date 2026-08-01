@@ -38,11 +38,11 @@
   color: var(--primary-color, #800000);
 }
 
-
-.cardHeaderIcon *{
+.cardHeaderIcon * {
   color: var(--primary-color, #800000);
   flex-shrink: 0;
 }
+
 .sectionContent {
   padding: 1.5rem;
   max-width: 720px;
@@ -257,19 +257,18 @@
 }
 
 .collabBtn {
-    width: 100%;
-    height: stretch;
-    border-radius: 10px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: center;
-    transition: background 0.2s, color 0.2s;
-    background: transparent;
-    color: var(--primary-color);
-    border: 1.5px solid var(--primary-color, #800000);
-    padding: 1rem;
-
+  width: 100%;
+  height: stretch;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.2s, color 0.2s;
+  background: transparent;
+  color: var(--primary-color);
+  border: 1.5px solid var(--primary-color, #800000);
+  padding: 1rem;
 }
 
 .submitButton {
@@ -328,4 +327,204 @@
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0;
+}
+
+.checklistCard {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.checklistHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checklistTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.checklistLabel {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.checklistSubtitle {
+  font-size: 0.82rem;
+  color: var(--fifth-color);
+}
+
+.checklistCounter {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary-color, #800000);
+}
+
+.progressTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9cff95 0%, #55b455 100%);
+  transition: width 0.2s ease;
+}
+
+.checklistList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.checklistItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.checklistItemCompleted {
+  background: rgba(156, 255, 149, 0.28);
+}
+
+.checklistToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary-color, #800000);
+}
+
+.checklistToggleIcon {
+  font-size: 1.1rem;
+}
+
+.checklistText {
+  font-size: 0.95rem;
+  color: var(--text-color);
+}
+
+.checklistTextCompleted {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.checklistAddRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.checklistAddButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  background: var(--primary-color, #800000);
+  color: white;
+  cursor: pointer;
+}
+
+.checklistAddInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--text-color);
+}
+
+.checklistAddInput::placeholder {
+  color: var(--fifth-color);
+  opacity: 0.75;
+}
+/* Multi-checklist card styles */
+.multiChecklistWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.checklistCardMulti {
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.98));
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.checklistTitleBlockRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.checklistTitleInput {
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-color);
+}
+
+.checklistSubtitleSmall {
+  font-size: 0.82rem;
+  color: var(--fifth-color);
+}
+
+.checklistActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.deleteChecklistBtn {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.addChecklistCardRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.addChecklistCardBtn {
+  border: 1px dashed rgba(0,0,0,0.16);
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--primary-color, #800000);
 }

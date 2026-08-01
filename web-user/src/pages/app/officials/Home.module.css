@@ -20,13 +20,28 @@
 .introName {
   color: var(--primary-color, #800000);
 }
+
 .introContent p {
   color: var(--fifth-color, #6c757d);
   font-size: 0.95rem;
   margin-top: 0.25rem;
 }
 
-/* Shared: pill filter buttons */
+.viewLink {
+  background: none;
+  border: none;
+  color: var(--hyperlink-color, #1a73e8);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin: 1rem 0;
+  white-space: nowrap;
+}
+
+.viewLink:hover {
+  opacity: 0.85;
+}
+
 .pillBtn {
   background: #fff;
   border: 1px solid #ddd;
@@ -110,27 +125,6 @@
   gap: 0.5rem;
 }
 
-/* Shared: link-style buttons */
-.viewLink {
-  background: none;
-  border: none;
-  color: var(--hyperlink-color, #1a73e8);
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin: 1rem 0;
-  white-space: nowrap;
-}
-
-.viewLink:hover {
-  opacity: 0.85;
-}
-
-.btnContainer {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .circleArrowButton {
   width: 32px;
   height: 32px;
@@ -174,7 +168,6 @@
   margin-top: 0.5rem;
 }
 
-/* New wrapper and section styles for grouped stats */
 .statsGridWrapper {
   display: flex;
   flex-direction: column;
@@ -184,7 +177,7 @@
 
 .statPrimary {
   grid-column: 1 / -1;
-  background: #b71c1c; /* Active Events - red */
+  background: #b71c1c;
   color: #fff;
   border-radius: 12px;
   padding: 1rem;
@@ -202,13 +195,10 @@
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--fifth-color, #6c757d);
-}
-
-/* horizontal rule beneath each section title */
-.sectionTitle {
   position: relative;
   padding-bottom: 0.5rem;
 }
+
 .sectionTitle::after {
   content: "";
   display: block;
@@ -278,35 +268,35 @@
   color: inherit;
 }
 
-/* Per-stat icon background + foreground variants that align with the statNumber colors */
 .statIconGreen {
   background: rgba(46, 125, 50, 0.12);
   color: #2e7d32;
 }
+
 .statIconMaroon {
   background: rgba(128, 0, 0, 0.12);
   color: var(--primary-color, #800000);
 }
+
 .statIconDarkred {
   background: rgba(92, 0, 0, 0.12);
   color: #5c0000;
 }
+
 .statIconGold {
   background: rgba(184, 134, 11, 0.12);
   color: #b8860b;
 }
 
-/* Primary (Active Events) specific tweaks */
 .statIconPrimary {
-  background: #ffffff60; /* solid white background for icon */
-  color: #ffffff; /* contrasting icon color that matches primary red */
+  background: #ffffff60;
+  color: #ffffff;
 }
 
 .statNumberPrimary {
   color: #ffffff;
 }
 
-/* Make the label inside the primary (Active Events) card white */
 .statPrimary .statCardLabel {
   color: #fff;
 }
@@ -322,6 +312,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
+
 .statTrailingIcon * {
   color: inherit;
 }
@@ -349,33 +340,22 @@
 .statGreen {
   color: #2e7d32;
 }
+
 .statMaroon {
   color: var(--primary-color, #800000);
 }
+
 .statDarkred {
   color: #5c0000;
 }
+
 .statGold {
   color: #b8860b;
 }
 
 /* Today's Event */
-/* .todaysEvent::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 4px;
-  border-top: 8px solid var(--primary-color, #800000);
-  border-radius: 10px;
-  pointer-events: none;
-} */
 .todaysEvent {
-  /* background: #fff; */
   border-radius: 0px 0px 16px 16px;
-  /* padding: 1.25rem 1rem; */
-  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); */
   margin-bottom: 2rem;
   position: relative;
 }
@@ -426,7 +406,6 @@
   color: rgb(65, 63, 63);
   font-size: 0.95rem;
   margin: 0.25rem 0 0.5rem 0;
-  /* padding: .5rem 0 .8rem 0; */
   padding-left: 0.1rem;
   padding-bottom: 0.8rem;
 }
@@ -441,32 +420,10 @@
   gap: 1rem;
 }
 
-.featuredHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
 .heading2 {
   display: flex;
   align-items: center;
   padding: 1rem 0 1rem 0;
-}
-
-.text {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--fifth-color, #6c757d);
-}
-
-.featuredButton {
-  background: var(--primary-color, #800000);
-  color: #fff;
-  border-radius: 999px;
-  padding: 0.65rem 1rem;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .featuredCard {
@@ -480,8 +437,9 @@
 
 .badgesStatus {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
   padding: 1rem;
@@ -508,25 +466,6 @@
 .badgePillAlt {
   background: rgba(0, 0, 0, 0.06);
   color: #333;
-}
-
-.liveGroup {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.liveBadge {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #b71c1c;
-}
-
-.liveText {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #b71c1c;
 }
 
 .featuredCardContent {
@@ -574,13 +513,6 @@
   gap: 0.75rem;
 }
 
-.iconPlaceholder {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.08);
-}
-
 .heading4 {
   font-size: 0.75rem;
   font-weight: 700;
@@ -616,25 +548,6 @@
 .infoValue {
   font-size: 0.95rem;
   color: #333;
-}
-
-.mapLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: transparent;
-  color: var(--primary-color, #800000);
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mapLinkText {
-  display: inline-block;
-}
-
-.mapLinkIcon {
-  font-size: 0.85rem;
 }
 
 .organizerRow {
@@ -755,28 +668,6 @@
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 1rem;
-}
-
-.actionButton,
-.actionButtonPrimary {
-  flex: 1;
-  min-width: 180px;
-  border-radius: 999px;
-  padding: 0.8rem 1rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.actionButton {
-  background: #fff;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.actionButtonPrimary {
-  background: var(--primary-color, #800000);
-  color: #fff;
 }
 
 .viewEventButton {
@@ -796,124 +687,10 @@
   }
 }
 
-.todayMeta {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: column;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: #555;
-  margin-bottom: 0.5rem;
-}
-
 .icon * {
   color: var(--icon-color);
   width: 16px;
   height: 16px;
-}
-
-.metaContent {
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-.creatorLabel {
-  display: flex;
-  flex-direction: column;
-}
-
-.creatorContent {
-  margin-top: 0.15rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.creatorSub {
-  font-size: 0.8rem;
-  color: var(--fifth-color, #6c757d);
-}
-
-/* ─── Participants ─── */
-.todayParticipants {
-  margin-top: 0.75rem;
-  border-top: 1px solid #eee;
-  padding-top: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.participantGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-}
-
-.participantLabel {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 0.5px;
-  color: var(--fifth-color, #6c757d);
-}
-
-.tagRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.tagPill {
-  background: #1a1a1a;
-  color: #fff;
-  padding: 0.25rem 0.85rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.avatarRow {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.avatarCircle {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #eee;
-  margin-left: -0.5rem;
-}
-
-.avatarRow .avatarCircle:first-child {
-  margin-left: 0;
-}
-
-.avatarMore {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #333;
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: -0.5rem;
-  border: 2px solid #fff;
 }
 
 .noData {
@@ -925,10 +702,6 @@
 /* Upcoming Events & Tasks */
 .upcomingEvent,
 .upcomingTask {
-  /* background: #fff;
-  border-radius: 16px;
-  padding: 1.25rem 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); */
   margin-bottom: 2rem;
 }
 
@@ -967,7 +740,6 @@
   text-align: center;
 }
 
-/* Date card for upcoming events (stacked month/day) */
 .dateCard {
   background: #000;
   color: var(--tertiary-color);
@@ -1016,7 +788,6 @@
   flex-wrap: wrap;
   font-size: 0.8rem;
   color: var(--text-color-secondary);
-
   flex-direction: column;
   gap: 0.2rem;
 }
@@ -1030,7 +801,6 @@
 
 .upcomingMetaContent span * {
   color: var(--text-color-secondary);
-  /* color: white; */
 }
 
 .chevron {
@@ -1072,7 +842,6 @@
   opacity: 0.7;
 }
 
-/* ─── Filter pill rows (Events & Tasks) ─── */
 .filterRow {
   display: flex;
   gap: 0.5rem;
@@ -1225,15 +994,100 @@
   border-radius: 4px;
 }
 
+/* ─── Today's Event Carousel ──────────────────────────── */
+.todayCarouselWrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.todayCarouselTrack {
+  display: flex;
+  transition: transform 0.4s ease;
+}
+
+.todayCarouselSlide {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.todayCarouselArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+  z-index: 2;
+  color: #374151;
+}
+
+.todayCarouselArrow:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.todayCarouselArrowLeft {
+  left: 8px;
+}
+
+.todayCarouselArrowRight {
+  right: 8px;
+}
+
+.todayDotsContainer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.todayDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1d5db;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.2s,
+    width 0.2s;
+}
+
+.todayDot:hover {
+  transform: scale(1.2);
+}
+
+.todayDotActive {
+  background: var(--primary-color, #800000);
+  width: 24px;
+  border-radius: 4px;
+}
+
 /* Responsive tweaks */
 @media (max-width: 480px) {
   .quickTop h2 {
     font-size: 1rem;
   }
+
   .statsGridWrapper {
     grid-template-columns: 1fr;
   }
+
   .sectionContainer {
     grid-column: auto;
+  }
+
+  .todayCarouselArrow {
+    width: 28px;
+    height: 28px;
   }
 }
