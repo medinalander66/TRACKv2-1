@@ -12,7 +12,6 @@ router.get('/invitations', authenticate, async (req, res) => {
   try {
     const { response, type } = req.query;
 
-    // Default to pending only
     const whereAttendee = { user_id: req.userId };
     if (response && ['pending', 'accepted', 'declined'].includes(response)) {
       whereAttendee.response = response;
@@ -20,87 +19,104 @@ router.get('/invitations', authenticate, async (req, res) => {
       whereAttendee.response = 'pending';
     }
 
-    const attendeeRecords = await EventAttendee.findAll({
-      where: whereAttendee,
-      include: [
-        {
-          model: Event,
-          as: 'event',                      // ✅ fixed alias (was 'Event')
-          include: [
-            { model: Venue, attributes: ['name'] },
-            { model: Location, attributes: ['map_location', 'exact_location'] },
-            // Creator – alias is 'user' (lowercase)
-            {
-              model: User, as: 'user', attributes: ['id', 'email'],
-              include: [
-                {
-                  model: UserProfile,
-                  include: [Department, Office, Position]
-                }
-              ]
-            },
-            { model: Department, attributes: ['name'] },
-            { model: Office, attributes: ['name'] }
-          ]
-        }
-      ]
-    });
+    const attendeeRecords = await EventAttendee.findAll({ where: whereAttendee });
 
-    // Build result list
     const events = [];
     for (const record of attendeeRecords) {
-      const ev = record.event;              // ✅ changed from record.Event
-      if (!ev) continue;
-
-      // Filter by visibility type if requested
+      const ev = await Event.findByPk(record.event_id);
+      if (!ev || ev.is_archived) continue;
       if (type && ['campus', 'department', 'private'].includes(type)) {
         if (ev.visibility !== type) continue;
       }
 
-      // Fetch attachments manually (polymorphic)
+      let venueName = null;
+      if (ev.venue_id) {
+        const venue = await Venue.findByPk(ev.venue_id, { attributes: ['name'] });
+        if (venue) venueName = venue.name;
+      }
+      let locationName = null;
+      if (ev.location_id) {
+        const location = await Location.findByPk(ev.location_id, { attributes: ['map_location'] });
+        if (location) locationName = location.map_location;
+      }
+
+      let creatorData = null;
+      if (ev.creator_id) {
+        const creatorUser = await User.findByPk(ev.creator_id, { attributes: ['id', 'username', 'email'] });
+        if (creatorUser) {
+          const profile = await UserProfile.findOne({ where: { user_id: creatorUser.id } });
+          let position = null, department = null, office = null, fullName = null;
+          if (profile) {
+            fullName = profile.full_name;
+            if (profile.position_id) {
+              const pos = await Position.findByPk(profile.position_id);
+              if (pos) position = pos.name;
+            }
+            if (profile.department_id) {
+              const dept = await Department.findByPk(profile.department_id);
+              if (dept) department = dept.name;
+            }
+            if (profile.office_id) {
+              const off = await Office.findByPk(profile.office_id);
+              if (off) office = off.name;
+            }
+          }
+          creatorData = {
+            id: creatorUser.id,
+            username: creatorUser.username || fullName || creatorUser.email || 'Unknown',
+            email: creatorUser.email,
+            full_name: fullName || creatorUser.username || creatorUser.email,
+            position,
+            department,
+            office
+          };
+        }
+      }
+
       const attachments = await Attachment.findAll({
         where: { entity_type: 'event', entity_id: ev.id },
         attributes: ['id', 'file_name', 'file_url', 'file_size']
       });
 
-      // Fetch participants (attendees) for this event
-      const participantsRaw = await EventAttendee.findAll({
-        where: { event_id: ev.id },
-        include: [
-          {
-            model: User, attributes: ['id', 'email'],
-            include: [
-              { model: UserProfile, include: [Department, Office, Position] }
-            ]
+      const attendees = await EventAttendee.findAll({ where: { event_id: ev.id } });
+      const departmentSet = new Set();
+      const officeSet = new Set();
+      const usersList = [];
+
+      for (const attendee of attendees) {
+        const user = await User.findByPk(attendee.user_id, { attributes: ['id', 'username', 'email'] });
+        if (!user) continue;
+
+        const profile = await UserProfile.findOne({ where: { user_id: user.id } });
+        let deptName = null, officeName = null, positionName = null, fullName = null;
+
+        if (profile) {
+          fullName = profile.full_name;
+          if (profile.department_id) {
+            const dept = await Department.findByPk(profile.department_id);
+            if (dept) { deptName = dept.name; departmentSet.add(deptName); }
           }
-        ]
-      });
-
-      // Group participants
-      const departments = new Map();
-      const offices = new Map();
-      const users = [];
-
-      participantsRaw.forEach(p => {
-        const user = p.User;
-        if (!user || !user.UserProfile) return;
-        const profile = user.UserProfile;
-        if (profile.department_id && profile.Department) {
-          departments.set(profile.Department.name, (departments.get(profile.Department.name) || 0) + 1);
+          if (profile.office_id) {
+            const off = await Office.findByPk(profile.office_id);
+            if (off) { officeName = off.name; officeSet.add(officeName); }
+          }
+          if (profile.position_id) {
+            const pos = await Position.findByPk(profile.position_id);
+            if (pos) positionName = pos.name;
+          }
         }
-        if (profile.office_id && profile.Office) {
-          offices.set(profile.Office.name, (offices.get(profile.Office.name) || 0) + 1);
-        }
-        users.push({
+
+        usersList.push({
           id: user.id,
+          username: user.username || fullName || user.email || 'Unknown',
           email: user.email,
-          name: profile.full_name || user.email,
-          department: profile.Department?.name,
-          office: profile.Office?.name,
-          position: profile.Position?.name,
-          response: p.response,
+          full_name: fullName || user.username || user.email,
+          department: deptName,
+          office: officeName,
+          position: positionName,
+          response: attendee.response
         });
-      });
+      }
 
       events.push({
         id: ev.id,
@@ -111,33 +127,22 @@ router.get('/invitations', authenticate, async (req, res) => {
         start_datetime: ev.start_datetime,
         end_datetime: ev.end_datetime,
         hierarchy: ev.hierarchy,
+        event_type: ev.event_type,
         visibility: ev.visibility,
-        venue: ev.Venue ? ev.Venue.name : null,
-        location: ev.Location ? `${ev.Location.map_location} ${ev.Location.exact_location || ''}`.trim() : null,
+        venue: venueName,
+        location: locationName,
         description: ev.description,
-        creator: ev.user ? {
-          id: ev.user.id,
-          email: ev.user.email,
-          full_name: ev.user.UserProfile?.full_name || ev.user.email,
-          department: ev.user.UserProfile?.Department?.name,
-          office: ev.user.UserProfile?.Office?.name,
-          position: ev.user.UserProfile?.Position?.name,
-        } : null,
-        department: ev.Department ? ev.Department.name : null,
-        office: ev.Office ? ev.Office.name : null,
+        creator: creatorData,
         attachments: attachments.map(a => ({
-          id: a.id,
-          file_name: a.file_name,
-          file_url: a.file_url,
-          file_size: a.file_size,
+          id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size
         })),
         created_at: ev.created_at,
         response: record.response,
         participants: {
-          departments: Array.from(departments, ([name, count]) => ({ name, count })),
-          offices: Array.from(offices, ([name, count]) => ({ name, count })),
-          users,
-        },
+          departments: Array.from(departmentSet),
+          offices: Array.from(officeSet),
+          users: usersList
+        }
       });
     }
 

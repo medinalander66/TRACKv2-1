@@ -4,6 +4,17 @@ const {
   sequelize, Event, EventAttendee, EventCollaborator,
   Venue, Location, UserProfile, Department, Office, User, Position
 } = require('../models');
+const {
+  queueEmail, buildInvitationEmail, buildCollaboratorEmail, buildReminderEmail
+} = require('../services/eventEmailTemplates');
+
+// ─── Helper: get recipient email + display name ────────
+const getUserContact = async (userId) => {
+  const u = await User.findByPk(userId, { attributes: ['id', 'email'] });
+  if (!u) return null;
+  const profile = await UserProfile.findOne({ where: { user_id: userId } });
+  return { email: u.email, full_name: profile?.full_name || u.email };
+};
 
 // ─── CREATE EVENT ──────────────────────────────────────
 exports.createEvent = async (req, res) => {
@@ -97,25 +108,76 @@ exports.createEvent = async (req, res) => {
       response: 'accepted'
     }, { transaction: t });
 
-    if (attendee_ids && attendee_ids.length > 0) {
-      const unique = [...new Set(attendee_ids)].filter(id => id !== req.userId);
-      if (unique.length > 0) {
-        await EventAttendee.bulkCreate(
-          unique.map(userId => ({ id: uuidv4(), event_id: event.id, user_id: userId, response: 'pending' })),
-          { transaction: t }
-        );
-      }
+    const uniqueAttendeeIds = attendee_ids
+      ? [...new Set(attendee_ids)].filter(id => id !== req.userId)
+      : [];
+    if (uniqueAttendeeIds.length > 0) {
+      await EventAttendee.bulkCreate(
+        uniqueAttendeeIds.map(userId => ({ id: uuidv4(), event_id: event.id, user_id: userId, response: 'pending' })),
+        { transaction: t }
+      );
     }
 
-    if (collaborator_ids && collaborator_ids.length > 0) {
-      const unique = [...new Set(collaborator_ids)];
+    const uniqueCollaboratorIds = collaborator_ids ? [...new Set(collaborator_ids)] : [];
+    if (uniqueCollaboratorIds.length > 0) {
       await EventCollaborator.bulkCreate(
-        unique.map(userId => ({ id: uuidv4(), event_id: event.id, user_id: userId, permission: 'edit' })),
+        uniqueCollaboratorIds.map(userId => ({ id: uuidv4(), event_id: event.id, user_id: userId, permission: 'edit' })),
         { transaction: t }
       );
     }
 
     await t.commit();
+
+    // ─── Queue notification & reminder emails (best-effort) ───
+    try {
+      const eventForEmail = {
+        title: event.title,
+        description: event.description,
+        start_datetime: event.start_datetime,
+        end_datetime: event.end_datetime,
+        method: event.method,
+        link: event.link
+      };
+
+      for (const userId of uniqueAttendeeIds) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
+        await queueEmail({
+          recipient_email: contact.email, subject, body,
+          event_id: event.id, email_type: 'invitation'
+        });
+      }
+
+      for (const userId of uniqueCollaboratorIds) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildCollaboratorEmail(eventForEmail, contact.full_name);
+        await queueEmail({
+          recipient_email: contact.email, subject, body,
+          event_id: event.id, email_type: 'collaborator'
+        });
+      }
+
+      if (is_email_reminder && remind_before_minutes) {
+        const reminderTime = new Date(
+          new Date(event.start_datetime).getTime() - Number(remind_before_minutes) * 60000
+        );
+        const recipientIds = [...new Set([req.userId, ...uniqueAttendeeIds, ...uniqueCollaboratorIds])];
+        for (const userId of recipientIds) {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildReminderEmail(eventForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            scheduled_for: reminderTime,
+            event_id: event.id, email_type: 'reminder'
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue event emails:', emailErr);
+    }
 
     res.status(201).json({
       ok: true,
@@ -146,15 +208,16 @@ exports.updateEvent = async (req, res) => {
       is_email_reminder, event_type, link
     } = req.body;
 
-    // 1. Hanapin ang event
     const event = await Event.findByPk(id);
     if (!event) {
       await t.rollback();
       return res.status(404).json({ ok: false, message: 'Event not found.' });
     }
 
-    // 2. I-verify na ang user ang creator (o collaborator)
-    if (event.creator_id !== req.userId) {
+    // ── Determine if the editor is a collaborator (not the creator) ──
+    const isCollaboratorEdit = event.creator_id !== req.userId;
+
+    if (isCollaboratorEdit) {
       const collaborator = await EventCollaborator.findOne({
         where: { event_id: id, user_id: req.userId }
       });
@@ -164,7 +227,6 @@ exports.updateEvent = async (req, res) => {
       }
     }
 
-    // 3. I-validate ang mga field
     if (!title || !visibility || !hierarchy || !start_datetime || !end_datetime || !method || !description || !color) {
       await t.rollback();
       return res.status(400).json({ ok: false, message: 'Missing required fields.' });
@@ -175,22 +237,29 @@ exports.updateEvent = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'End time must be after start time.' });
     }
 
-    // 4. I-handle ang department visibility
+    // ── Visibility / Department: collaborators (non-creators) cannot change these ──
+    let finalVisibility = visibility;
     let finalDeptId = null;
-    if (visibility === 'department') {
-      if (!department_id) {
-        await t.rollback();
-        return res.status(400).json({ ok: false, message: 'department_id is required for department events.' });
+
+    if (isCollaboratorEdit) {
+      // Preserve the event's original visibility/department — ignore whatever was submitted
+      finalVisibility = event.visibility;
+      finalDeptId = event.department_id;
+    } else {
+      if (visibility === 'department') {
+        if (!department_id) {
+          await t.rollback();
+          return res.status(400).json({ ok: false, message: 'department_id is required for department events.' });
+        }
+        const profile = await UserProfile.findOne({ where: { user_id: req.userId } });
+        if (!profile || profile.department_id !== department_id) {
+          await t.rollback();
+          return res.status(403).json({ ok: false, message: 'You can only create department events for your own department.' });
+        }
+        finalDeptId = department_id;
       }
-      const profile = await UserProfile.findOne({ where: { user_id: req.userId } });
-      if (!profile || profile.department_id !== department_id) {
-        await t.rollback();
-        return res.status(403).json({ ok: false, message: 'You can only create department events for your own department.' });
-      }
-      finalDeptId = department_id;
     }
 
-    // 5. I-handle ang venue/location
     let finalVenueId = null;
     let finalLocationId = null;
 
@@ -206,7 +275,6 @@ exports.updateEvent = async (req, res) => {
         }
       } else {
         if (map_location) {
-          // Check if location already exists
           let existingLocation = await Location.findOne({
             where: { map_location: map_location.trim() }
           });
@@ -228,7 +296,6 @@ exports.updateEvent = async (req, res) => {
       }
     }
 
-    // 6. I-update ang event
     await event.update({
       title,
       color,
@@ -238,7 +305,7 @@ exports.updateEvent = async (req, res) => {
       end_datetime,
       hierarchy,
       event_type: event_type || 'event',
-      visibility,
+      visibility: finalVisibility,
       venue_id: finalVenueId,
       location_id: finalLocationId,
       department_id: finalDeptId,
@@ -249,8 +316,6 @@ exports.updateEvent = async (req, res) => {
       updated_at: new Date()
     }, { transaction: t });
 
-    // 7. I-update ang attendees
-    // Tanggalin ang lahat maliban sa creator
     await EventAttendee.destroy({
       where: {
         event_id: id,
@@ -259,7 +324,6 @@ exports.updateEvent = async (req, res) => {
       transaction: t
     });
 
-    // I-filter ang mga null/undefined na user IDs
     const validAttendeeIds = (attendee_ids || [])
       .filter(id => id && id !== req.userId && typeof id === 'string' && id.trim() !== '');
 
@@ -271,7 +335,6 @@ exports.updateEvent = async (req, res) => {
       );
     }
 
-    // 8. I-update ang collaborators
     await EventCollaborator.destroy({
       where: { event_id: id },
       transaction: t
@@ -323,21 +386,18 @@ exports.getEventById = async (req, res) => {
       return res.status(404).json({ ok: false, message: 'Event not found.' });
     }
 
-    // ── 1. GET VENUE ──
     let venueName = null;
     if (event.venue_id) {
       const venue = await Venue.findByPk(event.venue_id, { attributes: ['name'] });
       if (venue) venueName = venue.name;
     }
 
-    // ── 2. GET LOCATION ──
     let locationName = null;
     if (event.location_id) {
       const location = await Location.findByPk(event.location_id, { attributes: ['map_location'] });
       if (location) locationName = location.map_location;
     }
 
-    // ── 3. GET CREATOR ──
     let creatorData = null;
     if (event.creator_id) {
       const creatorUser = await User.findByPk(event.creator_id, { attributes: ['id', 'username', 'email'] });
@@ -360,6 +420,7 @@ exports.getEventById = async (req, res) => {
           }
         }
         creatorData = {
+          id: creatorUser.id,
           username: creatorUser.username || fullName || creatorUser.email || 'Unknown',
           email: creatorUser.email,
           full_name: fullName || creatorUser.username || creatorUser.email,
@@ -370,7 +431,6 @@ exports.getEventById = async (req, res) => {
       }
     }
 
-    // ── 4. GET ATTENDEES ──
     const attendees = await EventAttendee.findAll({
       where: { event_id: event.id }
     });
@@ -390,17 +450,11 @@ exports.getEventById = async (req, res) => {
         fullName = profile.full_name;
         if (profile.department_id) {
           const dept = await Department.findByPk(profile.department_id);
-          if (dept) {
-            deptName = dept.name;
-            departmentSet.add(deptName);
-          }
+          if (dept) { deptName = dept.name; departmentSet.add(deptName); }
         }
         if (profile.office_id) {
           const off = await Office.findByPk(profile.office_id);
-          if (off) {
-            officeName = off.name;
-            officeSet.add(officeName);
-          }
+          if (off) { officeName = off.name; officeSet.add(officeName); }
         }
         if (profile.position_id) {
           const pos = await Position.findByPk(profile.position_id);
@@ -420,12 +474,18 @@ exports.getEventById = async (req, res) => {
       });
     }
 
-    // ── 5. GET COLLABORATORS ──
     const collaborators = await EventCollaborator.findAll({
       where: { event_id: event.id },
       attributes: ['user_id']
     });
     const collaboratorIds = collaborators.map(c => c.user_id);
+
+    // ── Current viewer's own response (kung invited sya) ──
+    let viewerResponse = null;
+    const viewerAttendee = await EventAttendee.findOne({
+      where: { event_id: event.id, user_id: req.userId }
+    });
+    if (viewerAttendee) viewerResponse = viewerAttendee.response;
 
     const formatted = {
       id: event.id,
@@ -443,6 +503,9 @@ exports.getEventById = async (req, res) => {
       creator: creatorData,
       attendees: usersList,
       collaborators: collaboratorIds,
+      isCreator: event.creator_id === req.userId,
+      isCollaborator: collaboratorIds.includes(req.userId),
+      viewerResponse,
       participants: {
         departments: Array.from(departmentSet),
         offices: Array.from(officeSet),
@@ -473,6 +536,14 @@ exports.listEvents = async (req, res) => {
       },
       order: [['start_datetime', 'ASC']]
     });
+
+    // ── Actual response ng current user per event (para tama ang accepted/declined/pending) ──
+    const eventIds = events.map(e => e.id);
+    const myAttendances = await EventAttendee.findAll({
+      where: { user_id: req.userId, event_id: { [Op.in]: eventIds } }
+    });
+    const myResponseMap = {};
+    myAttendances.forEach(a => { myResponseMap[a.event_id] = a.response; });
 
     const result = [];
     for (const ev of events) {
@@ -525,6 +596,7 @@ exports.listEvents = async (req, res) => {
         locationDisplay: locationDisplay,
         creatorName: creatorName,
         creatorId: creatorId,
+        userResponse: myResponseMap[ev.id] || null,
       });
     }
 
@@ -614,7 +686,7 @@ exports.getEventStats = async (req, res) => {
   }
 };
 
-// ─── GET TODAY'S EVENT ──────────────────────────────
+// ─── GET TODAY'S EVENTS (ALL, WITH PARTICIPANTS) ─────────────
 exports.getTodayEvent = async (req, res) => {
   try {
     const userId = req.userId;
@@ -712,17 +784,11 @@ exports.getTodayEvent = async (req, res) => {
           fullName = profile.full_name;
           if (profile.department_id) {
             const dept = await Department.findByPk(profile.department_id);
-            if (dept) {
-              deptName = dept.name;
-              departmentSet.add(deptName);
-            }
+            if (dept) { deptName = dept.name; departmentSet.add(deptName); }
           }
           if (profile.office_id) {
             const off = await Office.findByPk(profile.office_id);
-            if (off) {
-              officeName = off.name;
-              officeSet.add(officeName);
-            }
+            if (off) { officeName = off.name; officeSet.add(officeName); }
           }
           if (profile.position_id) {
             const pos = await Position.findByPk(profile.position_id);

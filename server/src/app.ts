@@ -19,6 +19,7 @@ import notificationsRoutes from './routes/notifications';
 import conflictRoutes from './routes/conflict';
 
 const app: Express = express();
+require('./services/emailQueueProcessor').start();
 
 // ─── Middleware ───
 app.use(cors());

@@ -1,4 +1,3 @@
-// src/models/email_queue.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -20,8 +19,20 @@ const EmailQueue = sequelize.define('email_queue', {
     type: DataTypes.TEXT,
     allowNull: false
   },
+  scheduled_for: {
+    type: DataTypes.DATE,
+    allowNull: true // null = send ASAP
+  },
+  event_id: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  email_type: {
+    type: DataTypes.STRING(50),
+    allowNull: true // 'invitation' | 'collaborator' | 'reminder'
+  },
   status: {
-    type: DataTypes.ENUM('pending','sent','failed'),
+    type: DataTypes.ENUM('pending', 'sent', 'failed'),
     defaultValue: 'pending'
   },
   error_message: {
@@ -40,7 +51,8 @@ const EmailQueue = sequelize.define('email_queue', {
   timestamps: false,
   tableName: 'email_queue',
   indexes: [
-    { fields: ['status'] }
+    { fields: ['status'] },
+    { fields: ['status', 'scheduled_for'] }
   ]
 });
 
