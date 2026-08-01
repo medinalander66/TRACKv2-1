@@ -1,0 +1,331 @@
+@import "../../../App.css";
+
+.pageWrapper {
+  min-height: 100vh;
+  background: var(--page-background-color);
+}
+
+.form {
+  background: var(--page-background-color);
+  padding-bottom: 5rem;
+}
+
+/* Card */
+.card {
+  background: var(--background-color, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--primary-color, #800000);
+}
+
+
+.cardHeaderIcon *{
+  color: var(--primary-color, #800000);
+  flex-shrink: 0;
+}
+.sectionContent {
+  padding: 1.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.labelOptionContent span {
+  color: white;
+}
+
+.titleSection {
+  background: var(--input-background-color);
+  padding: 3rem 0;
+  margin: 0;
+}
+
+.titleInput {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-color);
+  background: transparent;
+  border: none;
+  width: 100%;
+  outline: none;
+  padding: 0rem 0.5rem;
+}
+
+.titleInput:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.titleInput::placeholder {
+  color: var(--fifth-color);
+  opacity: 0.7;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.row > * {
+  flex: 1 1 150px;
+}
+
+.stackRow {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Additional styles for the RadioGroup component within the CreateTask page */
+.labelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: none;
+  width: stretch;
+  padding: 0.25rem;
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.labelLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #2d2d2d;
+}
+
+.labelOptions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.labelRadioLabel {
+  display: inline-flex;
+  align-items: center;
+  width: stretch;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  color: var(--tertiary-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  opacity: 0.6;
+}
+
+.labelRadioLabel input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.labelRadioLabel:has(input:checked) {
+  width: stretch;
+  transform: scale(1.06);
+  font-weight: 700;
+  border: 1px solid black;
+  opacity: 1;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--fifth-color);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 10px;
+  background: var(--input-background-color);
+  color: var(--text-color);
+  outline: none;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--primary-color, #800000);
+}
+
+.colorPicker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.colorInput {
+  width: 56px;
+  height: 42px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.colorValue {
+  font-size: 0.95rem;
+  color: var(--text-color);
+}
+
+.inputWithButton {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.addButton,
+.submitButton,
+.cancelButton {
+  border: none;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+
+.addButton {
+  background: var(--primary-color, #800000);
+  color: white;
+}
+
+.formActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.inviteButton {
+  width: 100%;
+  height: stretch;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.2s,
+    color 0.2s;
+  background: var(--primary-color, #800000);
+  color: white;
+  border: 1.5px solid var(--primary-color, #800000);
+  padding: 1rem;
+}
+
+.collabBtn {
+    width: 100%;
+    height: stretch;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.2s, color 0.2s;
+    background: transparent;
+    color: var(--primary-color);
+    border: 1.5px solid var(--primary-color, #800000);
+    padding: 1rem;
+
+}
+
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 1rem;
+  padding: 0.9rem 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+  color: var(--tertiary-color);
+  transition:
+    transform 0.15s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.cancelButton {
+  background: white;
+  color: var(--primary-color, #800000);
+  border: 1.5px solid var(--primary-color, #800000);
+  flex: 1 1 140px;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--radio-button-background);
+  color: var(--text-color);
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.removeButton {
+  border: none;
+  background: transparent;
+  color: var(--primary-color, #800000);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.statusMessage {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
