@@ -1,4 +1,3 @@
-// src/models/event_attendees.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -17,8 +16,12 @@ const EventAttendee = sequelize.define('event_attendees', {
     allowNull: false
   },
   response: {
-    type: DataTypes.ENUM('accepted','declined','pending'),
+    type: DataTypes.ENUM('accepted', 'declined', 'pending'),
     defaultValue: 'pending'
+  },
+  is_original: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   notified_at: {
     type: DataTypes.DATE,
