@@ -9,15 +9,12 @@ import TaskColor from "../../../components/tasks/TaskColor";
 import InvitationModal from "../../../components/tasks/InvitationModal";
 import InviteAssigneeModal from "../../../components/tasks/InviteAssigneeModal";
 import styles from "./CreateTask.module.css";
-import radioStyles from "./../../../components/common/RadioGroup.module.css";
 
 import { IoCreateOutline } from "react-icons/io5";
 import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
 
 import {
   FiCalendar,
-  FiCheckCircle,
-  FiCircle,
   FiFileText,
   FiInfo,
   FiList,
