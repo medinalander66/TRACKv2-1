@@ -47,11 +47,12 @@
 .heading2 {
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .featuredTitle {
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 800;
   line-height: 1.1;
 }
 
@@ -82,7 +83,8 @@
 
 .whenWhereGroup,
 .organizerSection,
-.audienceSection {
+.audienceSection,
+.attachmentsSection {
   background: #f8f8f8;
   border-radius: 14px;
   padding: 1rem;
@@ -156,7 +158,7 @@
 .organizerDetails {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .organizerName {
@@ -167,6 +169,14 @@
 .organizerTitle {
   font-size: 0.85rem;
   color: #555;
+}
+
+.organizerEmail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--fifth-color, #6c757d);
 }
 
 .participatingBlock {
@@ -188,6 +198,11 @@
   padding: 0.4rem 0.75rem;
   font-size: 0.8rem;
   color: white;
+}
+
+.noDataText {
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 .audienceRow {
@@ -219,7 +234,7 @@
   flex-shrink: 0;
 }
 
-.attendeeStack > :first-child {
+.attendeeStack> :first-child {
   margin-left: 0;
 }
 
@@ -244,67 +259,103 @@
   flex: 1;
 }
 
+/* ─── Attachments ─── */
+.attachList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attachItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  text-decoration: none;
+  color: var(--text-color, #333);
+  transition: all 0.2s;
+}
+
+.attachItem:hover {
+  border-color: var(--primary-color, #800000);
+  background: #fafafa;
+}
+
+.attachName {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachSize {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
 /* ─── Response Section ─── */
 .responseSection {
-  background: #f9fafb;
-  border-radius: 14px;
-  padding: 16px 20px;
-  text-align: center;
-  border: 1px solid #f0f0f0;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .responseText {
-  margin: 0 0 14px 0;
-  font-size: 14px;
-  color: #374151;
-  font-weight: 500;
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0;
 }
 
 .responseBtns {
   display: flex;
-  gap: 12px;
-  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .acceptBtn,
 .declineBtn {
-  display: flex;
+  flex: 1;
+  min-width: 140px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 28px;
+  justify-content: center;
+  gap: 0.5rem;
   border: none;
   border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
+  padding: 0.85rem 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .acceptBtn {
-  background: var(--primary-color, #800000);
-  color: white;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .acceptBtn:hover {
-  background: #660000;
-  transform: scale(1.02);
-}
-
-.acceptBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  background: #a7f3d0;
 }
 
 .declineBtn {
-  background: #e5e7eb;
-  color: #374151;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .declineBtn:hover {
-  background: #d1d5db;
-  transform: scale(1.02);
+  background: #fecaca;
 }
 
+.acceptBtn:disabled,
 .declineBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
