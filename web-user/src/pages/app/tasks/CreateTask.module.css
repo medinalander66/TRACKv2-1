@@ -43,6 +43,10 @@
   flex-shrink: 0;
 }
 
+.icon *{
+  color: white;
+}
+
 .sectionContent {
   padding: 1.5rem;
   max-width: 720px;

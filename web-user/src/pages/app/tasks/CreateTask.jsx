@@ -321,7 +321,7 @@ export default function CreateTask() {
                           className={styles.checklistAddButton}
                           onClick={() => handleAddChecklistItem(card.id)}
                         >
-                          <FiPlus />
+                          <FiPlus className={styles.icon}/>
                         </button>
                         <input
                           className={styles.checklistAddInput}
