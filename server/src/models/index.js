@@ -31,6 +31,7 @@ const Event = require('./events');
 const EventAttendee = require('./event_attendees');
 const EventCollaborator = require('./event_collaborators');
 const Task = require('./tasks');
+const TaskAssignee = require('./task_assignees');
 const TaskChecklistItem = require('./task_checklist_items');
 const TaskCollaborator = require('./task_collaborators');
 const Attachment = require('./attachments');
@@ -115,14 +116,21 @@ EventCollaborator.belongsTo(User, { foreignKey: 'user_id' });
 Task.belongsTo(Department, { foreignKey: 'department_id', onDelete: 'SET NULL' });
 Task.belongsTo(Office, { foreignKey: 'office_id', onDelete: 'SET NULL' });
 Task.belongsTo(User, { foreignKey: 'creator_id' });
-Task.belongsTo(User, { foreignKey: 'assignee_id', onDelete: 'SET NULL' });
+Task.hasMany(TaskChecklistItem, { foreignKey: 'task_id', onDelete: 'CASCADE' });
+Task.belongsToMany(User, { through: TaskAssignee, foreignKey: 'task_id', otherKey: 'user_id' });
+Task.belongsToMany(User, { through: TaskCollaborator, foreignKey: 'task_id', otherKey: 'user_id', as: 'collaborators' });
 
 // --- task_checklist_items ---
 TaskChecklistItem.belongsTo(Task, { foreignKey: 'task_id', onDelete: 'CASCADE' });
+TaskChecklistItem.belongsTo(User, { foreignKey: 'completed_by_user_id', as: 'completedBy' });
+
+// --- task_assignees ---
+TaskAssignee.belongsTo(Task, { foreignKey: 'task_id', onDelete: 'CASCADE' });
+TaskAssignee.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 
 // --- task_collaborators ---
 TaskCollaborator.belongsTo(Task, { foreignKey: 'task_id', onDelete: 'CASCADE' });
-TaskCollaborator.belongsTo(User, { foreignKey: 'user_id' });
+TaskCollaborator.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 
 // --- feedback_ratings ---
 FeedbackRating.belongsTo(User, { foreignKey: 'user_id' });
