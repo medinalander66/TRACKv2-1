@@ -2,12 +2,16 @@ const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
 const {
   sequelize, Event, EventAttendee, EventCollaborator,
-  Venue, Location, UserProfile, Department, Office, User, Position
+  Venue, Location, UserProfile, Department, Office, User, Position,
+  Attachment
 } = require('../models');
 const {
   queueEmail, buildInvitationEmail, buildCollaboratorEmail,
   buildReminderEmail, buildEventEditedEmail
 } = require('../services/eventEmailTemplates');
+const { buildConflictMap } = require('../services/conflictService');
+
+const EMPTY_CONFLICT = { isConflicted: false, isPriority: false, conflictsWith: [], reason: null };
 
 // ─── Helper: get recipient email + display name ────────
 const getUserContact = async (userId) => {
@@ -48,6 +52,35 @@ const getUserProfileSummary = async (userId) => {
   };
 };
 
+// ─── Helper: hard venue-conflict check (blocks create/update) ────
+const getVenueConflict = async (venueId, start, end, excludeEventId = null) => {
+  if (!venueId) return null;
+  const where = {
+    venue_id: venueId,
+    is_archived: false,
+    start_datetime: { [Op.lt]: end },
+    end_datetime: { [Op.gt]: start }
+  };
+  if (excludeEventId) where.id = { [Op.ne]: excludeEventId };
+
+  const conflict = await Event.findOne({ where });
+  if (!conflict) return null;
+
+  let creatorName = null;
+  if (conflict.creator_id) {
+    const user = await User.findByPk(conflict.creator_id, { attributes: ['username', 'email'] });
+    if (user) creatorName = user.username || user.email;
+  }
+
+  return {
+    id: conflict.id,
+    title: conflict.title,
+    start_datetime: conflict.start_datetime,
+    end_datetime: conflict.end_datetime,
+    creatorName
+  };
+};
+
 // ─── CREATE EVENT ──────────────────────────────────────
 exports.createEvent = async (req, res) => {
   const t = await sequelize.transaction();
@@ -56,7 +89,7 @@ exports.createEvent = async (req, res) => {
       title, visibility, hierarchy, start_datetime, end_datetime,
       method, venue_id, map_location, department_id, description,
       color, attendee_ids, collaborator_ids, remind_before_minutes,
-      is_email_reminder, event_type
+      event_type
     } = req.body;
 
     if (!title || !visibility || !hierarchy || !start_datetime || !end_datetime || !method || !description || !color) {
@@ -64,7 +97,10 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Missing required fields.' });
     }
 
-    if (new Date(start_datetime) >= new Date(end_datetime)) {
+    const startDT = new Date(start_datetime);
+    const endDT = new Date(end_datetime);
+
+    if (startDT >= endDT) {
       await t.rollback();
       return res.status(400).json({ ok: false, message: 'End time must be after start time.' });
     }
@@ -95,6 +131,17 @@ exports.createEvent = async (req, res) => {
             return res.status(404).json({ ok: false, message: 'Venue not found.' });
           }
           finalVenueId = venue.id;
+
+          // ── Hard block: venue conflicts must be resolved before creating ──
+          const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT);
+          if (venueConflict) {
+            await t.rollback();
+            return res.status(409).json({
+              ok: false,
+              message: `Venue is already booked for this time by "${venueConflict.title}". Please choose a different venue, date, or time.`,
+              venueConflict
+            });
+          }
         }
       } else {
         if (map_location) {
@@ -129,7 +176,8 @@ exports.createEvent = async (req, res) => {
       creator_id: req.userId,
       description,
       remind_before_minutes: remind_before_minutes || null,
-      is_email_reminder: !!is_email_reminder,
+      // Email reminder is now always on
+      is_email_reminder: true,
       is_archived: false
     }, { transaction: t });
 
@@ -195,7 +243,7 @@ exports.createEvent = async (req, res) => {
         });
       }
 
-      if (is_email_reminder && remind_before_minutes) {
+      if (remind_before_minutes) {
         const reminderTime = new Date(
           new Date(event.start_datetime).getTime() - Number(remind_before_minutes) * 60000
         );
@@ -241,7 +289,7 @@ exports.updateEvent = async (req, res) => {
       title, visibility, hierarchy, start_datetime, end_datetime,
       method, venue_id, map_location, department_id, description,
       color, attendee_ids, collaborator_ids, remind_before_minutes,
-      is_email_reminder, event_type, link
+      event_type, link
     } = req.body;
 
     const event = await Event.findByPk(id);
@@ -267,12 +315,14 @@ exports.updateEvent = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Missing required fields.' });
     }
 
-    if (new Date(start_datetime) >= new Date(end_datetime)) {
+    const startDT = new Date(start_datetime);
+    const endDT = new Date(end_datetime);
+
+    if (startDT >= endDT) {
       await t.rollback();
       return res.status(400).json({ ok: false, message: 'End time must be after start time.' });
     }
 
-    // ── Visibility / Department: collaborators (non-creators) cannot change these ──
     let finalVisibility = visibility;
     let finalDeptId = null;
 
@@ -306,6 +356,17 @@ exports.updateEvent = async (req, res) => {
             return res.status(404).json({ ok: false, message: 'Venue not found.' });
           }
           finalVenueId = venue.id;
+
+          // ── Hard block: venue conflicts must be resolved before saving ──
+          const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT, id);
+          if (venueConflict) {
+            await t.rollback();
+            return res.status(409).json({
+              ok: false,
+              message: `Venue is already booked for this time by "${venueConflict.title}". Please choose a different venue, date, or time.`,
+              venueConflict
+            });
+          }
         }
       } else {
         if (map_location) {
@@ -343,15 +404,14 @@ exports.updateEvent = async (req, res) => {
       venue_id: finalVenueId,
       location_id: finalLocationId,
       department_id: finalDeptId,
-      // Preserve existing office_id when the frontend doesn't send one, instead of wiping it
       office_id: req.body.office_id !== undefined ? req.body.office_id : event.office_id,
       description,
       remind_before_minutes: remind_before_minutes || null,
-      is_email_reminder: !!is_email_reminder,
+      // Email reminder is now always on
+      is_email_reminder: true,
       updated_at: new Date()
     }, { transaction: t });
 
-    // ── Capture existing attendees BEFORE wiping them (to preserve response + is_original) ──
     const existingAttendees = await EventAttendee.findAll({
       where: { event_id: id, user_id: { [Op.ne]: req.userId } }
     });
@@ -372,7 +432,6 @@ exports.updateEvent = async (req, res) => {
     const submittedIds = (attendee_ids || [])
       .filter(uid => uid && uid !== req.userId && typeof uid === 'string' && uid.trim() !== '');
 
-    // Original attendees can never be removed — force-include them regardless of submission
     const finalAttendeeIds = [...new Set([...submittedIds, ...originalIds])];
 
     const attendeeRecordsToCreate = finalAttendeeIds.map(userId => {
@@ -381,7 +440,6 @@ exports.updateEvent = async (req, res) => {
         id: uuidv4(),
         event_id: id,
         user_id: userId,
-        // Preserve prior response for continuing attendees; new ones start pending
         response: prior ? prior.response : 'pending',
         is_original: prior ? prior.is_original : false
       };
@@ -409,7 +467,6 @@ exports.updateEvent = async (req, res) => {
 
     await t.commit();
 
-    // ─── Queue "event edited" / "new invitation" emails (best-effort) ───
     try {
       const eventForEmail = {
         title: event.title,
@@ -426,7 +483,6 @@ exports.updateEvent = async (req, res) => {
         if (!contact?.email) continue;
 
         if (wasExisting) {
-          // Existing attendee whose event details changed — notify only if pending/accepted
           if (record.response === 'pending' || record.response === 'accepted') {
             const { subject, body } = buildEventEditedEmail(eventForEmail, contact.full_name, record.response);
             await queueEmail({
@@ -435,7 +491,6 @@ exports.updateEvent = async (req, res) => {
             });
           }
         } else {
-          // Brand-new attendee added during this edit — send a fresh invitation
           const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
           await queueEmail({
             recipient_email: contact.email, subject, body,
@@ -581,6 +636,16 @@ exports.getEventById = async (req, res) => {
     });
     if (viewerAttendee) viewerResponse = viewerAttendee.response;
 
+    // ── Attachments ──
+    const attachmentRecords = await Attachment.findAll({
+      where: { entity_type: 'event', entity_id: event.id },
+      attributes: ['id', 'file_name', 'file_url', 'file_size']
+    });
+
+    // ── Conflict info (relative to the requesting viewer's own schedule) ──
+    const conflictMap = await buildConflictMap(req.userId);
+    const conflict = conflictMap[event.id] || EMPTY_CONFLICT;
+
     const formatted = {
       id: event.id,
       title: event.title,
@@ -608,6 +673,10 @@ exports.getEventById = async (req, res) => {
       isCreator: event.creator_id === req.userId,
       isCollaborator: collaboratorIds.includes(req.userId),
       viewerResponse,
+      attachments: attachmentRecords.map(a => ({
+        id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size
+      })),
+      conflict,
       participants: {
         departments: Array.from(departmentSet),
         offices: Array.from(officeSet),
@@ -656,6 +725,9 @@ exports.listEvents = async (req, res) => {
     const myResponseMap = {};
     myAttendances.forEach(a => { myResponseMap[a.event_id] = a.response; });
 
+    // ── Compute conflicts once for this user ──
+    const conflictMap = await buildConflictMap(req.userId);
+
     const result = [];
     for (const ev of events) {
       let venueName = null;
@@ -685,21 +757,25 @@ exports.listEvents = async (req, res) => {
       result.push({
         id: ev.id,
         title: ev.title,
+        description: ev.description,
         date: ev.start_datetime.toISOString().slice(0, 10),
         time: ev.start_datetime.toTimeString().slice(0, 5),
         endTime: ev.end_datetime.toTimeString().slice(0, 5),
+        start_datetime: ev.start_datetime,
+        end_datetime: ev.end_datetime,
         type: ev.visibility,
         hierarchy: ev.hierarchy,
         event_type: ev.event_type,
         color: ev.color,
-        description: ev.description,
         method: ev.method,
+        link: ev.link,
         venue: venueName,
         location: locationName,
         locationDisplay: locationDisplay,
         creator: creatorObj,
         creatorId: ev.creator_id,
         userResponse: myResponseMap[ev.id] || null,
+        conflict: conflictMap[ev.id] || EMPTY_CONFLICT,
       });
     }
 
@@ -821,6 +897,8 @@ exports.getTodayEvent = async (req, res) => {
       return res.json({ ok: true, events: [] });
     }
 
+    const conflictMap = await buildConflictMap(userId);
+
     const formattedEvents = [];
 
     for (const event of events) {
@@ -918,12 +996,14 @@ exports.getTodayEvent = async (req, res) => {
         start_datetime: event.start_datetime,
         end_datetime: event.end_datetime,
         method: event.method,
+        link: event.link,
         hierarchy: event.hierarchy,
         event_type: event.event_type,
         visibility: event.visibility,
         venue: venueName,
         location: locationName,
         creator: creatorData,
+        conflict: conflictMap[event.id] || EMPTY_CONFLICT,
         participants: {
           departments: Array.from(departmentSet),
           offices: Array.from(officeSet),
@@ -982,6 +1062,7 @@ exports.getUpcomingEvents = async (req, res) => {
       event_type: ev.event_type,
       hierarchy: ev.hierarchy,
       method: ev.method,
+      link: ev.link,
       creator: ev.user ? { username: ev.user.username } : null
     }));
 
@@ -1015,6 +1096,8 @@ exports.getCollaborationEvents = async (req, res) => {
       order: [['start_datetime', 'ASC']]
     });
 
+    const conflictMap = await buildConflictMap(userId);
+
     const result = [];
     for (const ev of events) {
       let venueName = null;
@@ -1043,20 +1126,24 @@ exports.getCollaborationEvents = async (req, res) => {
       result.push({
         id: ev.id,
         title: ev.title,
+        description: ev.description,
         date: ev.start_datetime.toISOString().slice(0, 10),
         time: ev.start_datetime.toTimeString().slice(0, 5),
         endTime: ev.end_datetime.toTimeString().slice(0, 5),
+        start_datetime: ev.start_datetime,
+        end_datetime: ev.end_datetime,
         type: ev.visibility,
         hierarchy: ev.hierarchy,
         event_type: ev.event_type,
         color: ev.color,
-        description: ev.description,
         method: ev.method,
+        link: ev.link,
         venue: venueName,
         location: locationName,
         locationDisplay: locationDisplay,
         creator: creatorObj,
         creatorId: ev.creator_id,
+        conflict: conflictMap[ev.id] || EMPTY_CONFLICT,
       });
     }
 
