@@ -1,4 +1,3 @@
-// src/models/task_checklist_items.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -22,6 +21,18 @@ const TaskChecklistItem = sequelize.define('task_checklist_items', {
   },
   sort_order: {
     type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  completed_by_user_id: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  completed_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  comments: {
+    type: DataTypes.TEXT,
     allowNull: true
   }
 }, {
