@@ -183,6 +183,7 @@ module.exports = {
   EventCollaborator,
   Task,
   TaskChecklistItem,
+  TaskAssignee,
   TaskCollaborator,
   Attachment,
   Location,
