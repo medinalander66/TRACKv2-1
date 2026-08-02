@@ -1,4 +1,3 @@
-// src/models/tasks.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -17,20 +16,16 @@ const Task = sequelize.define('tasks', {
     allowNull: true
   },
   priority: {
-    type: DataTypes.ENUM('high','medium','low'),
+    type: DataTypes.ENUM('high', 'medium', 'low'),
     defaultValue: 'medium'
   },
   visibility: {
-    type: DataTypes.ENUM('personal','department','campus'),
+    type: DataTypes.ENUM('personal', 'department', 'campus'),
     allowNull: false
   },
-  start_datetime: {
+  deadline_datetime: {   // renamed from end_datetime
     type: DataTypes.DATE,
-    allowNull: true
-  },
-  end_datetime: {
-    type: DataTypes.DATE,
-    allowNull: true
+    allowNull: false
   },
   department_id: {
     type: DataTypes.UUID,
@@ -43,10 +38,6 @@ const Task = sequelize.define('tasks', {
   creator_id: {
     type: DataTypes.UUID,
     allowNull: false
-  },
-  assignee_id: {
-    type: DataTypes.UUID,
-    allowNull: true
   },
   description: {
     type: DataTypes.TEXT,

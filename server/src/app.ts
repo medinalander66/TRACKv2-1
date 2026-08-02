@@ -16,7 +16,8 @@ import venueRoutes from './routes/venues';
 import eventRoutes from './routes/events';
 import attachmentRoutes from './routes/attachments';
 import notificationsRoutes from './routes/notifications';
-import conflictRoutes from './routes/conflict';
+import conflictRoutes from './routes/conflict'; 
+const taskRoutes = require('./routes/tasks');
 
 const app: Express = express();
 require('./services/emailQueueProcessor').start();
@@ -41,6 +42,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/events', conflictRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // ─── Static files ───
 const uploadsPath = path.join(__dirname, '..', 'uploads');

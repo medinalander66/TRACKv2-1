@@ -85,6 +85,10 @@
   overflow: hidden;
 }
 
+.profileBtn * {
+  color: #000;
+}
+
 .profileBtn:hover {
   background: rgba(255, 255, 255, 0.35);
 }
