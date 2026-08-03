@@ -5,7 +5,7 @@ import apiClient from "../../../api/client";
 import InputField from "../../../components/common/InputField";
 import Button from "../../../components/common/Button";
 import RadioGroup from "../../../components/common/RadioGroup";
-import TaskColor from "../../../components/tasks/TaskColor";
+import TaskColor from "../../../components/tasks/TaskColor";  
 import InvitationModal from "../../../components/tasks/InvitationModal";
 import InviteAssigneeModal from "../../../components/tasks/InviteAssigneeModal";
 import styles from "./CreateTask.module.css";
@@ -42,24 +42,9 @@ export default function CreateTask() {
   const [showAssigneeModal, setShowAssigneeModal] = useState(false);
   const [collaboratorIds, setCollaboratorIds] = useState([]);
   const [assigneeIds, setAssigneeIds] = useState([]);
-  const [checklistItems, setChecklistItems] = useState([
-    { id: 1, text: "Title Slide", done: true },
-    { id: 2, text: "Keynote Content", done: false },
-    { id: 3, text: "Resource Links", done: false },
-  ]);
+
   const [newChecklistItem, setNewChecklistItem] = useState("");
-  const [checklistCards, setChecklistCards] = useState([
-    {
-      id: 1,
-      title: "Slide Design",
-      items: [
-        { id: 1, text: "Title Slide", done: true },
-        { id: 2, text: "Keynote Content", done: false },
-        { id: 3, text: "Resource Links", done: false },
-      ],
-      newItemText: "",
-    },
-  ]);
+  const [checklistCards, setChecklistCards] = useState([]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -119,27 +104,45 @@ export default function CreateTask() {
     setStatusMessage("");
 
     try {
-      const payload = {
-        title: formData.title,
-        color: formData.color,
-        label: formData.label,
-        visibility: formData.visibility,
-        due_date: formData.dueDate,
-        description: formData.description,
-        collaborator_ids: collaboratorIds,
-        assignee_ids: assigneeIds,
-      };
-
-      const res = await apiClient.post("/tasks", payload);
-      if (res.data?.ok) {
-        setStatusMessage(
-          `Task created successfully for ${user?.username || "you"}.`,
-        );
-        setTimeout(() => navigate("/tasks"), 1000);
+      // Validate required fields
+      if (!formData.title.trim()) {
+        setStatusMessage("Task title is required.");
+        setLoading(false);
         return;
       }
 
-      setStatusMessage(res.data?.message || "Failed to create task.");
+      if (!formData.dueDate) {
+        setStatusMessage("Deadline date is required.");
+        setLoading(false);
+        return;
+      }
+
+      // Map frontend field names to backend expected keys
+      const payload = {
+        title: formData.title,
+        color: formData.color,
+        priority: formData.label, // frontend uses `label` for priority
+        visibility: formData.visibility,
+        deadline_datetime: formData.dueDate, // backend expects `deadline_datetime`
+        description: formData.description,
+        collaborator_ids: collaboratorIds,
+        assignee_ids: assigneeIds,
+        checklist_items: (checklistCards || []).flatMap((card) =>
+          (card.items || []).map((item) => ({ text: item.text }))
+        ),
+      };
+
+      const res = await apiClient.post("/tasks", payload);
+      if (!res.data?.ok) {
+        setStatusMessage(res.data?.message || "Failed to create task.");
+        setLoading(false);
+        return;
+      }
+
+      setStatusMessage(
+        `Task created successfully for ${user?.username || "you"}.`,
+      );
+      setTimeout(() => navigate("/tasks"), 1000);
     } catch (error) {
       setStatusMessage(
         error.response?.data?.message || "Failed to create task.",

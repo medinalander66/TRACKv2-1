@@ -1,92 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
+import apiClient from "../../../api/client";
 import {
   IoIosArrowForward,
   IoIosArrowBack,
   IoIosArrowUp,
   IoIosArrowDown,
 } from "react-icons/io";
+import { FiEye, FiEdit, FiUsers, FiCheckCircle } from "react-icons/fi";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
 import TaskOutlinedIcon from "@mui/icons-material/TaskOutlined";
+import SelectDropdown from "../../../components/common/SelectDropdown";
 import styles from "../officials/Home.module.css";
 import taskStyles from "./TaskList.module.css";
 
-const DUMMY_TASKS = [
-  {
-    id: "task1",
-    title: "Quarterly Editorial Review",
-    description:
-      "Review all manuscript submissions for the upcoming winter anthology. Coordinate with...",
-    start_datetime: new Date(Date.now() + 86400000).toISOString(),
-    end_datetime: new Date(Date.now() + 86400000 + 7200000).toISOString(),
-    priority: "high",
-    type: "personal",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task2",
-    title: "Visual Identity Sync",
-    description:
-      "Meeting with the brand conductors to finalize the 'Nocturnal' color palette and...",
-    start_datetime: new Date(Date.now() + 172800000).toISOString(),
-    end_datetime: new Date(Date.now() + 172800000 + 3600000).toISOString(),
-    priority: "medium",
-    type: "campus",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task3",
-    title: "Archive Maintenance",
-    description:
-      "Backup existing project files to the cold storage server and update the index...",
-    start_datetime: new Date(Date.now() + 259200000).toISOString(),
-    end_datetime: new Date(Date.now() + 259200000 + 1800000).toISOString(),
-    priority: "low",
-    type: "personal",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task4",
-    title: "Faculty Meeting Preparation",
-    description: "Prepare slides and agenda for the monthly faculty meeting...",
-    start_datetime: new Date(Date.now() + 345600000).toISOString(),
-    end_datetime: new Date(Date.now() + 345600000 + 5400000).toISOString(),
-    priority: "high",
-    type: "department",
-    completed_items: 2,
-    total_items: 4,
-  },
-  {
-    id: "task5",
-    title: "Student Consultation",
-    description:
-      "Meet with student representatives to discuss upcoming events...",
-    start_datetime: new Date(Date.now() + 432000000).toISOString(),
-    end_datetime: new Date(Date.now() + 432000000 + 3600000).toISOString(),
-    priority: "medium",
-    type: "campus",
-    completed_items: 0,
-    total_items: 2,
-  },
-  {
-    id: "task6",
-    title: "Budget Proposal Draft",
-    description: "Draft the budget proposal for the next fiscal year...",
-    start_datetime: new Date(Date.now() + 518400000).toISOString(),
-    end_datetime: new Date(Date.now() + 518400000 + 5400000).toISOString(),
-    priority: "low",
-    type: "personal",
-    completed_items: 0,
-    total_items: 5,
-  },
-];
-
+// ─── Helper Functions ──────────────────────────────────
 const getPriorityClass = (priority) => {
   switch ((priority || "").toLowerCase()) {
     case "high":
@@ -100,6 +33,16 @@ const getPriorityClass = (priority) => {
   }
 };
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const formatTime = (dateStr) => {
   const d = new Date(dateStr);
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -108,29 +51,277 @@ const formatTime = (dateStr) => {
 const formatMonthYear = (date) =>
   date.toLocaleString("en-US", { month: "short", year: "numeric" });
 
+const getVisibilityBadge = (visibility) => {
+  switch ((visibility || "").toLowerCase()) {
+    case "personal":
+      return "Personal";
+    case "department":
+      return "Department";
+    case "campus":
+      return "Campus";
+    default:
+      return visibility;
+  }
+};
+
+const getPriorityBadgeColor = (priority) => {
+  switch ((priority || "").toLowerCase()) {
+    case "high":
+      return "#dc2626";
+    case "medium":
+      return "#f59e0b";
+    case "low":
+      return "#10b981";
+    default:
+      return "#6b7280";
+  }
+};
+
 export default function TasksList() {
-  const [tasks, setTasks] = useState([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // ─── Tab Management ────────────────────────────────
+  const [activeTab, setActiveTab] = useState("all");
+  const [invitedSubTab, setInvitedSubTab] = useState("pending");
+
+  // ─── Task Data States ──────────────────────────────
+  const [allTasks, setAllTasks] = useState([]);
+  const [createdTasks, setCreatedTasks] = useState([]);
+  const [invitedTasks, setInvitedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // ─── Filter & Search States ───────────────────────
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
   const [labelFilter, setLabelFilter] = useState("all");
-  const [sortOption, setSortOption] = useState("due_date");
+  const [completionFilter, setCompletionFilter] = useState("all");
   const [sortDirection, setSortDirection] = useState("asc");
   const [displayDate, setDisplayDate] = useState(new Date());
 
-  useEffect(() => {
-    setTasks(DUMMY_TASKS);
-    setLoading(false);
+  // ─── Modal States ─────────────────────────────────
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
+
+  // ─── Fetch All Tasks ──────────────────────────────
+  const fetchAllTasks = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/tasks", {
+        params: {
+          visibility: "all",
+        },
+      });
+      if (res.data?.ok) {
+        setAllTasks(res.data.tasks || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch all tasks:", err);
+      setError("Failed to load tasks");
+    }
   }, []);
 
-  const pendingCount = tasks.filter(
-    (task) => task.completed_items < task.total_items,
+  // ─── Fetch Created Tasks ──────────────────────────
+  const fetchCreatedTasks = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/tasks", {
+        params: {
+          creator: user?.id,
+        },
+      });
+      if (res.data?.ok) {
+        setCreatedTasks(res.data.tasks || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch created tasks:", err);
+    }
+  }, [user?.id]);
+
+  // ─── Fetch Invited Tasks ──────────────────────────
+  const fetchInvitedTasks = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/tasks/invited");
+      if (res.data?.ok) {
+        setInvitedTasks(res.data.tasks || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch invited tasks:", err);
+    }
+  }, []);
+
+  // ─── Initial Data Load ─────────────────────────────
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchAllTasks(),
+          fetchCreatedTasks(),
+          fetchInvitedTasks(),
+        ]);
+      } catch (err) {
+        setError("Failed to load tasks");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [fetchAllTasks, fetchCreatedTasks, fetchInvitedTasks]);
+
+  // ─── Handle View Task Detail ───────────────────────
+  const handleViewTask = async (task) => {
+    try {
+      const res = await apiClient.get(`/tasks/${task.id}`);
+      if (res.data?.ok) {
+        setSelectedTask(res.data.task);
+        setShowTaskDetailModal(true);
+      }
+    } catch (err) {
+      console.error("Failed to fetch task details:", err);
+    }
+  };
+
+  // ─── Handle Edit Task ──────────────────────────────
+  const handleEditTask = (taskId) => {
+    navigate(`/edit-task/${taskId}`);
+  };
+
+  // ─── Handle Respond to Invitation ──────────────────
+  const handleRespondToTask = async (taskId, response) => {
+    try {
+      const res = await apiClient.put(`/tasks/${taskId}/respond`, {
+        response,
+      });
+      if (res.data?.ok) {
+        // Refresh invited tasks
+        await fetchInvitedTasks();
+      }
+    } catch (err) {
+      console.error("Failed to respond to task:", err);
+    }
+  };
+
+  // ─── Handle Delete Task ────────────────────────────
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) {
+      return;
+    }
+    try {
+      const res = await apiClient.delete(`/tasks/${taskId}`);
+      if (res.data?.ok) {
+        // Refresh task lists
+        await Promise.all([
+          fetchAllTasks(),
+          fetchCreatedTasks(),
+          fetchInvitedTasks(),
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  };
+
+  // ─── Filter Tasks ─────────────────────────────────
+  const isTaskCompleted = (task) => {
+    if (typeof task.is_completed === "boolean") {
+      return task.is_completed;
+    }
+    if (
+      Array.isArray(task.checklist_items) &&
+      task.checklist_items.length > 0
+    ) {
+      return task.checklist_items.every((item) => item.is_completed);
+    }
+    return false;
+  };
+
+  const filterTasks = useCallback(
+    (tasks) => {
+      let filtered = tasks;
+
+      // Search filter
+      if (searchTerm.trim()) {
+        const value = searchTerm.trim().toLowerCase();
+        filtered = filtered.filter(
+          (task) =>
+            task.title.toLowerCase().includes(value) ||
+            task.description?.toLowerCase().includes(value),
+        );
+      }
+
+      // Completion filter
+      if (completionFilter !== "all") {
+        const completed = completionFilter === "completed";
+        filtered = filtered.filter(
+          (task) => isTaskCompleted(task) === completed,
+        );
+      }
+
+      // Priority filter
+      if (labelFilter !== "all") {
+        filtered = filtered.filter(
+          (task) => (task.priority || "").toLowerCase() === labelFilter,
+        );
+      }
+
+      // Sort by deadline
+      filtered.sort((a, b) => {
+        const aDate = new Date(a.deadline_datetime).getTime();
+        const bDate = new Date(b.deadline_datetime).getTime();
+        if (sortDirection === "asc") {
+          return aDate - bDate;
+        }
+        return bDate - aDate;
+      });
+
+      return filtered;
+    },
+    [searchTerm, completionFilter, labelFilter, sortDirection],
+  );
+
+  // ─── Get Current Tasks Based on Tab ────────────────
+  const getCurrentTasks = () => {
+    switch (activeTab) {
+      case "created":
+        return filterTasks(createdTasks);
+      case "invited":
+        return filterTasks(
+          invitedTasks.filter((task) => {
+            if (invitedSubTab === "pending") {
+              return task.response === "pending";
+            }
+            if (invitedSubTab === "accepted") {
+              return task.response === "accepted";
+            }
+            if (invitedSubTab === "declined") {
+              return task.response === "declined";
+            }
+            return true;
+          }),
+        );
+      case "collaborators":
+        return filterTasks(allTasks.filter((task) => task.isCollaborator));
+      default:
+        return filterTasks(allTasks);
+    }
+  };
+
+  // ─── Calculate Counts ─────────────────────────────
+  const pendingInvitedCount = invitedTasks.filter(
+    (t) => t.response === "pending",
   ).length;
-  const completedCount = tasks.filter(
-    (task) => task.completed_items >= task.total_items,
+  const acceptedInvitedCount = invitedTasks.filter(
+    (t) => t.response === "accepted",
+  ).length;
+  const declinedInvitedCount = invitedTasks.filter(
+    (t) => t.response === "declined",
+  ).length;
+  const collaboratorCount = allTasks.filter(
+    (task) => task.isCollaborator,
   ).length;
 
+  const currentTasks = getCurrentTasks();
+
+  // ─── Navigation Handlers ──────────────────────────
   const handlePrevDate = () => {
     const next = new Date(displayDate);
     next.setMonth(next.getMonth() - 1);
@@ -143,56 +334,212 @@ export default function TasksList() {
     setDisplayDate(next);
   };
 
-  const filteredTasks = tasks
-    .filter((task) => {
-      if (statusFilter === "pending") {
-        return task.completed_items < task.total_items;
-      }
-      if (statusFilter === "completed") {
-        return task.completed_items >= task.total_items;
-      }
-      return true;
-    })
-    .filter((task) => {
-      if (typeFilter === "all") return true;
-      return task.type === typeFilter;
-    })
-    .filter((task) => {
-      if (labelFilter === "all") return true;
-      return (task.priority || "").toLowerCase() === labelFilter;
-    })
-    .filter((task) => {
-      if (!searchTerm.trim()) return true;
-      const value = searchTerm.trim().toLowerCase();
+  // ─── Render Task Card ─────────────────────────────
+  const renderTaskCard = (task) => {
+    let checklistCompleted = 0;
+    let checklistTotal = 0;
+
+    if (task.checklist && Array.isArray(task.checklist)) {
+      checklistTotal = task.checklist.length;
+      checklistCompleted = task.checklist.filter(
+        (item) => item.is_completed,
+      ).length;
+    }
+
+    const pct =
+      checklistTotal > 0
+        ? Math.round((checklistCompleted / checklistTotal) * 100)
+        : 0;
+
+    return (
+      <div
+        key={task.id}
+        className={`${styles.taskCard} ${getPriorityClass(task.priority)}`}
+        onClick={() => handleViewTask(task)}
+        style={{ cursor: "pointer" }}
+      >
+        <div className={styles.taskCardTop}>
+          <span className={styles.taskCheckbox} />
+          {task.priority && (
+            <span
+              className={styles.priorityBadge}
+              style={{
+                backgroundColor: getPriorityBadgeColor(task.priority),
+                color: "#fff",
+              }}
+            >
+              {task.priority}
+            </span>
+          )}
+        </div>
+
+        <h4 className={styles.taskTitle}>{task.title}</h4>
+
+        <div className={styles.taskMetaRow}>
+          <span className={styles.taskMetaItem}>
+            <AccessTimeOutlinedIcon fontSize="small" />
+            {formatDate(task.deadline_datetime)}
+          </span>
+        </div>
+
+        <div className={styles.taskMetaRow}>
+          <span className={styles.taskMetaItem}>
+            <VisibilityOutlinedIcon fontSize="small" />
+            {getVisibilityBadge(task.visibility)}
+          </span>
+        </div>
+
+        <p className={styles.taskDesc}>
+          {task.description?.substring(0, 100)}
+          {task.description?.length > 100 ? "..." : ""}
+        </p>
+
+        {checklistTotal > 0 && (
+          <>
+            <div className={styles.checklistRow}>
+              <span className={styles.checklistLabel}>
+                <ChecklistOutlinedIcon fontSize="small" />
+                Checklist Progress
+              </span>
+              <span className={styles.checklistFraction}>
+                {checklistCompleted}/{checklistTotal}
+              </span>
+            </div>
+            <div className={styles.progressBarTrack}>
+              <div
+                className={styles.progressBarFill}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // ─── Render Content Based on Tab ───────────────────
+  const renderContent = () => {
+    if (loading) {
+      return <p className={styles.noData}>Loading tasks...</p>;
+    }
+
+    if (error) {
       return (
-        task.title.toLowerCase().includes(value) ||
-        task.description.toLowerCase().includes(value) ||
-        task.type.toLowerCase().includes(value)
+        <p className={styles.noData} style={{ color: "#dc2626" }}>
+          {error}
+        </p>
       );
-    })
-    .sort((a, b) => {
-      const aDate = new Date(a.start_datetime).getTime();
-      const bDate = new Date(b.start_datetime).getTime();
-      if (sortOption === "due_tomorrow") {
-        const tomorrow = new Date();
-        tomorrow.setHours(0, 0, 0, 0);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfter = new Date(tomorrow);
-        dayAfter.setDate(dayAfter.getDate() + 1);
-        const aTomorrow =
-          aDate >= tomorrow.getTime() && aDate < dayAfter.getTime() ? 0 : 1;
-        const bTomorrow =
-          bDate >= tomorrow.getTime() && bDate < dayAfter.getTime() ? 0 : 1;
-        if (aTomorrow !== bTomorrow) return aTomorrow - bTomorrow;
-      }
-      if (sortDirection === "asc") {
-        return aDate - bDate;
-      }
-      return bDate - aDate;
-    });
+    }
+
+    if (activeTab === "invited") {
+      return (
+        <div className={taskStyles.invitedContainer}>
+          <div className={taskStyles.invitedTabs}>
+            <button
+              className={`${taskStyles.invitedTab} ${
+                invitedSubTab === "pending" ? taskStyles.activeInvitedTab : ""
+              }`}
+              onClick={() => setInvitedSubTab("pending")}
+            >
+              Pending ({pendingInvitedCount})
+            </button>
+            <button
+              className={`${taskStyles.invitedTab} ${
+                invitedSubTab === "accepted" ? taskStyles.activeInvitedTab : ""
+              }`}
+              onClick={() => setInvitedSubTab("accepted")}
+            >
+              Accepted ({acceptedInvitedCount})
+            </button>
+            <button
+              className={`${taskStyles.invitedTab} ${
+                invitedSubTab === "declined" ? taskStyles.activeInvitedTab : ""
+              }`}
+              onClick={() => setInvitedSubTab("declined")}
+            >
+              Declined ({declinedInvitedCount})
+            </button>
+          </div>
+
+          {currentTasks.length === 0 ? (
+            <p className={taskStyles.noData}>No tasks in this category</p>
+          ) : (
+            <div className={styles.upcomingList}>
+              {currentTasks.map((task) => (
+                <div key={task.id}>
+                  {renderTaskCard(task)}
+                  {task.response === "pending" && (
+                    <div className={taskStyles.invitationActions}>
+                      <button
+                        className={taskStyles.acceptButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRespondToTask(task.id, "accepted");
+                        }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className={taskStyles.declineButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRespondToTask(task.id, "declined");
+                        }}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (currentTasks.length === 0) {
+      return <p className={styles.noData}>No tasks available</p>;
+    }
+
+    return (
+      <div className={styles.upcomingList}>
+        {currentTasks.map((task) => renderTaskCard(task))}
+      </div>
+    );
+  };
 
   return (
     <div className={styles.mainContainer}>
+      {/* ─── Tabs ─── */}
+      <div className={taskStyles.tabs}>
+        <button
+          className={`${taskStyles.tab} ${activeTab === "all" ? taskStyles.activeTab : ""}`}
+          onClick={() => setActiveTab("all")}
+        >
+          <FiEye size={16} /> All Tasks
+        </button>
+        <button
+          className={`${taskStyles.tab} ${activeTab === "invited" ? taskStyles.activeTab : ""}`}
+          onClick={() => setActiveTab("invited")}
+        >
+          <FiUsers size={16} /> Invited
+        </button>
+        <button
+          className={`${taskStyles.tab} ${activeTab === "created" ? taskStyles.activeTab : ""}`}
+          onClick={() => setActiveTab("created")}
+        >
+          <FiEdit size={16} /> Created
+        </button>
+        <button
+          className={`${taskStyles.tab} ${activeTab === "collaborators" ? taskStyles.activeTab : ""}`}
+          onClick={() => setActiveTab("collaborators")}
+        >
+          <FiCheckCircle size={16} /> Collaborators ({collaboratorCount})
+        </button>
+      </div>
+
+      {/* ─── Controls ─── */}
       <div className={taskStyles.taskControls}>
         <div className={taskStyles.searchRow}>
           <div className={taskStyles.searchInputWrapper}>
@@ -207,161 +554,106 @@ export default function TasksList() {
           </div>
         </div>
 
-        <div className={taskStyles.toggleRow}>
-          <button
-            type="button"
-            className={`${taskStyles.toggleButton} ${statusFilter === "pending" ? taskStyles.toggleActive : ""}`}
-            onClick={() => setStatusFilter("pending")}
-          >
-            <span className={taskStyles.icon}>
-              <PendingActionsOutlinedIcon fontSize="small" />
-            </span>
-            Pending <span className={taskStyles.count}>{pendingCount}</span>
-          </button>
-          <button
-            type="button"
-            className={`${taskStyles.toggleButton} ${statusFilter === "completed" ? taskStyles.toggleActive : ""}`}
-            onClick={() => setStatusFilter("completed")}
-          >
-            <span className={taskStyles.icon}>
-              <TaskOutlinedIcon fontSize="small" />
-            </span>
-            Completed <span className={taskStyles.count}>{completedCount}</span>
-          </button>
-        </div>
-
         <div className={taskStyles.dropdownRow}>
           <div className={taskStyles.selectGroup}>
-            <label htmlFor="typeFilter">Task Type</label>
-            <select
-              id="typeFilter"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className={taskStyles.selectBox}
-            >
-              <option value="all">All task</option>
-              <option value="personal">Personal Task</option>
-              <option value="department">Department Task</option>
-              <option value="campus">Campus Task</option>
-            </select>
-          </div>
-          <div className={taskStyles.selectGroup}>
-            <label htmlFor="labelFilter">Label</label>
-            <select
-              id="labelFilter"
+            <SelectDropdown
+              label="Filter by: Label"
+              options={[
+                { value: "all", label: "All Label" },
+                { value: "high", label: "High" },
+                { value: "medium", label: "Medium" },
+                { value: "low", label: "Low" },
+              ]}
               value={labelFilter}
               onChange={(e) => setLabelFilter(e.target.value)}
-              className={taskStyles.selectBox}
-            >
-              <option value="all">All Label</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
+            />
           </div>
-        </div>
-
-        <div className={taskStyles.bottomRow}>
-          <div className={taskStyles.pageNavRow}>
-            <button
-              type="button"
-              className={taskStyles.pageNavButton}
-              onClick={handlePrevDate}
-            >
-              <IoIosArrowBack />
-            </button>
-            <div className={taskStyles.pageDateLabel}>
-              {formatMonthYear(displayDate)}
-            </div>
-            <button
-              type="button"
-              className={taskStyles.pageNavButton}
-              onClick={handleNextDate}
-            >
-              <IoIosArrowForward />
-            </button>
+          <div className={taskStyles.selectGroup}>
+            <SelectDropdown
+              label="Filter by: Status"
+              options={[
+                { value: "all", label: "All Status" },
+                { value: "completed", label: "Completed" },
+                { value: "not_completed", label: "Not Completed" },
+              ]}
+              value={completionFilter}
+              onChange={(e) => setCompletionFilter(e.target.value)}
+            />
           </div>
-          <div className={taskStyles.directionToggle}>
+          <button
+            type="button"
+            className={taskStyles.directionToggle}
+            onClick={() =>
+              setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+            }
+          >
             <span className={taskStyles.directionLabel}>
               {sortDirection === "asc" ? "Ascending" : "Descending"}
             </span>
-            <button
-              type="button"
-              className={taskStyles.directionButton}
-              onClick={() =>
-                setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-            >
-              {sortDirection === "asc" ? <IoIosArrowUp /> : <IoIosArrowDown />}
-            </button>
-          </div>
+            {sortDirection === "asc" ? <IoIosArrowUp /> : <IoIosArrowDown />}
+          </button>
         </div>
       </div>
 
-      {loading ? (
-        <p className={styles.noData}>Loading tasks...</p>
-      ) : filteredTasks.length === 0 ? (
-        <p className={styles.noData}>No tasks available</p>
-      ) : (
-        <div className={styles.upcomingList}>
-          {filteredTasks.map((task) => {
-            const pct =
-              task.total_items > 0
-                ? Math.round((task.completed_items / task.total_items) * 100)
-                : 0;
-            return (
-              <div
-                key={task.id}
-                className={`${styles.taskCard} ${getPriorityClass(task.priority)}`}
+      {/* ─── Content ─── */}
+      {renderContent()}
+
+      {/* ─── Task Detail Modal (Placeholder) ─── */}
+      {showTaskDetailModal && selectedTask && (
+        <div
+          className={taskStyles.modalOverlay}
+          onClick={() => setShowTaskDetailModal(false)}
+        >
+          <div
+            className={taskStyles.modalContent}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={taskStyles.modalHeader}>
+              <h2>{selectedTask.title}</h2>
+              <button
+                className={taskStyles.modalCloseButton}
+                onClick={() => setShowTaskDetailModal(false)}
               >
-                <div className={styles.taskCardTop}>
-                  <span className={styles.taskCheckbox} />
-                  {task.priority && (
-                    <span className={styles.priorityBadge}>
-                      {task.priority} priority
-                    </span>
-                  )}
-                </div>
-
-                <h4 className={styles.taskTitle}>{task.title}</h4>
-
-                <div className={styles.taskMetaRow}>
-                  <span className={styles.taskMetaItem}>
-                    <AccessTimeOutlinedIcon fontSize="small" />
-                    {formatTime(task.start_datetime)} —{" "}
-                    {formatTime(task.end_datetime)}
-                  </span>
-                </div>
-
-                <div className={styles.taskMetaRow}>
-                  <span className={styles.taskMetaItem}>
-                    <VisibilityOutlinedIcon fontSize="small" />
-                    {task.type}
-                  </span>
-                </div>
-
-                <p className={styles.taskDesc}>
-                  {task.description?.substring(0, 60)}...
-                </p>
-
-                <div className={styles.checklistRow}>
-                  <span className={styles.checklistLabel}>
-                    <ChecklistOutlinedIcon fontSize="small" />
-                    Checklist Progress
-                  </span>
-                  <span className={styles.checklistFraction}>
-                    {task.completed_items}/{task.total_items}
-                  </span>
-                </div>
-                <div className={styles.progressBarTrack}>
-                  <div
-                    className={styles.progressBarFill}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+                ✕
+              </button>
+            </div>
+            <div className={taskStyles.modalBody}>
+              <p>
+                <strong>Description:</strong> {selectedTask.description}
+              </p>
+              <p>
+                <strong>Deadline:</strong>{" "}
+                {formatDate(selectedTask.deadline_datetime)}
+              </p>
+              <p>
+                <strong>Priority:</strong> {selectedTask.priority}
+              </p>
+              <p>
+                <strong>Visibility:</strong>{" "}
+                {getVisibilityBadge(selectedTask.visibility)}
+              </p>
+            </div>
+            <div className={taskStyles.modalFooter}>
+              <button
+                className={taskStyles.editButton}
+                onClick={() => {
+                  handleEditTask(selectedTask.id);
+                  setShowTaskDetailModal(false);
+                }}
+              >
+                Edit Task
+              </button>
+              <button
+                className={taskStyles.deleteButton}
+                onClick={() => {
+                  handleDeleteTask(selectedTask.id);
+                  setShowTaskDetailModal(false);
+                }}
+              >
+                Delete Task
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
