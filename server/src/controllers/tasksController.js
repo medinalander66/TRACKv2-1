@@ -13,6 +13,10 @@ const {
   Position,
   Attachment,
 } = require("../models");
+const {
+  queueEmail, buildTaskAssignedEmail, buildTaskCollaboratorEmail,
+  buildTaskReminderEmail, buildTaskEditedEmail
+} = require("../services/taskEmailTemplates");
 
 // ─── Helper: get user profile ──────────────────────────
 const getUserProfileSummary = async (userId) => {
@@ -51,6 +55,14 @@ const getUserProfileSummary = async (userId) => {
   };
 };
 
+// ─── Helper: get recipient email + display name ────────
+const getUserContact = async (userId) => {
+  const u = await User.findByPk(userId, { attributes: ['id', 'email'] });
+  if (!u) return null;
+  const profile = await UserProfile.findOne({ where: { user_id: userId } });
+  return { email: u.email, full_name: profile?.full_name || u.email };
+};
+
 // ─── CREATE TASK ──────────────────────────────────────
 exports.createTask = async (req, res) => {
   const t = await sequelize.transaction();
@@ -65,7 +77,6 @@ exports.createTask = async (req, res) => {
       office_id,
       description,
       remind_before_minutes,
-      is_email_reminder,
       assignee_ids,
       collaborator_ids,
       checklist_items,
@@ -91,7 +102,8 @@ exports.createTask = async (req, res) => {
         creator_id: req.userId,
         description,
         remind_before_minutes: remind_before_minutes || null,
-        is_email_reminder: !!is_email_reminder,
+        // Email reminder is now always on
+        is_email_reminder: true,
         is_completed: false,
         is_archived: false,
       },
@@ -142,8 +154,55 @@ exports.createTask = async (req, res) => {
 
     await t.commit();
 
-    // Queue emails (optional)
-    // ...
+    // ─── Queue notification & reminder emails (best-effort) ───
+    try {
+      const taskForEmail = {
+        title: task.title,
+        description: task.description,
+        deadline_datetime: task.deadline_datetime,
+        priority: task.priority,
+      };
+
+      const realAssigneeIds = assigneeIds.filter((id) => id !== req.userId);
+      for (const userId of realAssigneeIds) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+        await queueEmail({
+          recipient_email: contact.email, subject, body,
+          task_id: task.id, email_type: 'invitation'
+        });
+      }
+
+      for (const userId of uniqueCollaborators) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskCollaboratorEmail(taskForEmail, contact.full_name);
+        await queueEmail({
+          recipient_email: contact.email, subject, body,
+          task_id: task.id, email_type: 'collaborator'
+        });
+      }
+
+      if (remind_before_minutes) {
+        const reminderTime = new Date(
+          new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000
+        );
+        const recipientIds = [...new Set([req.userId, ...realAssigneeIds, ...uniqueCollaborators])];
+        for (const userId of recipientIds) {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskReminderEmail(taskForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            scheduled_for: reminderTime,
+            task_id: task.id, email_type: 'reminder'
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue task emails:', emailErr);
+    }
 
     res.status(201).json({
       ok: true,
@@ -162,7 +221,6 @@ exports.listTasks = async (req, res) => {
     const userId = req.userId;
     const { status, visibility, priority, search } = req.query;
 
-    // Get tasks where user is assignee, creator, or collaborator
     const assigneeTasks = await TaskAssignee.findAll({
       where: { user_id: userId },
       attributes: ["task_id"],
@@ -218,7 +276,6 @@ exports.listTasks = async (req, res) => {
       ],
     });
 
-    // Manually fetch assignee response for each task
     const result = [];
     for (const task of tasks) {
       const assignees = await TaskAssignee.findAll({
@@ -299,6 +356,11 @@ exports.getTaskById = async (req, res) => {
     const userAssignee = assignees.find((a) => a.user_id === userId);
     const response = userAssignee ? userAssignee.response : null;
 
+    const attachmentRecords = await Attachment.findAll({
+      where: { entity_type: 'task', entity_id: task.id },
+      attributes: ['id', 'file_name', 'file_url', 'file_size']
+    });
+
     res.json({
       ok: true,
       task: {
@@ -328,15 +390,20 @@ exports.getTaskById = async (req, res) => {
           is_completed: item.is_completed,
           completed_by: item.completedBy
             ? {
-                id: item.completedBy.id,
-                username: item.completedBy.username,
-                email: item.completedBy.email,
-              }
+              id: item.completedBy.id,
+              username: item.completedBy.username,
+              email: item.completedBy.email,
+            }
             : null,
           completed_at: item.completed_at,
           comments: item.comments,
         })),
+        attachments: attachmentRecords.map(a => ({
+          id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size
+        })),
         response,
+        isCreator: task.creator_id === userId,
+        isCollaborator: collaborators.some((c) => c.user_id === userId),
       },
     });
   } catch (error) {
@@ -360,7 +427,6 @@ exports.updateTask = async (req, res) => {
       office_id,
       description,
       remind_before_minutes,
-      is_email_reminder,
       assignee_ids,
       collaborator_ids,
       checklist_items,
@@ -372,7 +438,6 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Task not found." });
     }
 
-    // Check permission: creator or collaborator
     const isCreator = task.creator_id === req.userId;
     const isCollaborator = await TaskCollaborator.findOne({
       where: { task_id: id, user_id: req.userId },
@@ -395,14 +460,14 @@ exports.updateTask = async (req, res) => {
         office_id: office_id || null,
         description,
         remind_before_minutes: remind_before_minutes || null,
-        is_email_reminder: !!is_email_reminder,
+        // Email reminder is now always on
+        is_email_reminder: true,
         updated_at: new Date(),
       },
       { transaction: t },
     );
 
-    // ── Update assignees ──
-    const submittedAssigneeIds = assignee_ids || [];
+    // ── Capture existing assignees BEFORE mutation (for email diffing) ──
     const existingAssignees = await TaskAssignee.findAll({
       where: { task_id: id },
       attributes: ["user_id", "response"],
@@ -412,7 +477,8 @@ exports.updateTask = async (req, res) => {
       existingMap[a.user_id] = a.response;
     });
 
-    // Remove assignees not in submitted list (except creator)
+    const submittedAssigneeIds = assignee_ids || [];
+
     const toRemove = existingAssignees
       .filter(
         (a) =>
@@ -427,9 +493,8 @@ exports.updateTask = async (req, res) => {
       });
     }
 
-    // Add new assignees
     const toAdd = submittedAssigneeIds.filter(
-      (id) => id !== task.creator_id && !(id in existingMap),
+      (uid) => uid !== task.creator_id && !(uid in existingMap),
     );
     if (toAdd.length > 0) {
       await TaskAssignee.bulkCreate(
@@ -461,12 +526,10 @@ exports.updateTask = async (req, res) => {
 
     // ── Update checklist items ──
     if (checklist_items && Array.isArray(checklist_items)) {
-      // Delete existing items
       await TaskChecklistItem.destroy({
         where: { task_id: id },
         transaction: t,
       });
-      // Create new items
       const items = checklist_items.map((item, index) => ({
         id: uuidv4(),
         task_id: id,
@@ -480,6 +543,62 @@ exports.updateTask = async (req, res) => {
     }
 
     await t.commit();
+
+    // ─── Queue "task edited" / "new assignment" emails ───
+    try {
+      const taskForEmail = {
+        title: task.title,
+        description: task.description,
+        deadline_datetime: task.deadline_datetime,
+        priority: task.priority,
+      };
+
+      const continuingIds = submittedAssigneeIds.filter(
+        (uid) => uid !== task.creator_id && uid in existingMap,
+      );
+
+      for (const userId of continuingIds) {
+        const priorResponse = existingMap[userId];
+        if (priorResponse === 'pending' || priorResponse === 'accepted') {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskEditedEmail(taskForEmail, contact.full_name, priorResponse);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            task_id: id, email_type: 'edited'
+          });
+        }
+      }
+
+      for (const userId of toAdd) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+        await queueEmail({
+          recipient_email: contact.email, subject, body,
+          task_id: id, email_type: 'invitation'
+        });
+      }
+
+      if (remind_before_minutes) {
+        const reminderTime = new Date(
+          new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000
+        );
+        const recipientIds = [...new Set([task.creator_id, ...submittedAssigneeIds, ...submittedCollabIds])];
+        for (const userId of recipientIds) {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskReminderEmail(taskForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            scheduled_for: reminderTime,
+            task_id: id, email_type: 'reminder'
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue task update emails:', emailErr);
+    }
 
     res.json({ ok: true, message: "Task updated successfully." });
   } catch (error) {
@@ -499,7 +618,6 @@ exports.toggleChecklistItem = async (req, res) => {
     if (!item)
       return res.status(404).json({ ok: false, message: "Item not found." });
 
-    // Check if user is assignee or collaborator or creator
     const task = await Task.findByPk(item.task_id);
     if (!task)
       return res.status(404).json({ ok: false, message: "Task not found." });
@@ -601,9 +719,9 @@ exports.getInvitedTasks = async (req, res) => {
       const task = a.Task;
       const creatorProfile = task.User
         ? {
-            username: task.User.username,
-            email: task.User.email,
-          }
+          username: task.User.username,
+          email: task.User.email,
+        }
         : null;
       return {
         id: task.id,
