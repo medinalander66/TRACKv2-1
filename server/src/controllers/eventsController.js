@@ -805,12 +805,24 @@ exports.getEventStats = async (req, res) => {
     }
 
     let visibilityCondition;
-    if (type === 'campus') {
+    if (type === 'all') {
+      const attendeeEvents = await EventAttendee.findAll({
+        where: { user_id: userId },
+        attributes: ['event_id']
+      });
+      const eventIds = attendeeEvents.map(a => a.event_id);
+      visibilityCondition = {
+        [Op.or]: [
+          { creator_id: userId },
+          { id: { [Op.in]: eventIds } }
+        ]
+      };
+    } else if (type === 'campus') {
       visibilityCondition = { visibility: 'campus' };
     } else if (type === 'department') {
       const profile = await UserProfile.findOne({ where: { user_id: userId } });
       if (!profile || !profile.department_id) {
-        return res.json({ ok: true, stats: { total: 0, accepted: 0, declined: 0, missed: 0, pending: 0, conflicted: 0 } });
+        return res.json({ ok: true, stats: { total: 0, active_events: 0, accepted: 0, declined: 0, missed: 0, pending: 0, conflicted: 0 } });
       }
       visibilityCondition = { visibility: 'department', department_id: profile.department_id };
     } else if (type === 'private') {
@@ -837,9 +849,9 @@ exports.getEventStats = async (req, res) => {
     };
 
     const events = await Event.findAll({ where });
-    const eventIds = events.map(e => e.id);
+    const eventIds2 = events.map(e => e.id);
     const attendances = await EventAttendee.findAll({
-      where: { user_id: userId, event_id: { [Op.in]: eventIds } }
+      where: { user_id: userId, event_id: { [Op.in]: eventIds2 } }
     });
     const attendanceMap = {};
     attendances.forEach(a => { attendanceMap[a.event_id] = a.response; });
@@ -857,7 +869,7 @@ exports.getEventStats = async (req, res) => {
 
     res.json({
       ok: true,
-      stats: { total, accepted, declined, missed, pending, conflicted: 0 }
+      stats: { total, active_events: total, accepted, declined, missed, pending, conflicted: 0 }
     });
   } catch (error) {
     console.error('Get event stats error:', error);
