@@ -4,7 +4,19 @@ import styles from "./EventInvitation.module.css";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import { FiCheck, FiX, FiMail, FiPaperclip, FiDownload } from "react-icons/fi";
+import {
+  FiCheck,
+  FiX,
+  FiMail,
+  FiPaperclip,
+  FiDownload,
+  FiUsers,
+  FiLink,
+  FiCopy,
+  FiAlertTriangle,
+} from "react-icons/fi";
+import { getEventStatus, EVENT_STATUS_CONFIG } from "../../utils/eventStatus";
+import ConflictCardEvent from "./ConflictCardEvent";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -70,8 +82,16 @@ const hexToRgba = (hex, alpha = 0.15) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const RESPONSE_LABELS = {
+  accepted: "Accepted",
+  declined: "Declined",
+  pending: "Pending",
+};
+
 export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
   const [responding, setResponding] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
 
   if (!event) {
     return (
@@ -97,8 +117,11 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
   const allUsers = participants.users || [];
   const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
   const attachments = event.attachments || [];
+  const conflict = event.conflict || {};
 
   const locationDisplay = event.venue || event.location || "Online";
+  const status = getEventStatus(event);
+  const statusCfg = EVENT_STATUS_CONFIG[status];
 
   const handleResponse = async (response) => {
     setResponding(true);
@@ -109,6 +132,17 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
     } finally {
       setResponding(false);
     }
+  };
+
+  const handleCopyLink = () => {
+    if (!event.link) return;
+    navigator.clipboard
+      .writeText(event.link)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -145,6 +179,26 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
               </div>
             </div>
 
+            <div className={styles.statusRow}>
+              <div
+                className={`${styles.eventStatusBadge} ${styles[statusCfg.className]}`}
+              >
+                {statusCfg.label}
+              </div>
+              {conflict.isConflicted && (
+                <button
+                  type="button"
+                  className={`${styles.conflictBadgeBtn} ${
+                    conflict.isPriority ? styles.conflictPriority : styles.conflictWarning
+                  }`}
+                  onClick={() => setShowConflictModal(true)}
+                >
+                  <FiAlertTriangle size={13} />
+                  {conflict.isPriority ? "Priority Event" : "Conflicted"}
+                </button>
+              )}
+            </div>
+
             <div className={styles.container8}>
               {/* WHEN & WHERE */}
               <div className={styles.whenWhereGroup}>
@@ -174,6 +228,20 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                     <div className={styles.infoValue}>{locationDisplay}</div>
                   </div>
                 </div>
+                {event.method === "online" && event.link && (
+                  <div className={styles.linkSection}>
+                    <FiLink size={14} />
+                    <span className={styles.linkText}>{event.link}</span>
+                    <button
+                      type="button"
+                      className={styles.copyLinkBtn}
+                      onClick={handleCopyLink}
+                    >
+                      <FiCopy size={12} />
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* ORGANIZER */}
@@ -235,7 +303,7 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                 </div>
               </div>
 
-              {/* AUDIENCE */}
+              {/* AUDIENCE — accepted only */}
               <div className={styles.audienceSection}>
                 <div className={styles.sectionHeader}>
                   <GroupsOutlinedIcon fontSize="small" />
@@ -270,6 +338,43 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                         ? `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} attending`
                         : `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} and ${acceptedUsers.length - 1} others attending`
                       : "No attendees yet"}
+                  </div>
+                </div>
+              </div>
+
+              {/* INVITED ATTENDEES — everyone regardless of response */}
+              <div className={styles.audienceSection}>
+                <div className={styles.sectionHeader}>
+                  <FiUsers size={16} />
+                  <div className={styles.heading4}>
+                    <div className={styles.text7}>INVITED ATTENDEES</div>
+                  </div>
+                </div>
+                <div className={styles.audienceRow}>
+                  <div className={styles.attendeeStack}>
+                    {allUsers.slice(0, 4).map((u) => {
+                      const name = u.full_name || u.username || u.email || "Unknown";
+                      return (
+                        <div
+                          key={u.id}
+                          className={styles.attendeeAvatar}
+                          style={{ background: getAvatarColor(name) }}
+                          title={`${name} (${RESPONSE_LABELS[u.response] || "Pending"})`}
+                        >
+                          {getInitials(name)}
+                        </div>
+                      );
+                    })}
+                    {allUsers.length > 4 && (
+                      <div className={styles.attendeeMore}>
+                        +{allUsers.length - 4}
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.audienceText}>
+                    {allUsers.length > 0
+                      ? `${allUsers.length} ${allUsers.length === 1 ? "person" : "people"} invited in total`
+                      : "No one invited yet"}
                   </div>
                 </div>
               </div>
@@ -334,6 +439,12 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
           </div>
         </div>
       </div>
+
+      <ConflictCardEvent
+        isOpen={showConflictModal}
+        onClose={() => setShowConflictModal(false)}
+        event={event}
+      />
     </Modal>
   );
 }
