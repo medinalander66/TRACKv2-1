@@ -15,7 +15,6 @@ import {
   FiMail,
   FiSearch,
   FiCopy,
-  FiFileText,
   FiCode,
   FiClock,
   FiFilter,
@@ -102,6 +101,7 @@ export default function AccountCodes() {
   });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [codesLoading, setCodesLoading] = useState(false);
 
   // ─── Code Table Search & Sort ──────────────────────────
   const [codeSearch, setCodeSearch] = useState("");
@@ -127,7 +127,8 @@ export default function AccountCodes() {
   };
 
   // ─── Load Account Codes ──────────────────────────────
-  const loadCodes = async () => {
+  const loadCodes = useCallback(async () => {
+    setCodesLoading(true);
     try {
       const [codesRes, deptsRes, officesRes, rolesRes, posRes] =
         await Promise.all([
@@ -144,8 +145,10 @@ export default function AccountCodes() {
       setPositions(posRes.positions || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setCodesLoading(false);
     }
-  };
+  }, []);
 
   // ─── Load Account Code Requests ──────────────────────
   const loadRequests = useCallback(async () => {
@@ -170,9 +173,13 @@ export default function AccountCodes() {
 
   // ─── Initial Load ──────────────────────────────────────
   useEffect(() => {
-    loadCodes();
-    loadRequests();
-  }, [loadRequests]);
+    // Defer initial loads to avoid calling setState synchronously inside the
+    // effect body which can trigger cascading renders.
+    Promise.resolve().then(() => {
+      loadCodes();
+      loadRequests();
+    });
+  }, [loadCodes, loadRequests]);
 
   // ─── Handle Generate Code ─────────────────────────────
   const handleSubmit = async (e) => {
@@ -429,20 +436,6 @@ export default function AccountCodes() {
               <span className={styles.summaryLabel}>Pending Requests</span>
             </div>
           </div>
-          <div className={styles.summaryCard}>
-            <div
-              className={styles.summaryIcon}
-              style={{ background: "#e0e7ff", color: "#4f46e5" }}
-            >
-              <FiFileText size={20} />
-            </div>
-            <div className={styles.summaryInfo}>
-              <span className={styles.summaryValue}>
-                {summaryStats.totalRequests}
-              </span>
-              <span className={styles.summaryLabel}>Total Requests</span>
-            </div>
-          </div>
         </div>
 
         {/* ── Generate Form ── */}
@@ -456,16 +449,39 @@ export default function AccountCodes() {
             )}
           </h2>
           <form onSubmit={handleSubmit}>
-            {/* Admin Code Toggle Button */}
+            {/* Admin/User radio selection */}
             <div className={styles.toggleWrapper}>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${form.is_admin ? styles.toggleActive : ""}`}
-                onClick={() => setForm({ ...form, is_admin: !form.is_admin })}
+              <div
+                className={styles.radioGroup}
+                role="radiogroup"
+                aria-label="Code type"
               >
-                <span className={styles.toggleIndicator} />
-                <span>{form.is_admin ? "Admin Code" : "User Code"}</span>
-              </button>
+                <label
+                  className={`${styles.radioLabel} ${form.is_admin ? styles.radioActive : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="codeType"
+                    value="admin"
+                    checked={form.is_admin === true}
+                    onChange={() => setForm({ ...form, is_admin: true })}
+                  />
+                  <span>Admin Code</span>
+                </label>
+
+                <label
+                  className={`${styles.radioLabel} ${!form.is_admin ? styles.radioActive : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="codeType"
+                    value="user"
+                    checked={form.is_admin === false}
+                    onChange={() => setForm({ ...form, is_admin: false })}
+                  />
+                  <span>User Code</span>
+                </label>
+              </div>
             </div>
 
             {!form.is_admin && (
@@ -519,8 +535,13 @@ export default function AccountCodes() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Generated Codes</h2>
-            <button className={styles.refreshBtn} onClick={loadCodes}>
-              <FiRefreshCw size={16} /> Refresh
+            <button
+              className={styles.refreshBtn}
+              onClick={loadCodes}
+              disabled={codesLoading}
+            >
+              <FiRefreshCw size={16} />
+              {codesLoading ? "Refreshing..." : "Refresh"}
             </button>
           </div>
 
@@ -530,7 +551,7 @@ export default function AccountCodes() {
               <FiSearch className={styles.searchIcon} />
               <input
                 type="text"
-                placeholder="Search codes..."
+                placeholder="Search"
                 value={codeSearch}
                 onChange={(e) => setCodeSearch(e.target.value)}
               />
@@ -629,8 +650,13 @@ export default function AccountCodes() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Account Code Requests</h2>
-            <button className={styles.refreshBtn} onClick={loadRequests}>
-              <FiRefreshCw size={16} /> Refresh
+            <button
+              className={styles.refreshBtn}
+              onClick={loadRequests}
+              disabled={requestsLoading}
+            >
+              <FiRefreshCw size={16} />
+              {requestsLoading ? "Refreshing..." : "Refresh"}
             </button>
           </div>
 
