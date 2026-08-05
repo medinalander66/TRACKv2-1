@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import apiClient from "../api/client";
 import {
   FiUsers,
-  FiCalendar,
   FiCode,
   FiMail,
   FiCheckCircle,
@@ -13,6 +12,7 @@ import {
   FiUserPlus,
   FiTrendingUp,
   FiActivity,
+  FiRefreshCcw,
   FiServer,
   FiArrowRight,
 } from "react-icons/fi";
@@ -22,20 +22,25 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
     totalUsers: 0,
-    totalEvents: 0,
-    totalVenues: 0,
     totalCodes: 0,
     pendingRequests: 0,
     activeUsers: 0,
     blockedUsers: 0,
     codesUsed: 0,
     codesUnused: 0,
-    departmentsCount: 0,
-    officesCount: 0,
+    totalDepartments: 0,
+    activeDepartments: 0,
+    inactiveDepartments: 0,
+    totalOffices: 0,
+    activeOffices: 0,
+    inactiveOffices: 0,
+    totalPositions: 0,
+    activePositions: 0,
+    inactivePositions: 0,
+    takenPositions: 0,
   });
   const [recentUsers, setRecentUsers] = useState([]);
   const [recentRequests, setRecentRequests] = useState([]);
-  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -56,18 +61,28 @@ export default function Dashboard() {
         );
         const requests = requestsRes.data.requests || [];
 
-        const now = new Date();
-        const start = now.toISOString().slice(0, 10);
-        const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10);
-        const eventsRes = await apiClient.get(
-          `/events?start=${start}&end=${end}`,
-        );
-        const events = eventsRes.data.events || [];
+        const positionsRes = await apiClient.get("/admin/positions");
+        const positions = positionsRes.data.positions || [];
 
-        const deptRes = await apiClient.get("/lookups/departments");
-        const officeRes = await apiClient.get("/lookups/offices");
+        const assignmentsRes = await apiClient.get(
+          "/admin/position-assignments",
+        );
+        const assignments = assignmentsRes.data.assignments || [];
+
+        const assignedIds = assignments
+          .filter((a) => a.status === "active")
+          .map((a) => a.position_id);
+        const takenPositionIds = new Set(assignedIds);
+
+        const totalPositions = positions.length;
+        const activePositions = positions.filter((p) => p.is_active).length;
+        const inactivePositions = positions.filter((p) => !p.is_active).length;
+        const takenPositions = positions.filter(
+          (p) => !p.allow_multiple && takenPositionIds.has(p.id),
+        ).length;
+
+        const deptRes = await apiClient.get("/admin/departments");
+        const officeRes = await apiClient.get("/admin/offices");
 
         const activeUsers = users.filter((u) => u.status === "active").length;
         const blockedUsers = users.filter(
@@ -76,23 +91,41 @@ export default function Dashboard() {
         const codesUsed = codes.filter((c) => c.status === "used").length;
         const codesUnused = codes.filter((c) => c.status === "unused").length;
 
+        const departments = deptRes.data.items || [];
+        const offices = officeRes.data.items || [];
+
+        const totalDepartments = departments.length;
+        const activeDepartments = departments.filter((d) => d.is_active).length;
+        const inactiveDepartments = departments.filter(
+          (d) => !d.is_active,
+        ).length;
+
+        const totalOffices = offices.length;
+        const activeOffices = offices.filter((o) => o.is_active).length;
+        const inactiveOffices = offices.filter((o) => !o.is_active).length;
+
         setStats({
           totalUsers: users.length,
-          totalEvents: events.length,
-          totalVenues: 0,
           totalCodes: codes.length,
           pendingRequests: requests.length,
           activeUsers,
           blockedUsers,
           codesUsed,
           codesUnused,
-          departmentsCount: deptRes.data.items?.length || 0,
-          officesCount: officeRes.data.items?.length || 0,
+          totalDepartments,
+          activeDepartments,
+          inactiveDepartments,
+          totalOffices,
+          activeOffices,
+          inactiveOffices,
+          totalPositions,
+          activePositions,
+          inactivePositions,
+          takenPositions,
         });
 
         setRecentUsers(users.slice(0, 5));
         setRecentRequests(requests.slice(0, 5));
-        setUpcomingEvents(events.slice(0, 5));
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
         setError("Unable to load dashboard data. Please refresh.");
@@ -148,133 +181,234 @@ export default function Dashboard() {
             className={styles.refreshBtn}
             onClick={() => window.location.reload()}
           >
-            <FiActivity size={16} /> Refresh
+            <FiRefreshCcw size={16} /> Refresh
           </button>
         </div>
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
 
-      {/* Stats Grid */}
-      <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#dbeafe", color: "#2563eb" }}
-          >
-            <FiUsers size={24} />
+      <div className={styles.statsSubsectionRow}>
+        <div className={styles.statsSubsection}>
+          <div className={styles.statsSubsectionHeader}>
+            <h4>Users</h4>
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.totalUsers}</span>
-            <span className={styles.statLabel}>Total Users</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#d1fae5", color: "#059669" }}
-          >
-            <FiUserPlus size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.activeUsers}</span>
-            <span className={styles.statLabel}>Active Users</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#fee2e2", color: "#dc2626" }}
-          >
-            <FiAlertCircle size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.blockedUsers}</span>
-            <span className={styles.statLabel}>Blocked / Suspended</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#fef3c7", color: "#d97706" }}
-          >
-            <FiCode size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.totalCodes}</span>
-            <span className={styles.statLabel}>Total Codes</span>
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div className={`${styles.statIcon} ${styles.statIconUsers}`}>
+                <FiUsers size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.totalUsers}</span>
+                <span className={styles.statLabel}>Total Users</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconActiveUsers}`}
+              >
+                <FiUserPlus size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.activeUsers}</span>
+                <span className={styles.statLabel}>Active Users</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconBlockedUsers}`}
+              >
+                <FiAlertCircle size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.blockedUsers}</span>
+                <span className={styles.statLabel}>Blocked / Suspended</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#ede9fe", color: "#7c3aed" }}
-          >
-            <FiCheckCircle size={24} />
+
+        <div className={styles.statsSubsection}>
+          <div className={styles.statsSubsectionHeader}>
+            <h4>Positions</h4>
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.codesUsed}</span>
-            <span className={styles.statLabel}>Codes Used</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#e0f2fe", color: "#0284c7" }}
-          >
-            <FiClock size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.codesUnused}</span>
-            <span className={styles.statLabel}>Codes Unused</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#fce7f3", color: "#db2777" }}
-          >
-            <FiMail size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.pendingRequests}</span>
-            <span className={styles.statLabel}>Pending Requests</span>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#d1fae5", color: "#059669" }}
-          >
-            <FiCalendar size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.totalEvents}</span>
-            <span className={styles.statLabel}>Upcoming Events</span>
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div
+                className={styles.statIcon}
+                style={{ background: "#e0e7ff", color: "#4f46e5" }}
+              >
+                <FiTrendingUp size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.totalPositions}</span>
+                <span className={styles.statLabel}>Total Positions</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconActivePositions}`}
+              >
+                <FiServer size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.activePositions}
+                </span>
+                <span className={styles.statLabel}>Active Positions</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconInactivePositions}`}
+              >
+                <FiActivity size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.inactivePositions}
+                </span>
+                <span className={styles.statLabel}>Inactive Positions</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#e0e7ff", color: "#4f46e5" }}
-          >
-            <FiTrendingUp size={24} />
+      </div>
+
+      <div className={styles.statsSubsectionRow}>
+        <div className={styles.statsSubsection}>
+          <div className={styles.statsSubsectionHeader}>
+            <h4>Departments</h4>
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.departmentsCount}</span>
-            <span className={styles.statLabel}>Departments</span>
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconTotalDepartments}`}
+              >
+                <FiTrendingUp size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.totalDepartments}
+                </span>
+                <span className={styles.statLabel}>Total Departments</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconActiveDepartments}`}
+              >
+                <FiServer size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.activeDepartments}
+                </span>
+                <span className={styles.statLabel}>Active Departments</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconInactiveDepartments}`}
+              >
+                <FiActivity size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.inactiveDepartments}
+                </span>
+                <span className={styles.statLabel}>Inactive Departments</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={styles.statCard}>
-          <div
-            className={styles.statIcon}
-            style={{ background: "#fef3c7", color: "#d97706" }}
-          >
-            <FiServer size={24} />
+
+        <div className={styles.statsSubsection}>
+          <div className={styles.statsSubsectionHeader}>
+            <h4>Offices</h4>
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.officesCount}</span>
-            <span className={styles.statLabel}>Offices</span>
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconTotalOffices}`}
+              >
+                <FiTrendingUp size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.totalOffices}</span>
+                <span className={styles.statLabel}>Total Offices</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconActiveOffices}`}
+              >
+                <FiServer size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.activeOffices}</span>
+                <span className={styles.statLabel}>Active Offices</span>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.statIconInactiveOffices}`}
+              >
+                <FiActivity size={24} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>
+                  {stats.inactiveOffices}
+                </span>
+                <span className={styles.statLabel}>Inactive Offices</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.statsSubsection}>
+        <div className={styles.statsSubsectionHeader}>
+          <h4>Account Codes</h4>
+        </div>
+        <div className={`${styles.statsGrid} ${styles.statsGridAccountCodes}`}>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconTotalCodes}`}>
+              <FiCode size={24} />
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.totalCodes}</span>
+              <span className={styles.statLabel}>Total Codes</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconCodesUsed}`}>
+              <FiCheckCircle size={24} />
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.codesUsed}</span>
+              <span className={styles.statLabel}>Codes Used</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconCodesUnused}`}>
+              <FiClock size={24} />
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.codesUnused}</span>
+              <span className={styles.statLabel}>Codes Unused</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div
+              className={`${styles.statIcon} ${styles.statIconPendingRequests}`}
+            >
+              <FiMail size={24} />
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.pendingRequests}</span>
+              <span className={styles.statLabel}>Pending Code Requests</span>
+            </div>
           </div>
         </div>
       </div>
@@ -284,10 +418,7 @@ export default function Dashboard() {
         {/* Recent Users */}
         <div className={styles.tableCard}>
           <div className={styles.tableHeader}>
-            <h3>Recent Users</h3>
-            <span className={styles.tableCount}>
-              {recentUsers.length} users
-            </span>
+            <h3>Recently Registered Users</h3>
           </div>
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
@@ -335,10 +466,7 @@ export default function Dashboard() {
         {/* Pending Account Requests */}
         <div className={styles.tableCard}>
           <div className={styles.tableHeader}>
-            <h3>Pending Account Requests</h3>
-            <span className={styles.tableCount}>
-              {recentRequests.length} pending
-            </span>
+            <h3>Pending Account Code Requests</h3>
           </div>
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
@@ -374,52 +502,6 @@ export default function Dashboard() {
               View All Requests <FiArrowRight size={14} />
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Upcoming Events (Full width) */}
-      <div className={styles.tableCard}>
-        <div className={styles.tableHeader}>
-          <h3>Upcoming Events (This Week)</h3>
-          <span className={styles.tableCount}>
-            {upcomingEvents.length} events
-          </span>
-        </div>
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcomingEvents.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className={styles.noData}>
-                    No upcoming events
-                  </td>
-                </tr>
-              ) : (
-                upcomingEvents.map((ev) => (
-                  <tr key={ev.id}>
-                    <td>{ev.title}</td>
-                    <td>{new Date(ev.date).toLocaleDateString()}</td>
-                    <td>
-                      {ev.time} - {ev.endTime}
-                    </td>
-                    <td>
-                      <span className={styles.eventTypeBadge}>
-                        {ev.type || ev.event_type || "Event"}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 
