@@ -299,3 +299,34 @@
   flex-direction: column;
   gap: 12px;
 }
+
+.homeMenuContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.homeQuickLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.homeLinkBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.homeLinkBtn:hover {
+  opacity: 0.9;
+}

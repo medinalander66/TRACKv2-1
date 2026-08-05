@@ -2,7 +2,15 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCalendar } from "../../context/CalendarContext";
 import { useEventsFilter } from "../../context/EventsFilterContext";
+import { useTasksFilter } from "../../context/TasksFilterContext";
 import apiClient from "../../api/client";
+import {
+  FiHome,
+  FiCalendar as FiCalendarIcon,
+  FiList,
+  FiBarChart2,
+  FiPlus,
+} from "react-icons/fi";
 import styles from "./Menu.module.css";
 
 const MONTH_NAMES = [
@@ -159,7 +167,6 @@ const IconPrivate = () => (
 
 const generateMonthGrid = (year, month) => {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = -firstDayOfMonth;
   const totalCells = 42;
   const grid = [];
@@ -178,7 +185,6 @@ const generateMonthGrid = (year, month) => {
 export default function Menu({ activePath, onCloseDrawer }) {
   const navigate = useNavigate();
 
-  // Calendar context
   const {
     currentDate,
     setCurrentDate,
@@ -190,7 +196,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     setActiveFilters,
   } = useCalendar();
 
-  // Events filter context
   const {
     searchTerm: eventsSearchTerm,
     setSearchTerm: setEventsSearchTerm,
@@ -200,7 +205,15 @@ export default function Menu({ activePath, onCloseDrawer }) {
     setEventType,
   } = useEventsFilter();
 
-  // --- Calendar search ---
+  const {
+    searchTerm: tasksSearchTerm,
+    setSearchTerm: setTasksSearchTerm,
+    statusFilter: tasksStatusFilter,
+    setStatusFilter: setTasksStatusFilter,
+    visibilityFilter: tasksVisibilityFilter,
+    setVisibilityFilter: setTasksVisibilityFilter,
+  } = useTasksFilter();
+
   const [calendarSearchTerm, setCalendarSearchTerm] = useState("");
   const [allEventsForSearch, setAllEventsForSearch] = useState([]);
 
@@ -246,16 +259,12 @@ export default function Menu({ activePath, onCloseDrawer }) {
     onCloseDrawer();
   };
 
-  // --- Determine active menu key ---
   let activeKey = "home";
   if (activePath.includes("/venues")) activeKey = "venues";
   else if (activePath.includes("/calendar")) activeKey = "calendar";
   else if (activePath.includes("/events")) activeKey = "events";
   else if (activePath.includes("/tasks")) activeKey = "tasks";
 
-  const menu = MENU_CONTENT[activeKey];
-
-  // --- Calendar specific logic ---
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthGrid = useMemo(
@@ -263,7 +272,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     [year, month],
   );
 
-  // Arrow functions - NO onCloseDrawer() here
   const goToPrevMonth = () => {
     const d = new Date(currentDate);
     d.setMonth(d.getMonth() - 1);
@@ -283,6 +291,11 @@ export default function Menu({ activePath, onCloseDrawer }) {
   const handleCreateEvent = () => {
     onCloseDrawer();
     navigate("/create-event");
+  };
+
+  const handleCreateTask = () => {
+    onCloseDrawer();
+    navigate("/create-task");
   };
 
   const handleViewChange = (view) => {
@@ -314,7 +327,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "month", label: "Month", icon: <IconMonth /> },
   ];
 
-  // ✅ Naitama: "personal" → "private"
   const filterOptions = [
     { key: "all", label: "All", icon: <IconAll /> },
     { key: "campus", label: "Campus", icon: <IconCampus /> },
@@ -322,7 +334,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "private", label: "Private", icon: <IconPrivate /> },
   ];
 
-  // --- Events specific options ---
   const eventsDurationOptions = [
     { key: "all", label: "All", icon: <IconAll /> },
     { key: "day", label: "Today", icon: <IconDay /> },
@@ -330,7 +341,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "month", label: "This Month", icon: <IconMonth /> },
   ];
 
-  // ✅ Naitama: "personal" → "private"
   const eventsTypeOptions = [
     { key: "all", label: "All", icon: <IconAll /> },
     { key: "campus", label: "Campus", icon: <IconCampus /> },
@@ -338,7 +348,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
     { key: "private", label: "Private", icon: <IconPrivate /> },
   ];
 
-  // --- Handlers for events filters ---
   const handleEventsDurationChange = (key) => {
     setEventsDuration(key);
     onCloseDrawer();
@@ -349,11 +358,98 @@ export default function Menu({ activePath, onCloseDrawer }) {
     onCloseDrawer();
   };
 
+  // ─── Tasks filter options ───
+  const tasksStatusOptions = [
+    { key: "ongoing", label: "Ongoing", icon: <IconDay /> },
+    { key: "completed", label: "Completed", icon: <IconWeek /> },
+    { key: "missed", label: "Missed", icon: <IconMonth /> },
+  ];
+
+  const tasksVisibilityOptions = [
+    { key: "all", label: "All", icon: <IconAll /> },
+    { key: "campus", label: "Campus", icon: <IconCampus /> },
+    { key: "department", label: "Department", icon: <IconDepartment /> },
+    { key: "personal", label: "Personal", icon: <IconPrivate /> },
+  ];
+
+  const handleTasksStatusChange = (key) => {
+    setTasksStatusFilter(key);
+    onCloseDrawer();
+  };
+
+  const handleTasksVisibilityChange = (key) => {
+    setTasksVisibilityFilter(key);
+    onCloseDrawer();
+  };
+
   return (
     <div className={styles.menuContainer}>
+      {activeKey === "home" && (
+        <div className={styles.homeMenuContent}>
+          <div className={styles.homeQuickLinks}>
+            <button
+              className={styles.homeLinkBtn}
+              onClick={() => {
+                onCloseDrawer();
+                navigate("/create-event");
+              }}
+            >
+              <FiPlus size={18} /> Create Event
+            </button>
+            <button
+              className={styles.homeLinkBtn}
+              onClick={() => {
+                onCloseDrawer();
+                navigate("/create-task");
+              }}
+            >
+              <FiPlus size={18} /> Create Task
+            </button>
+          </div>
+
+          <div className={styles.listGroup}>
+            <button
+              className={styles.listBtn}
+              onClick={() => {
+                onCloseDrawer();
+                navigate("/calendar");
+              }}
+            >
+              <span className={styles.listIcon}>
+                <FiCalendarIcon size={20} />
+              </span>
+              <span className={styles.listLabel}>View Calendar</span>
+            </button>
+            <button
+              className={styles.listBtn}
+              onClick={() => {
+                onCloseDrawer();
+                navigate("/events");
+              }}
+            >
+              <span className={styles.listIcon}>
+                <FiList size={20} />
+              </span>
+              <span className={styles.listLabel}>View Events</span>
+            </button>
+            <button
+              className={styles.listBtn}
+              onClick={() => {
+                onCloseDrawer();
+                navigate("/analytics");
+              }}
+            >
+              <span className={styles.listIcon}>
+                <FiBarChart2 size={20} />
+              </span>
+              <span className={styles.listLabel}>View Analytics</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeKey === "calendar" && (
         <div className={styles.calendarMenuContent}>
-          {/* Search Field */}
           <div className={styles.searchWrapper}>
             <input
               type="text"
@@ -381,12 +477,10 @@ export default function Menu({ activePath, onCloseDrawer }) {
             )}
           </div>
 
-          {/* Create Event */}
           <button className={styles.createEventBtn} onClick={handleCreateEvent}>
             + Create Event
           </button>
 
-          {/* Mini Calendar */}
           <div className={styles.miniCalendar}>
             <div className={styles.miniHeader}>
               <button onClick={goToPrevMonth} className={styles.miniNav}>
@@ -422,7 +516,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
             </div>
           </div>
 
-          {/* View Switcher */}
           <div className={styles.listGroup}>
             {durationOptions.map((opt) => (
               <button
@@ -440,7 +533,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
           <div className={styles.listDivider} />
 
-          {/* Filter Buttons (calendar) */}
           <div className={styles.listGroup}>
             {filterOptions.map((opt) => (
               <button
@@ -460,7 +552,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
       {activeKey === "events" && (
         <div className={styles.eventsMenuContent}>
-          {/* Search Field */}
           <div className={styles.searchWrapper}>
             <input
               type="text"
@@ -471,12 +562,10 @@ export default function Menu({ activePath, onCloseDrawer }) {
             />
           </div>
 
-          {/* Create Event */}
           <button className={styles.createEventBtn} onClick={handleCreateEvent}>
             + Create Event
           </button>
 
-          {/* Duration Filters */}
           <div className={styles.listGroup}>
             {eventsDurationOptions.map((opt) => (
               <button
@@ -494,7 +583,6 @@ export default function Menu({ activePath, onCloseDrawer }) {
 
           <div className={styles.listDivider} />
 
-          {/* Event Type Filters */}
           <div className={styles.listGroup}>
             {eventsTypeOptions.map((opt) => (
               <button
@@ -512,10 +600,61 @@ export default function Menu({ activePath, onCloseDrawer }) {
         </div>
       )}
 
-      {activeKey !== "calendar" && activeKey !== "events" && (
+      {activeKey === "tasks" && (
+        <div className={styles.eventsMenuContent}>
+          <div className={styles.searchWrapper}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search tasks..."
+              value={tasksSearchTerm}
+              onChange={(e) => setTasksSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <button className={styles.createEventBtn} onClick={handleCreateTask}>
+            + New Task
+          </button>
+
+          <div className={styles.listGroup}>
+            {tasksStatusOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  tasksStatusFilter === opt.key ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleTasksStatusChange(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.listDivider} />
+
+          <div className={styles.listGroup}>
+            {tasksVisibilityOptions.map((opt) => (
+              <button
+                key={opt.key}
+                className={`${styles.listBtn} ${
+                  tasksVisibilityFilter === opt.key ? styles.listBtnActive : ""
+                }`}
+                onClick={() => handleTasksVisibilityChange(opt.key)}
+              >
+                <span className={styles.listIcon}>{opt.icon}</span>
+                <span className={styles.listLabel}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeKey === "venues" && (
         <div className={styles.menuPlaceholder}>
           <p>
-            Menu content for <strong>{menu.title}</strong> will be placed here.
+            Menu content for <strong>{MENU_CONTENT.venues.title}</strong> will
+            be placed here.
           </p>
         </div>
       )}
