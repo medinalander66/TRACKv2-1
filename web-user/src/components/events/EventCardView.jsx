@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Modal from "../common/Modal";
 import styles from "./EventCardView.module.css";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
@@ -11,7 +11,13 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiClock,
+  FiUsers,
+  FiLink,
+  FiCopy,
+  FiAlertTriangle,
 } from "react-icons/fi";
+import { getEventStatus, EVENT_STATUS_CONFIG } from "../../utils/eventStatus";
+import ConflictCardEvent from "./ConflictCardEvent";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -84,6 +90,9 @@ const RESPONSE_CONFIG = {
 };
 
 export default function EventCardView({ isOpen, onClose, event }) {
+  const [copied, setCopied] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+
   if (!event) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Event Details">
@@ -108,9 +117,24 @@ export default function EventCardView({ isOpen, onClose, event }) {
   const allUsers = participants.users || [];
   const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
   const attachments = event.attachments || [];
+  const conflict = event.conflict || {};
 
   const locationDisplay = event.venue || event.location || "Online";
   const respCfg = event.viewerResponse ? RESPONSE_CONFIG[event.viewerResponse] : null;
+
+  const status = getEventStatus(event);
+  const statusCfg = EVENT_STATUS_CONFIG[status];
+
+  const handleCopyLink = () => {
+    if (!event.link) return;
+    navigator.clipboard
+      .writeText(event.link)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Event Details">
@@ -134,11 +158,6 @@ export default function EventCardView({ isOpen, onClose, event }) {
                 {event.event_type || "Unknown Type"}
               </div>
             </div>
-            {respCfg && (
-              <div className={`${styles.viewerResponseBadge} ${styles[respCfg.class]}`}>
-                <respCfg.icon size={13} /> {respCfg.label}
-              </div>
-            )}
             <div className={styles.heading2}>
               <div className={styles.featuredTitle}>{event.title}</div>
             </div>
@@ -149,6 +168,31 @@ export default function EventCardView({ isOpen, onClose, event }) {
               <div className={styles.descriptionText}>
                 {event.description || "No description provided."}
               </div>
+            </div>
+
+            <div className={styles.statusRow}>
+              <div
+                className={`${styles.eventStatusBadge} ${styles[statusCfg.className]}`}
+              >
+                {statusCfg.label}
+              </div>
+              {respCfg && (
+                <div className={`${styles.viewerResponseBadge} ${styles[respCfg.class]}`}>
+                  <respCfg.icon size={13} /> {respCfg.label}
+                </div>
+              )}
+              {conflict.isConflicted && (
+                <button
+                  type="button"
+                  className={`${styles.conflictBadgeBtn} ${
+                    conflict.isPriority ? styles.conflictPriority : styles.conflictWarning
+                  }`}
+                  onClick={() => setShowConflictModal(true)}
+                >
+                  <FiAlertTriangle size={13} />
+                  {conflict.isPriority ? "Priority Event" : "Conflicted"}
+                </button>
+              )}
             </div>
 
             <div className={styles.container8}>
@@ -180,6 +224,20 @@ export default function EventCardView({ isOpen, onClose, event }) {
                     <div className={styles.infoValue}>{locationDisplay}</div>
                   </div>
                 </div>
+                {event.method === "online" && event.link && (
+                  <div className={styles.linkSection}>
+                    <FiLink size={14} />
+                    <span className={styles.linkText}>{event.link}</span>
+                    <button
+                      type="button"
+                      className={styles.copyLinkBtn}
+                      onClick={handleCopyLink}
+                    >
+                      <FiCopy size={12} />
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* ORGANIZER */}
@@ -328,6 +386,12 @@ export default function EventCardView({ isOpen, onClose, event }) {
           </div>
         </div>
       </div>
+
+      <ConflictCardEvent
+        isOpen={showConflictModal}
+        onClose={() => setShowConflictModal(false)}
+        event={event}
+      />
     </Modal>
   );
 }
