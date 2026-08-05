@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   getDepartments,
@@ -21,10 +21,8 @@ import {
   togglePosition,
   deletePosition,
   getPositionAssignments,
-  removeAssignment,
   reorderPositions,
   updatePosition,
-  combinePositions,
 } from "../api/admin";
 import {
   FiSearch,
@@ -80,22 +78,20 @@ export default function Declaration() {
   // ─── Feedback state ───────────────────────────────────
   const [feedback, setFeedback] = useState({ message: "", type: "" });
 
-  const [isDragging, setIsDragging] = useState(false);
-
   // ─── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(true);
 
   // ─── Show feedback ────────────────────────────────────
-  const showFeedback = (message, type = "success") => {
+  const showFeedback = useCallback((message, type = "success") => {
     setFeedback({ message, type });
-  };
+  }, []);
 
   const clearFeedback = () => {
     setFeedback({ message: "", type: "" });
   };
 
   // ─── Load data ────────────────────────────────────────
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [deptRes, officeRes, domainRes, posRes, assignRes] =
@@ -117,11 +113,13 @@ export default function Declaration() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showFeedback]);
 
   useEffect(() => {
-    load();
-  }, []);
+    // Defer the initial load to avoid calling setState synchronously
+    // within the effect body which can trigger cascading renders.
+    Promise.resolve().then(() => load());
+  }, [load]);
 
   // ─── Filter helpers ────────────────────────────────────
   const filterItems = (items, searchKey, searchField = "name") => {
@@ -258,7 +256,10 @@ export default function Declaration() {
       load();
       showFeedback("Department deleted.");
     } catch (err) {
-      showFeedback("Failed to delete department.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to delete department.",
+        "error",
+      );
     }
   };
 
@@ -269,7 +270,10 @@ export default function Declaration() {
       load();
       showFeedback("Office deleted.");
     } catch (err) {
-      showFeedback("Failed to delete office.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to delete office.",
+        "error",
+      );
     }
   };
 
@@ -280,7 +284,10 @@ export default function Declaration() {
       load();
       showFeedback("Domain deleted.");
     } catch (err) {
-      showFeedback("Failed to delete domain.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to delete domain.",
+        "error",
+      );
     }
   };
 
@@ -291,7 +298,10 @@ export default function Declaration() {
       load();
       showFeedback("Position deleted.");
     } catch (err) {
-      showFeedback("Failed to delete position.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to delete position.",
+        "error",
+      );
     }
   };
 
@@ -398,7 +408,6 @@ export default function Declaration() {
 
   // ─── Drag and Drop ─────────────────────────────────────
   const handleDragEnd = async (result) => {
-    setIsDragging(false);
     if (!result.destination) return;
 
     const items = Array.from(positions);
@@ -417,7 +426,10 @@ export default function Declaration() {
       showFeedback("Positions reordered successfully.");
       load();
     } catch (err) {
-      showFeedback("Failed to reorder positions.", "error");
+      showFeedback(
+        err.response?.data?.message || "Failed to reorder positions.",
+        "error",
+      );
       load();
     }
   };
@@ -488,22 +500,79 @@ export default function Declaration() {
       {/* ─── DEPARTMENTS ────────────────────────────────── */}
       {tab === "departments" && (
         <div className={styles.tabContent}>
-          <div className={styles.leftPanel}>
-            <div className={styles.card}>
-              <h3>Add Department</h3>
-              <form onSubmit={handleAddDepartment} className={styles.addForm}>
-                <input
-                  type="text"
-                  placeholder="Department name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className={styles.input}
-                />
-                <button type="submit" className={styles.btn}>
-                  <FiPlus /> Add
-                </button>
-              </form>
+          <div className={styles.topRow}>
+            <div className={styles.topLeft}>
+              <div className={styles.card}>
+                <h3>Add Department</h3>
+                <form onSubmit={handleAddDepartment} className={styles.addForm}>
+                  <input
+                    type="text"
+                    placeholder="Department name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className={styles.input}
+                  />
+                  <button type="submit" className={styles.btn}>
+                    <FiPlus /> Add
+                  </button>
+                </form>
+              </div>
             </div>
+            <div className={styles.topRight}>
+              <div className={styles.departmentStatsSection}>
+                <h3>Department Stats</h3>
+                <div className={styles.departmentStatsGrid}>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconTotal}`}
+                    >
+                      <FiUser size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {departments.length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Total Departments
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconActive}`}
+                    >
+                      <FiCheck size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {departments.filter((d) => d.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Active Departments
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconInactive}`}
+                    >
+                      <FiX size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {departments.filter((d) => !d.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Inactive Departments
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.tableSection}>
             <div className={styles.card}>
               <div className={styles.controls}>
                 <div className={styles.searchBar}>
@@ -519,114 +588,93 @@ export default function Declaration() {
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 60 }}>Edit</th>
-                      <th>Name</th>
-                      <th>Created By</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDepartments.length === 0 ? (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
                       <tr>
-                        <td colSpan="5" className={styles.noData}>
-                          No departments found
-                        </td>
+                        <th style={{ width: 60 }}>Edit</th>
+                        <th>Name</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                       </tr>
-                    ) : (
-                      filteredDepartments.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <button
-                              onClick={() => startEditDept(item)}
-                              className={styles.editBtn}
-                            >
-                              <FiEdit size={14} />
-                            </button>
-                          </td>
-                          <td>
-                            {editDeptId === item.id ? (
-                              <div className={styles.inlineEdit}>
-                                <input
-                                  type="text"
-                                  value={editDeptName}
-                                  onChange={(e) =>
-                                    setEditDeptName(e.target.value)
-                                  }
-                                  className={styles.inlineInput}
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => saveEditDept(item.id)}
-                                  className={styles.saveEditBtn}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={cancelEditDept}
-                                  className={styles.cancelEditBtn}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              item.name
-                            )}
-                          </td>
-                          <td>{item.created_by_username || "—"}</td>
-                          <td>{getStatusBadge(item.is_active)}</td>
-                          <td>
-                            <button
-                              onClick={() =>
-                                toggleItem(
-                                  item.id,
-                                  item.is_active,
-                                  "department",
-                                )
-                              }
-                              className={styles.toggleBtn}
-                            >
-                              {item.is_active ? "Deactivate" : "Activate"}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDepartment(item.id)}
-                              className={styles.dangerBtn}
-                            >
-                              <FiTrash2 size={14} />
-                            </button>
+                    </thead>
+                    <tbody>
+                      {filteredDepartments.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className={styles.noData}>
+                            No departments found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredDepartments.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <button
+                                onClick={() => startEditDept(item)}
+                                className={styles.editBtn}
+                              >
+                                <FiEdit size={14} />
+                              </button>
+                            </td>
+                            <td>
+                              {editDeptId === item.id ? (
+                                <div className={styles.inlineEdit}>
+                                  <input
+                                    type="text"
+                                    value={editDeptName}
+                                    onChange={(e) =>
+                                      setEditDeptName(e.target.value)
+                                    }
+                                    className={styles.inlineInput}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => saveEditDept(item.id)}
+                                    className={styles.saveEditBtn}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEditDept}
+                                    className={styles.cancelEditBtn}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                item.name
+                              )}
+                            </td>
+                            <td>{item.created_by_username || "—"}</td>
+                            <td>{getStatusBadge(item.is_active)}</td>
+                            <td>
+                              <button
+                                onClick={() =>
+                                  toggleItem(
+                                    item.id,
+                                    item.is_active,
+                                    "department",
+                                  )
+                                }
+                                className={styles.toggleBtn}
+                              >
+                                {item.is_active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDepartment(item.id)}
+                                className={styles.dangerBtn}
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
-          </div>
-          <div className={styles.rightPanel}>
-            <div className={styles.card}>
-              <h3>Department Stats</h3>
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>{departments.length}</span>
-                  <span className={styles.statLabel}>Total</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {departments.filter((d) => d.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Active</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {departments.filter((d) => !d.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Inactive</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -635,22 +683,77 @@ export default function Declaration() {
       {/* ─── OFFICES ────────────────────────────────────── */}
       {tab === "offices" && (
         <div className={styles.tabContent}>
-          <div className={styles.leftPanel}>
-            <div className={styles.card}>
-              <h3>Add Office</h3>
-              <form onSubmit={handleAddOffice} className={styles.addForm}>
-                <input
-                  type="text"
-                  placeholder="Office name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className={styles.input}
-                />
-                <button type="submit" className={styles.btn}>
-                  <FiPlus /> Add
-                </button>
-              </form>
+          <div className={styles.topRow}>
+            <div className={styles.topLeft}>
+              <div className={styles.card}>
+                <h3>Add Office</h3>
+                <form onSubmit={handleAddOffice} className={styles.addForm}>
+                  <input
+                    type="text"
+                    placeholder="Office name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className={styles.input}
+                  />
+                  <button type="submit" className={styles.btn}>
+                    <FiPlus /> Add
+                  </button>
+                </form>
+              </div>
             </div>
+            <div className={styles.topRight}>
+              <div className={styles.departmentStatsSection}>
+                <h3>Office Stats</h3>
+                <div className={styles.departmentStatsGrid}>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconTotal}`}
+                    >
+                      <FiUser size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {offices.length}
+                      </span>
+                      <span className={styles.summaryLabel}>Total Offices</span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconActive}`}
+                    >
+                      <FiCheck size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {offices.filter((o) => o.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Active Offices
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconInactive}`}
+                    >
+                      <FiX size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {offices.filter((o) => !o.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Inactive Offices
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.tableSection}>
             <div className={styles.card}>
               <div className={styles.controls}>
                 <div className={styles.searchBar}>
@@ -666,110 +769,89 @@ export default function Declaration() {
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 60 }}>Edit</th>
-                      <th>Name</th>
-                      <th>Created By</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOffices.length === 0 ? (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
                       <tr>
-                        <td colSpan="5" className={styles.noData}>
-                          No offices found
-                        </td>
+                        <th style={{ width: 60 }}>Edit</th>
+                        <th>Name</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                       </tr>
-                    ) : (
-                      filteredOffices.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <button
-                              onClick={() => startEditOffice(item)}
-                              className={styles.editBtn}
-                            >
-                              <FiEdit size={14} />
-                            </button>
-                          </td>
-                          <td>
-                            {editOfficeId === item.id ? (
-                              <div className={styles.inlineEdit}>
-                                <input
-                                  type="text"
-                                  value={editOfficeName}
-                                  onChange={(e) =>
-                                    setEditOfficeName(e.target.value)
-                                  }
-                                  className={styles.inlineInput}
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => saveEditOffice(item.id)}
-                                  className={styles.saveEditBtn}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={cancelEditOffice}
-                                  className={styles.cancelEditBtn}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              item.name
-                            )}
-                          </td>
-                          <td>{item.created_by_username || "—"}</td>
-                          <td>{getStatusBadge(item.is_active)}</td>
-                          <td>
-                            <button
-                              onClick={() =>
-                                toggleItem(item.id, item.is_active, "office")
-                              }
-                              className={styles.toggleBtn}
-                            >
-                              {item.is_active ? "Deactivate" : "Activate"}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOffice(item.id)}
-                              className={styles.dangerBtn}
-                            >
-                              <FiTrash2 size={14} />
-                            </button>
+                    </thead>
+                    <tbody>
+                      {filteredOffices.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className={styles.noData}>
+                            No offices found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredOffices.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <button
+                                onClick={() => startEditOffice(item)}
+                                className={styles.editBtn}
+                              >
+                                <FiEdit size={14} />
+                              </button>
+                            </td>
+                            <td>
+                              {editOfficeId === item.id ? (
+                                <div className={styles.inlineEdit}>
+                                  <input
+                                    type="text"
+                                    value={editOfficeName}
+                                    onChange={(e) =>
+                                      setEditOfficeName(e.target.value)
+                                    }
+                                    className={styles.inlineInput}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => saveEditOffice(item.id)}
+                                    className={styles.saveEditBtn}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEditOffice}
+                                    className={styles.cancelEditBtn}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                item.name
+                              )}
+                            </td>
+                            <td>{item.created_by_username || "—"}</td>
+                            <td>{getStatusBadge(item.is_active)}</td>
+                            <td>
+                              <button
+                                onClick={() =>
+                                  toggleItem(item.id, item.is_active, "office")
+                                }
+                                className={styles.toggleBtn}
+                              >
+                                {item.is_active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOffice(item.id)}
+                                className={styles.dangerBtn}
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
-          </div>
-          <div className={styles.rightPanel}>
-            <div className={styles.card}>
-              <h3>Office Stats</h3>
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>{offices.length}</span>
-                  <span className={styles.statLabel}>Total</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {offices.filter((o) => o.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Active</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {offices.filter((o) => !o.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Inactive</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -778,22 +860,77 @@ export default function Declaration() {
       {/* ─── DOMAINS ────────────────────────────────────── */}
       {tab === "domains" && (
         <div className={styles.tabContent}>
-          <div className={styles.leftPanel}>
-            <div className={styles.card}>
-              <h3>Add Allowed Domain</h3>
-              <form onSubmit={handleAddDomain} className={styles.addForm}>
-                <input
-                  type="text"
-                  placeholder="e.g., pup.edu.ph"
-                  value={newDomain}
-                  onChange={(e) => setNewDomain(e.target.value)}
-                  className={styles.input}
-                />
-                <button type="submit" className={styles.btn}>
-                  <FiPlus /> Add
-                </button>
-              </form>
+          <div className={styles.topRow}>
+            <div className={styles.topLeft}>
+              <div className={styles.card}>
+                <h3>Add Allowed Domain</h3>
+                <form onSubmit={handleAddDomain} className={styles.addForm}>
+                  <input
+                    type="text"
+                    placeholder="e.g., pup.edu.ph"
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                    className={styles.input}
+                  />
+                  <button type="submit" className={styles.btn}>
+                    <FiPlus /> Add
+                  </button>
+                </form>
+              </div>
             </div>
+            <div className={styles.topRight}>
+              <div className={styles.departmentStatsSection}>
+                <h3>Domain Stats</h3>
+                <div className={styles.departmentStatsGrid}>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconTotal}`}
+                    >
+                      <FiUser size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {domains.length}
+                      </span>
+                      <span className={styles.summaryLabel}>Total Domains</span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconActive}`}
+                    >
+                      <FiCheck size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {domains.filter((d) => d.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Active Domains
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <div
+                      className={`${styles.summaryIcon} ${styles.summaryIconInactive}`}
+                    >
+                      <FiX size={20} />
+                    </div>
+                    <div className={styles.summaryInfo}>
+                      <span className={styles.summaryValue}>
+                        {domains.filter((d) => !d.is_active).length}
+                      </span>
+                      <span className={styles.summaryLabel}>
+                        Inactive Domains
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.tableSection}>
             <div className={styles.card}>
               <div className={styles.controls}>
                 <div className={styles.searchBar}>
@@ -809,110 +946,89 @@ export default function Declaration() {
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 60 }}>Edit</th>
-                      <th>Domain</th>
-                      <th>Created By</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDomains.length === 0 ? (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
                       <tr>
-                        <td colSpan="5" className={styles.noData}>
-                          No domains found
-                        </td>
+                        <th style={{ width: 60 }}>Edit</th>
+                        <th>Domain</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                       </tr>
-                    ) : (
-                      filteredDomains.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <button
-                              onClick={() => startEditDomain(item)}
-                              className={styles.editBtn}
-                            >
-                              <FiEdit size={14} />
-                            </button>
-                          </td>
-                          <td>
-                            {editDomainId === item.id ? (
-                              <div className={styles.inlineEdit}>
-                                <input
-                                  type="text"
-                                  value={editDomainValue}
-                                  onChange={(e) =>
-                                    setEditDomainValue(e.target.value)
-                                  }
-                                  className={styles.inlineInput}
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={() => saveEditDomain(item.id)}
-                                  className={styles.saveEditBtn}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={cancelEditDomain}
-                                  className={styles.cancelEditBtn}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              item.domain
-                            )}
-                          </td>
-                          <td>{item.created_by_username || "—"}</td>
-                          <td>{getStatusBadge(item.is_active)}</td>
-                          <td>
-                            <button
-                              onClick={() =>
-                                toggleItem(item.id, item.is_active, "domain")
-                              }
-                              className={styles.toggleBtn}
-                            >
-                              {item.is_active ? "Deactivate" : "Activate"}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDomain(item.id)}
-                              className={styles.dangerBtn}
-                            >
-                              <FiTrash2 size={14} />
-                            </button>
+                    </thead>
+                    <tbody>
+                      {filteredDomains.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className={styles.noData}>
+                            No domains found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredDomains.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <button
+                                onClick={() => startEditDomain(item)}
+                                className={styles.editBtn}
+                              >
+                                <FiEdit size={14} />
+                              </button>
+                            </td>
+                            <td>
+                              {editDomainId === item.id ? (
+                                <div className={styles.inlineEdit}>
+                                  <input
+                                    type="text"
+                                    value={editDomainValue}
+                                    onChange={(e) =>
+                                      setEditDomainValue(e.target.value)
+                                    }
+                                    className={styles.inlineInput}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => saveEditDomain(item.id)}
+                                    className={styles.saveEditBtn}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEditDomain}
+                                    className={styles.cancelEditBtn}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                item.domain
+                              )}
+                            </td>
+                            <td>{item.created_by_username || "—"}</td>
+                            <td>{getStatusBadge(item.is_active)}</td>
+                            <td>
+                              <button
+                                onClick={() =>
+                                  toggleItem(item.id, item.is_active, "domain")
+                                }
+                                className={styles.toggleBtn}
+                              >
+                                {item.is_active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDomain(item.id)}
+                                className={styles.dangerBtn}
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
-          </div>
-          <div className={styles.rightPanel}>
-            <div className={styles.card}>
-              <h3>Domain Stats</h3>
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>{domains.length}</span>
-                  <span className={styles.statLabel}>Total</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {domains.filter((d) => d.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Active</span>
-                </div>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>
-                    {domains.filter((d) => !d.is_active).length}
-                  </span>
-                  <span className={styles.statLabel}>Inactive</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -934,7 +1050,7 @@ export default function Declaration() {
                 <span className={styles.summaryValue}>
                   {positionStats.total}
                 </span>
-                <span className={styles.summaryLabel}>Total</span>
+                <span className={styles.summaryLabel}>Total Positions</span>
               </div>
             </div>
             <div className={styles.summaryCard}>
@@ -948,7 +1064,7 @@ export default function Declaration() {
                 <span className={styles.summaryValue}>
                   {positionStats.active}
                 </span>
-                <span className={styles.summaryLabel}>Active</span>
+                <span className={styles.summaryLabel}>Active Positions</span>
               </div>
             </div>
             <div className={styles.summaryCard}>
@@ -962,7 +1078,7 @@ export default function Declaration() {
                 <span className={styles.summaryValue}>
                   {positionStats.inactive}
                 </span>
-                <span className={styles.summaryLabel}>Inactive</span>
+                <span className={styles.summaryLabel}>Inactive Positions</span>
               </div>
             </div>
             <div className={styles.summaryCard}>
@@ -976,7 +1092,7 @@ export default function Declaration() {
                 <span className={styles.summaryValue}>
                   {positionStats.taken}
                 </span>
-                <span className={styles.summaryLabel}>Taken</span>
+                <span className={styles.summaryLabel}>Taken Positions</span>
               </div>
             </div>
           </div>
@@ -1030,10 +1146,7 @@ export default function Declaration() {
               {loading ? (
                 <p className={styles.loading}>Loading...</p>
               ) : (
-                <DragDropContext
-                  onDragStart={() => setIsDragging(true)}
-                  onDragEnd={handleDragEnd}
-                >
+                <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="positions">
                     {(provided) => (
                       <div
