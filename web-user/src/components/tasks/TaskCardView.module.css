@@ -1,0 +1,397 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 620px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: modalIn 0.2s ease;
+}
+
+@keyframes modalIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  z-index: 10;
+}
+
+/* ─── Header with color background ────────────────────── */
+.header {
+  margin: -24px -24px 16px -24px;
+  padding: 20px 24px 16px 24px;
+  border-radius: 24px 24px 0 0;
+  background: #3B82F6;
+  transition: background 0.3s;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.metaBadges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.priorityBadge,
+.visibilityBadge,
+.completedBadge,
+.ongoingBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  text-transform: capitalize;
+}
+
+.completedBadge {
+  background: rgba(22, 163, 74, 0.3);
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.ongoingBadge {
+  background: rgba(251, 191, 36, 0.3);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* ─── Details ──────────────────────────────────────────── */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.detailRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.noAssignees {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.description {
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #111827;
+}
+
+/* ─── Attachments ──────────────────────────────────────── */
+.attachmentsSection {
+  margin-bottom: 16px;
+}
+
+.attachmentsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.attachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attachmentItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #111827;
+  transition: background 0.2s;
+}
+
+.attachmentItem:hover {
+  background: #f1f5f9;
+}
+
+.attachmentName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.attachmentSize {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.downloadIcon {
+  color: #6b7280;
+}
+
+/* ─── Checklist ────────────────────────────────────────── */
+.checklistSection h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checklistItem {
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fafafa;
+}
+
+.checklistTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.emptyBox {
+  font-size: 22px;
+  color: #9ca3af;
+}
+
+.itemText {
+  font-size: 14px;
+  color: #111827;
+}
+
+.itemDone {
+  font-size: 14px;
+  color: #16a34a;
+  text-decoration: line-through;
+}
+
+.completedBy {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ─── Comments ──────────────────────────────────────────── */
+.commentDisplay {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  margin-left: 32px;
+  padding: 8px 0;
+}
+
+.commentAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.commentBubble {
+  background: #f1f5f9;
+  border-radius: 12px 12px 12px 4px;
+  padding: 8px 12px;
+  max-width: 85%;
+}
+
+.commentHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.commentAuthor {
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+}
+
+.commentTime {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.commentText {
+  font-size: 13px;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+/* ─── Add Comment ──────────────────────────────────────── */
+.commentAction {
+  margin-top: 6px;
+  margin-left: 32px;
+}
+
+.addCommentBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.addCommentBtn:hover {
+  color: var(--primary-color, #800000);
+}
+
+.commentInputWrapper {
+  margin-top: 8px;
+  margin-left: 32px;
+}
+
+.commentInputRow {
+  width: 100%;
+}
+
+.commentTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  transition: border 0.2s;
+}
+
+.commentTextarea:focus {
+  outline: none;
+  border-color: var(--primary-color, #800000);
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
+}
+
+.commentActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.cancelCommentBtn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cancelCommentBtn:hover {
+  background: #f3f4f6;
+}
+
+.submitCommentBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-color, #800000);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.submitCommentBtn:hover {
+  background: #660000;
+}
+
+.noChecklist {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.closeModalBtn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.closeModalBtn:hover {
+  background: #e5e7eb;
+}
