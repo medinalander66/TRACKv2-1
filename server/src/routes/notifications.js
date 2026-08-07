@@ -7,13 +7,14 @@ const {
   Attachment
 } = require('../models');
 
-// GET /api/notifications/invitations?response=pending&type=campus|department|private
 router.get('/invitations', authenticate, async (req, res) => {
   try {
     const { response, type } = req.query;
 
     const whereAttendee = { user_id: req.userId };
-    if (response && ['pending', 'accepted', 'declined'].includes(response)) {
+    if (response === 'all') {
+      // no filter
+    } else if (response && ['pending', 'accepted', 'declined'].includes(response)) {
       whereAttendee.response = response;
     } else {
       whereAttendee.response = 'pending';
@@ -66,9 +67,7 @@ router.get('/invitations', authenticate, async (req, res) => {
             username: creatorUser.username || fullName || creatorUser.email || 'Unknown',
             email: creatorUser.email,
             full_name: fullName || creatorUser.username || creatorUser.email,
-            position,
-            department,
-            office
+            position, department, office
           };
         }
       }
@@ -86,10 +85,8 @@ router.get('/invitations', authenticate, async (req, res) => {
       for (const attendee of attendees) {
         const user = await User.findByPk(attendee.user_id, { attributes: ['id', 'username', 'email'] });
         if (!user) continue;
-
         const profile = await UserProfile.findOne({ where: { user_id: user.id } });
         let deptName = null, officeName = null, positionName = null, fullName = null;
-
         if (profile) {
           fullName = profile.full_name;
           if (profile.department_id) {
@@ -105,44 +102,27 @@ router.get('/invitations', authenticate, async (req, res) => {
             if (pos) positionName = pos.name;
           }
         }
-
         usersList.push({
           id: user.id,
           username: user.username || fullName || user.email || 'Unknown',
           email: user.email,
           full_name: fullName || user.username || user.email,
-          department: deptName,
-          office: officeName,
-          position: positionName,
+          department: deptName, office: officeName, position: positionName,
           response: attendee.response
         });
       }
 
       events.push({
-        id: ev.id,
-        title: ev.title,
-        color: ev.color,
-        method: ev.method,
-        link: ev.link,
-        start_datetime: ev.start_datetime,
-        end_datetime: ev.end_datetime,
-        hierarchy: ev.hierarchy,
-        event_type: ev.event_type,
-        visibility: ev.visibility,
-        venue: venueName,
-        location: locationName,
-        description: ev.description,
+        id: ev.id, title: ev.title, color: ev.color, method: ev.method, link: ev.link,
+        start_datetime: ev.start_datetime, end_datetime: ev.end_datetime,
+        hierarchy: ev.hierarchy, visibility: ev.visibility,
+        venue: venueName, location: locationName, description: ev.description,
         creator: creatorData,
-        attachments: attachments.map(a => ({
-          id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size
-        })),
-        created_at: ev.created_at,
-        response: record.response,
+        attachments: attachments.map(a => ({ id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size })),
+        created_at: ev.created_at, response: record.response,
         participants: {
-          departments: Array.from(departmentSet),
-          offices: Array.from(officeSet),
-          users: usersList
-        }
+          departments: Array.from(departmentSet), offices: Array.from(officeSet), users: usersList,
+        },
       });
     }
 
@@ -153,7 +133,7 @@ router.get('/invitations', authenticate, async (req, res) => {
   }
 });
 
-// PUT /api/notifications/:eventId/respond
+// PUT /api/notifications/:eventId/respond — pwede na ang kahit anong transition (kasama declined -> accepted)
 router.put('/:eventId/respond', authenticate, async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -168,9 +148,6 @@ router.put('/:eventId/respond', authenticate, async (req, res) => {
     });
     if (!attendee) {
       return res.status(404).json({ ok: false, message: 'Not invited.' });
-    }
-    if (attendee.response !== 'pending') {
-      return res.status(400).json({ ok: false, message: 'Already responded.' });
     }
 
     attendee.response = response;
