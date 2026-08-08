@@ -7,10 +7,16 @@ import Button from "../common/Button";
 import RadioGroup from "../common/RadioGroup";
 import TaskColor from "./TaskColor";
 import FileAttachment from "../common/FileAttachment";
+import { getReadableTextColor } from "../../utils/colorUtils";
+import {
+  buildLocalDateTimeISO,
+  splitISOToLocalParts,
+} from "../../utils/dateTimeUtils";
 import {
   FiCalendar,
   FiClock,
   FiInfo,
+  FiType,
   FiList,
   FiPlus,
   FiUserPlus,
@@ -34,7 +40,6 @@ export default function EditTaskModal({
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
-  // ─── Form State ──────────────────────────────────────
   const [formData, setFormData] = useState({
     title: "",
     color: "#3B82F6",
@@ -44,7 +49,6 @@ export default function EditTaskModal({
     deadlineTime: "",
     description: "",
     remind_before_minutes: "",
-    is_email_reminder: false,
   });
 
   const [assigneeIds, setAssigneeIds] = useState([]);
@@ -59,7 +63,6 @@ export default function EditTaskModal({
   const [showAssigneeModal, setShowAssigneeModal] = useState(false);
   const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
 
-  // ─── Fetch Task Data ────────────────────────────────
   useEffect(() => {
     if (!isOpen || !taskId) return;
 
@@ -70,9 +73,9 @@ export default function EditTaskModal({
         const res = await apiClient.get(`/tasks/${taskId}`);
         if (res.data.ok) {
           const task = res.data.task;
-          const deadline = new Date(task.deadline_datetime);
-          const dateStr = deadline.toISOString().slice(0, 10);
-          const timeStr = deadline.toTimeString().slice(0, 5);
+          const { date: dateStr, time: timeStr } = splitISOToLocalParts(
+            task.deadline_datetime,
+          );
 
           setFormData({
             title: task.title || "",
@@ -83,7 +86,6 @@ export default function EditTaskModal({
             deadlineTime: timeStr,
             description: task.description || "",
             remind_before_minutes: task.remind_before_minutes || "",
-            is_email_reminder: task.is_email_reminder || false,
           });
 
           const assignees = (task.assignees || []).map((a) => a.id);
@@ -92,7 +94,6 @@ export default function EditTaskModal({
           const collaborators = (task.collaborators || []).map((c) => c.id);
           setCollaboratorIds(collaborators);
 
-          // ── Checklist ──
           if (task.checklist && task.checklist.length > 0) {
             const items = task.checklist.map((item) => ({
               id: item.id,
@@ -125,18 +126,11 @@ export default function EditTaskModal({
     fetchTask();
   }, [isOpen, taskId]);
 
-  // ─── Form handlers ────────────────────────────────────
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (e) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: checked }));
-  };
-
-  // ─── Checklist ────────────────────────────────────────
   const toggleChecklistItem = (cardId, itemId) => {
     setChecklistCards((prev) =>
       prev.map((card) =>
@@ -193,7 +187,6 @@ export default function EditTaskModal({
     );
   };
 
-  // ─── File Attachment ──────────────────────────────────
   const handleFileAdd = () => {
     document.getElementById("editTaskFileInput")?.click();
   };
@@ -217,7 +210,6 @@ export default function EditTaskModal({
     setExistingAttachments((prev) => prev.filter((f) => f.id !== fileId));
   };
 
-  // ─── Submit ────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -234,9 +226,11 @@ export default function EditTaskModal({
       return;
     }
 
-    const deadline_datetime = `${formData.deadlineDate}T${formData.deadlineTime}:00`;
+    const deadline_datetime = buildLocalDateTimeISO(
+      formData.deadlineDate,
+      formData.deadlineTime,
+    );
 
-    // Build checklist items
     const checklistItems = [];
     checklistCards.forEach((card) => {
       card.items.forEach((item) => {
@@ -252,7 +246,6 @@ export default function EditTaskModal({
       deadline_datetime,
       description: formData.description.trim(),
       remind_before_minutes: formData.remind_before_minutes || null,
-      is_email_reminder: formData.is_email_reminder,
       assignee_ids: assigneeIds,
       collaborator_ids: collaboratorIds,
       checklist_items: checklistItems,
@@ -261,7 +254,6 @@ export default function EditTaskModal({
     try {
       const res = await apiClient.put(`/tasks/${taskId}`, payload);
       if (res.data.ok) {
-        // Handle new attachments
         if (attachments.length > 0) {
           const formDataObj = new FormData();
           attachments.forEach(({ file }) => formDataObj.append("files", file));
@@ -270,7 +262,7 @@ export default function EditTaskModal({
           });
         }
         setStatusMessage("Task updated successfully!");
-        onTaskUpdated(); // Refresh parent list
+        onTaskUpdated();
         setTimeout(onClose, 800);
       } else {
         setStatusMessage(res.data?.message || "Failed to update task.");
@@ -282,7 +274,6 @@ export default function EditTaskModal({
     }
   };
 
-  // ─── Progress ──────────────────────────────────────────
   const totalCompleted = (items) => items.filter((it) => it.done).length;
   const progressFor = (items) =>
     items.length ? Math.round((totalCompleted(items) / items.length) * 100) : 0;
@@ -316,10 +307,22 @@ export default function EditTaskModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Task">
       <div className={styles.modalBody}>
+        <div
+          className={styles.titlePreview}
+          style={{
+            background: formData.color,
+            color: getReadableTextColor(formData.color),
+          }}
+        >
+          {formData.title || "Title"}
+        </div>
+
         <form onSubmit={handleSubmit} className={styles.form}>
           {/* ── Title ── */}
           <div className={styles.field}>
-            <label className={styles.label}>Task Title *</label>
+            <label className={styles.label}>
+              <FiType size={13} /> Title *
+            </label>
             <input
               type="text"
               name="title"
@@ -561,42 +564,32 @@ export default function EditTaskModal({
             />
           </div>
 
-          {/* ─── Reminder ── */}
-          <div className={styles.row}>
-            <div className={styles.field}>
-              <label className={styles.label}>Reminder</label>
-              <select
-                className={styles.select}
-                name="remind_before_minutes"
-                value={formData.remind_before_minutes}
-                onChange={handleInputChange}
-              >
-                <option value="">None</option>
-                <option value="5">5 min before</option>
-                <option value="10">10 min before</option>
-                <option value="15">15 min before</option>
-                <option value="30">30 min before</option>
-                <option value="60">1 hour before</option>
-                <option value="1440">1 day before</option>
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} style={{ opacity: 0 }}>
-                .
-              </label>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  name="is_email_reminder"
-                  checked={formData.is_email_reminder}
-                  onChange={handleCheckboxChange}
-                />
-                Email Reminder
-              </label>
-            </div>
+          {/* ── Reminder ── */}
+          <div className={styles.field}>
+            <label className={styles.label}>Reminder</label>
+            <select
+              className={styles.select}
+              name="remind_before_minutes"
+              value={formData.remind_before_minutes}
+              onChange={handleInputChange}
+            >
+              <option value="">None</option>
+              <option value="5">5 min before</option>
+              <option value="10">10 min before</option>
+              <option value="15">15 min before</option>
+              <option value="30">30 min before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+            </select>
+            <p
+              className={styles.statusMessage}
+              style={{ color: "#6b7280", fontWeight: 400 }}
+            >
+              Assignees and collaborators are always notified by email.
+            </p>
           </div>
 
-          {/* ─── Submit ── */}
+          {/* ── Submit ── */}
           <div className={styles.actions}>
             <button
               type="button"
@@ -623,10 +616,6 @@ export default function EditTaskModal({
           )}
         </form>
       </div>
-
-      {/* ─── Modals for assignees/collaborators ── */}
-      {/* We need to import these modals and render them here */}
-      {/* For brevity, I'll assume you have them and will add them similarly to CreateTask */}
     </Modal>
   );
 }

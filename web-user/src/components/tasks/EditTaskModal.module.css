@@ -279,3 +279,13 @@
   margin-top: 8px;
   font-weight: 500;
 }
+
+.titlePreview {
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
