@@ -16,7 +16,7 @@ import OfficialsHome from "./pages/app/officials/Home";
 import StaffHome from "./pages/app/staff/Home";
 import FacultyHome from "./pages/app/faculty/Home";
 
-// Feature pages (placeholders)
+// Feature pages
 import CalendarView from "./pages/app/calendar/CalendarView";
 import UserAnalytics from "./pages/app/analytics/UserAnalytics";
 import VenuesList from "./pages/app/venues/VenuesList";
@@ -26,6 +26,7 @@ import CreateEvent from "./pages/app/events/CreateEvent";
 import CreateTask from "./pages/app/tasks/CreateTask";
 import Events from "./pages/app/events/Events";
 import EditEvent from "./components/events/EditEvent";
+import EditTask from "./components/tasks/EditTask";
 import Tasks from "./pages/app/tasks/Tasks";
 
 const RoleRedirect = () => {
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/create-event" element={<CreateEvent />} />
             <Route path="/create-task" element={<CreateTask />} />
             <Route path="/edit-event/:id" element={<EditEvent />} />
+            <Route path="/edit-task/:id" element={<EditTask />} />
             <Route path="*" element={<RoleRedirect />} />
           </Route>
 
