@@ -137,8 +137,8 @@ export default function CalendarView() {
   const [holidays, setHolidays] = useState([]);
   const [userEvents, setUserEvents] = useState([]);
   const [pendingEventIds, setPendingEventIds] = useState([]);
-  const [detailedEvent, setDetailedEvent] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailedEventsMap, setDetailedEventsMap] = useState({});
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const viewportRef = useRef(null);
@@ -410,30 +410,37 @@ export default function CalendarView() {
   // ── Fetch full details of the event currently shown in the sheet ──
   useEffect(() => {
     if (!sheetOpen) return;
-    const ev = dailyEvents[sheetIndex];
-    if (!ev || !ev.id) {
-      setDetailedEvent(null);
+    if (dailyEvents.length === 0) {
+      setDetailedEventsMap({});
       return;
     }
     let cancelled = false;
-    setDetailLoading(true);
-    apiClient
-      .get(`/events/${ev.id}`)
-      .then((res) => {
-        if (!cancelled && res.data.ok) setDetailedEvent(res.data.event);
-        else if (!cancelled) setDetailedEvent(null);
-      })
-      .catch(() => {
-        if (!cancelled) setDetailedEvent(null);
+    setDetailsLoading(true);
+    const idsToFetch = dailyEvents.filter((ev) => ev.id).map((ev) => ev.id);
+    Promise.all(
+      idsToFetch.map((id) =>
+        apiClient
+          .get(`/events/${id}`)
+          .then((res) => (res.data.ok ? res.data.event : null))
+          .catch(() => null),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const map = {};
+        results.forEach((detail, idx) => {
+          if (detail) map[idsToFetch[idx]] = detail;
+        });
+        setDetailedEventsMap(map);
       })
       .finally(() => {
-        if (!cancelled) setDetailLoading(false);
+        if (!cancelled) setDetailsLoading(false);
       });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheetOpen, sheetIndex, selectedDate]);
+  }, [sheetOpen, selectedDate]);
 
   // ── Sheet drag-to-close handlers (grab handle only) ──
   const handleHandleTouchStart = (e) => {
@@ -680,9 +687,9 @@ export default function CalendarView() {
     const basicEvent = dailyEvents[sheetIndex];
     if (!basicEvent) return null;
 
-    const ev = detailedEvent || basicEvent;
-    const isHoliday =
-      !basicEvent.id || (basicEvent.creatorId === undefined && !detailedEvent);
+    const ev = detailedEventsMap[basicEvent.id] || basicEvent;
+    // const isHoliday =
+    //   !basicEvent.id || (basicEvent.creatorId === undefined && !detailedEvent);
 
     const creator = ev.creator || {};
     const creatorName = creator.full_name || creator.username || null;
@@ -951,52 +958,55 @@ export default function CalendarView() {
               }}
             >
               <div
-                className={styles.sheetHandle}
+                className={styles.sheetStickyHeader}
                 onTouchStart={handleHandleTouchStart}
                 onTouchMove={handleHandleTouchMove}
                 onTouchEnd={handleHandleTouchEnd}
               >
-                <FiChevronDown size={22} />
-              </div>
-
-              <div className={styles.sheetDateHeader}>
-                {new Date(selectedDate + "T00:00:00").toLocaleDateString(
-                  "en-US",
-                  {
-                    weekday: "long",
-                    month: "short",
-                    day: "numeric",
-                  },
-                )}
-              </div>
-
-              {dailyEvents.length === 0 ? (
-                <p className={styles.noTasks}>No events</p>
-              ) : (
-                <div
-                  className={styles.sheetCarouselWrapper}
-                  onTouchStart={handleCarouselTouchStart}
-                  onTouchEnd={handleCarouselTouchEnd}
-                >
-                  {detailLoading ? (
-                    <p className={styles.noTasks}>Loading details...</p>
-                  ) : (
-                    renderSheetEventCard()
-                  )}
-
-                  {dailyEvents.length > 1 && (
-                    <div className={styles.sheetDotsContainer}>
-                      {dailyEvents.map((_, idx) => (
-                        <span
-                          key={idx}
-                          className={`${styles.sheetDot} ${idx === sheetIndex ? styles.sheetDotActive : ""}`}
-                          onClick={() => setSheetIndex(idx)}
-                        />
-                      ))}
-                    </div>
+                <div className={styles.sheetHandle}>
+                  <FiChevronDown size={22} />
+                </div>
+                <div className={styles.sheetDateHeader}>
+                  {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                    "en-US",
+                    {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    },
                   )}
                 </div>
-              )}
+              </div>
+
+              <div className={styles.sheetScrollArea}>
+                {dailyEvents.length === 0 ? (
+                  <p className={styles.noTasks}>No events</p>
+                ) : (
+                  <div
+                    className={styles.sheetCarouselWrapper}
+                    onTouchStart={handleCarouselTouchStart}
+                    onTouchEnd={handleCarouselTouchEnd}
+                  >
+                    {detailsLoading ? (
+                      <p className={styles.noTasks}>Loading details...</p>
+                    ) : (
+                      renderSheetEventCard()
+                    )}
+
+                    {dailyEvents.length > 1 && (
+                      <div className={styles.sheetDotsContainer}>
+                        {dailyEvents.map((_, idx) => (
+                          <span
+                            key={idx}
+                            className={`${styles.sheetDot} ${idx === sheetIndex ? styles.sheetDotActive : ""}`}
+                            onClick={() => setSheetIndex(idx)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
