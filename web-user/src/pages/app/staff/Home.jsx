@@ -4,30 +4,43 @@ import { IoIosArrowForward, IoIosArrowBack } from "react-icons/io";
 import apiClient from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 import styles from "./Home.module.css";
-import { FaCalendarAlt, FaClipboard, FaRegCalendar } from "react-icons/fa";
+import { FaCalendarAlt, FaClipboard } from "react-icons/fa";
+import {
+  FiLink,
+  FiCopy,
+  FiAlertTriangle,
+  FiChevronDown,
+  FiCalendar,
+  FiClock,
+} from "react-icons/fi";
 
-import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
-import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
-import LocationCityOutlinedIcon from "@mui/icons-material/LocationCityOutlined";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import KeyboardArrowDownOutlinedIcon from "@mui/icons-material/KeyboardArrowDownOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import EventRepeatOutlinedIcon from "@mui/icons-material/EventRepeatOutlined";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
-import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import SelectDropdown from "../../../components/common/SelectDropdown";
 
-// Helper to format datea
+import EventCardView from "../../../components/events/EventCardView";
+import AttendeesModal from "../../../components/events/AttendeesModal";
+import ConflictCardEvent from "../../../components/events/ConflictCardEvent";
+import {
+  getEventStatus,
+  EVENT_STATUS_CONFIG,
+} from "../../../utils/eventStatus";
+
+// ── Helpers ──
 const formatDate = (dateStr) => {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", {
@@ -37,7 +50,6 @@ const formatDate = (dateStr) => {
   });
 };
 
-// Helper returning month and day separately (no year)
 const formatMonthDay = (dateStr) => {
   const d = new Date(dateStr);
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -50,7 +62,6 @@ const formatTime = (dateStr) => {
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 };
 
-// ── Small display helpers (UI only, no data/logic changes) ──
 const getInitials = (name) => {
   if (!name) return "?";
   const parts = name.trim().split(" ").filter(Boolean);
@@ -89,7 +100,6 @@ const getPriorityClass = (priority) => {
   }
 };
 
-// Config for quick-stat cards so the icon/label/color live in one place
 const EVENT_STAT_CONFIG = [
   {
     key: "active_events",
@@ -135,172 +145,105 @@ const TASK_STAT_CONFIG = [
   { key: "pending", label: "Pending", color: styles.statGold },
 ];
 
-// ─── Dummy Tasks Data ──────────────────────────────────
-const DUMMY_TASKS = [
-  {
-    id: "task1",
-    title: "Quarterly Editorial Review",
-    description:
-      "Review all manuscript submissions for the upcoming winter anthology. Coordinate with...",
-    start_datetime: new Date(Date.now() + 86400000).toISOString(),
-    end_datetime: new Date(Date.now() + 86400000 + 7200000).toISOString(),
-    priority: "high",
-    type: "personal",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task2",
-    title: "Visual Identity Sync",
-    description:
-      "Meeting with the brand conductors to finalize the 'Nocturnal' color palette and...",
-    start_datetime: new Date(Date.now() + 172800000).toISOString(),
-    end_datetime: new Date(Date.now() + 172800000 + 3600000).toISOString(),
-    priority: "medium",
-    type: "campus",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task3",
-    title: "Archive Maintenance",
-    description:
-      "Backup existing project files to the cold storage server and update the index...",
-    start_datetime: new Date(Date.now() + 259200000).toISOString(),
-    end_datetime: new Date(Date.now() + 259200000 + 1800000).toISOString(),
-    priority: "low",
-    type: "personal",
-    completed_items: 1,
-    total_items: 3,
-  },
-  {
-    id: "task4",
-    title: "Faculty Meeting Preparation",
-    description: "Prepare slides and agenda for the monthly faculty meeting...",
-    start_datetime: new Date(Date.now() + 345600000).toISOString(),
-    end_datetime: new Date(Date.now() + 345600000 + 5400000).toISOString(),
-    priority: "high",
-    type: "department",
-    completed_items: 2,
-    total_items: 4,
-  },
-  {
-    id: "task5",
-    title: "Student Consultation",
-    description:
-      "Meet with student representatives to discuss upcoming events...",
-    start_datetime: new Date(Date.now() + 432000000).toISOString(),
-    end_datetime: new Date(Date.now() + 432000000 + 3600000).toISOString(),
-    priority: "medium",
-    type: "campus",
-    completed_items: 0,
-    total_items: 2,
-  },
-  {
-    id: "task6",
-    title: "Budget Proposal Draft",
-    description: "Draft the budget proposal for the next fiscal year...",
-    start_datetime: new Date(Date.now() + 518400000).toISOString(),
-    end_datetime: new Date(Date.now() + 518400000 + 5400000).toISOString(),
-    priority: "low",
-    type: "personal",
-    completed_items: 0,
-    total_items: 5,
-  },
+const STAT_TYPE_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "campus", label: "Campus" },
+  { value: "department", label: "Department" },
+  { value: "private", label: "Private" },
+  { value: "task", label: "Tasks" },
 ];
-
-// Dummy stats for tasks
-const DUMMY_TASK_STATS = {
-  completed: 8,
-  missed: 8,
-  pending: 24,
-};
 
 function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // ── Fetch full user profile ──
   const [fullUser, setFullUser] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     const fetchFullProfile = async () => {
       try {
         const { data } = await apiClient.get("/auth/me");
-        if (data.ok) {
-          setFullUser(data.user);
-        } else {
-          setFullUser(user);
-        }
+        if (data.ok) setFullUser(data.user);
+        else setFullUser(user);
       } catch (err) {
         console.error("Failed to fetch full profile:", err);
         setFullUser(user);
-      } finally {
-        setProfileLoading(false);
       }
     };
     fetchFullProfile();
   }, [user]);
 
-  // ── State ──
-  const [quickStatType, setQuickStatType] = useState("campus");
+  // ── Quick Stats ──
+  const [statTypeFilter, setStatTypeFilter] = useState("all");
   const [quickStats, setQuickStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsRange, setStatsRange] = useState("week");
 
-  // ── Today's Events (carousel) ──
+  // ── Today's Events ──
   const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
   const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
   const [todayTouchStartX, setTodayTouchStartX] = useState(0);
+  const [copiedLinkId, setCopiedLinkId] = useState(null);
 
+  // ── Upcoming Events ──
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
   const [upcomingEventsOffset, setUpcomingEventsOffset] = useState(0);
   const [upcomingEventsHasMore, setUpcomingEventsHasMore] = useState(true);
-
-  // Upcoming Events filters
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
   const [eventDurationFilter, setEventDurationFilter] = useState("all");
 
-  const [upcomingTasks, setUpcomingTasks] = useState([]);
+  // ── Ongoing Tasks (real data) ──
+  const [allOngoingTasks, setAllOngoingTasks] = useState([]);
   const [upcomingTasksLoading, setUpcomingTasksLoading] = useState(false);
-  const [upcomingTasksOffset, setUpcomingTasksOffset] = useState(0);
-  const [upcomingTasksHasMore, setUpcomingTasksHasMore] = useState(true);
-
-  // Upcoming Tasks filters
+  const [upcomingTasksLimit, setUpcomingTasksLimit] = useState(4);
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
   const [taskDurationFilter, setTaskDurationFilter] = useState("all");
 
-  // ── Quick Stats ──
+  // ── Modals ──
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showAttendeesModal, setShowAttendeesModal] = useState(false);
+  const [conflictEvent, setConflictEvent] = useState(null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+
+  // ── Quick Stats fetch ──
   const fetchQuickStats = useCallback(async (type, range = "week") => {
     setStatsLoading(true);
     try {
       if (type === "task") {
-        setQuickStats(DUMMY_TASK_STATS);
+        const res = await apiClient.get("/tasks", {
+          params: { status: "all" },
+        });
+        if (res.data.ok) {
+          const tasks = res.data.tasks || [];
+          const completed = tasks.filter((t) => t.is_completed).length;
+          const missed = tasks.filter(
+            (t) =>
+              !t.is_completed && new Date(t.deadline_datetime) < new Date(),
+          ).length;
+          const pending = tasks.filter(
+            (t) =>
+              !t.is_completed && new Date(t.deadline_datetime) >= new Date(),
+          ).length;
+          setQuickStats({ completed, missed, pending });
+        }
         setStatsLoading(false);
         return;
       }
-
-      const endpoint = `/events/stats?type=${type}&range=${range}`;
-      const res = await apiClient.get(endpoint);
-      if (res.data.ok) {
-        setQuickStats(res.data.stats);
-      }
+      const res = await apiClient.get(
+        `/events/stats?type=${type}&range=${range}`,
+      );
+      if (res.data.ok) setQuickStats(res.data.stats);
     } catch (err) {
       console.error("Failed to fetch quick stats:", err);
-      if (type === "task") {
-        setQuickStats(DUMMY_TASK_STATS);
-      } else {
-        setQuickStats(null);
-      }
+      setQuickStats(null);
     } finally {
       setStatsLoading(false);
     }
   }, []);
 
-  // ── Today's Events (array now — carousel) ──
   const fetchTodayEvents = useCallback(async () => {
     setTodayLoading(true);
     try {
@@ -319,7 +262,6 @@ function Home() {
     }
   }, []);
 
-  // ── Upcoming Events ──
   const fetchUpcomingEvents = useCallback(
     async (reset = true) => {
       const offset = reset ? 0 : upcomingEventsOffset;
@@ -352,74 +294,43 @@ function Home() {
     [upcomingEventsOffset],
   );
 
-  // ── Upcoming Tasks (Dummy) ──
-  const fetchUpcomingTasks = useCallback(
-    async (reset = true) => {
-      setUpcomingTasksLoading(true);
-      try {
-        const start = reset ? 0 : upcomingTasksOffset;
-        const limit = 4;
-        const dummySlice = DUMMY_TASKS.slice(start, start + limit);
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        if (reset) {
-          setUpcomingTasks(dummySlice);
-          setUpcomingTasksOffset(limit);
-          setUpcomingTasksHasMore(
-            dummySlice.length === limit && DUMMY_TASKS.length > start + limit,
-          );
-        } else {
-          setUpcomingTasks((prev) => [...prev, ...dummySlice]);
-          setUpcomingTasksOffset((prev) => prev + limit);
-          setUpcomingTasksHasMore(
-            dummySlice.length === limit && DUMMY_TASKS.length > start + limit,
-          );
-        }
-      } catch (err) {
-        console.error("Failed to fetch dummy tasks:", err);
-        if (reset) {
-          setUpcomingTasks([]);
-          setUpcomingTasksHasMore(false);
-        }
-      } finally {
-        setUpcomingTasksLoading(false);
+  const fetchOngoingTasks = useCallback(async () => {
+    setUpcomingTasksLoading(true);
+    try {
+      const res = await apiClient.get("/tasks", {
+        params: { status: "ongoing" },
+      });
+      if (res.data.ok) {
+        setAllOngoingTasks(res.data.tasks || []);
+        setUpcomingTasksLimit(4);
+      } else {
+        setAllOngoingTasks([]);
       }
-    },
-    [upcomingTasksOffset],
-  );
+    } catch (err) {
+      console.error("Failed to fetch ongoing tasks:", err);
+      setAllOngoingTasks([]);
+    } finally {
+      setUpcomingTasksLoading(false);
+    }
+  }, []);
 
-  // ── Initial loads ──
   useEffect(() => {
-    fetchQuickStats(quickStatType, statsRange);
+    fetchQuickStats(statTypeFilter, statsRange);
+  }, [statTypeFilter, statsRange, fetchQuickStats]);
+
+  useEffect(() => {
     fetchTodayEvents();
     fetchUpcomingEvents(true);
-    fetchUpcomingTasks(true);
+    fetchOngoingTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    quickStatType,
-    fetchQuickStats,
-    fetchTodayEvents,
-    fetchUpcomingEvents,
-    fetchUpcomingTasks,
-  ]);
-
-  // ── Handlers ──
-  const handleQuickStatArrow = (direction) => {
-    const types = ["campus", "department", "private", "task"];
-    const currentIndex = types.indexOf(quickStatType);
-    let newIndex = currentIndex + direction;
-    if (newIndex < 0) newIndex = types.length - 1;
-    if (newIndex >= types.length) newIndex = 0;
-    setQuickStatType(types[newIndex]);
-  };
+  }, []);
 
   const handleStatsRangeChange = (range) => {
     setStatsRange(range);
-    fetchQuickStats(quickStatType, range);
   };
 
   const handleShowMoreEvents = () => fetchUpcomingEvents(false);
-  const handleShowMoreTasks = () => fetchUpcomingTasks(false);
+  const handleShowMoreTasks = () => setUpcomingTasksLimit((prev) => prev + 4);
 
   const gotoCalendar = () => navigate("/calendar");
   const gotoAnalytics = () => navigate("/analytics");
@@ -431,17 +342,13 @@ function Home() {
       prev === 0 ? todayEvents.length - 1 : prev - 1,
     );
   };
-
   const handleTodayNext = () => {
     setCurrentTodayIndex((prev) =>
       prev === todayEvents.length - 1 ? 0 : prev + 1,
     );
   };
-
-  const handleTodayTouchStart = (e) => {
+  const handleTodayTouchStart = (e) =>
     setTodayTouchStartX(e.touches[0].clientX);
-  };
-
   const handleTodayTouchEnd = (e) => {
     const endX = e.changedTouches[0].clientX;
     const diff = todayTouchStartX - endX;
@@ -451,10 +358,44 @@ function Home() {
     }
   };
 
-  // ── Determine display user ──
+  const handleCopyLink = (id, link) => {
+    if (!link) return;
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        setCopiedLinkId(id);
+        setTimeout(() => setCopiedLinkId(null), 1500);
+      })
+      .catch(() => {});
+  };
+
+  // ── View handlers (Today's Event + Upcoming Events) ──
+  const handleViewEventDetails = async (event) => {
+    try {
+      const res = await apiClient.get(`/events/${event.id}`);
+      if (res.data.ok) setSelectedEvent(res.data.event);
+      else setSelectedEvent(event);
+    } catch (err) {
+      console.error("Failed to fetch event details:", err);
+      setSelectedEvent(event);
+    } finally {
+      setShowEventModal(true);
+    }
+  };
+
+  const handleViewAttendees = (event) => {
+    setSelectedEvent(event);
+    setShowAttendeesModal(true);
+  };
+
+  const handleShowConflict = (event) => {
+    setConflictEvent(event);
+    setShowConflictModal(true);
+  };
+
   const displayUser = fullUser || user || {};
 
-  // ── Filtering helpers ──
+  // ── Filters ──
   const filterEventsByDuration = (events, duration) => {
     if (duration === "all") return events;
     const now = new Date();
@@ -473,25 +414,22 @@ function Home() {
     const now = new Date();
     const days = duration === "week" ? 7 : 30;
     const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-    return tasks.filter((task) => new Date(task.start_datetime) <= cutoff);
+    return tasks.filter((t) => new Date(t.deadline_datetime) <= cutoff);
   };
 
   const filterTasksByType = (tasks, type) => {
     if (type === "all") return tasks;
-    return tasks.filter((task) => task.type === type);
+    return tasks.filter((t) => t.visibility === type);
   };
 
-  // ── Render stats numbers ──
+  // ── Render Quick Stats ──
   const renderStats = () => {
     if (!quickStats) return <p className={styles.noData}>No data</p>;
     const config =
-      quickStatType === "task" ? TASK_STAT_CONFIG : EVENT_STAT_CONFIG;
-
-    // Helper to get config by key (may be undefined for task view)
+      statTypeFilter === "task" ? TASK_STAT_CONFIG : EVENT_STAT_CONFIG;
     const getCfg = (k) => config.find((c) => c.key === k) || {};
 
-    // If viewing tasks, keep original compact grid
-    if (quickStatType === "task") {
+    if (statTypeFilter === "task") {
       return (
         <div className={styles.statsGrid}>
           {config.map(({ key, label, color }) => (
@@ -511,7 +449,6 @@ function Home() {
       );
     }
 
-    // Event layout: Active Events full width, then grouped sections
     const activeCfg = getCfg("active_events");
     const acceptedCfg = getCfg("accepted");
     const declinedCfg = getCfg("declined");
@@ -519,7 +456,6 @@ function Home() {
     const conflictedCfg = getCfg("conflicted");
     const missedCfg = getCfg("missed");
 
-    // map stat color classes to icon variant classes
     const getIconClass = (cfg) => {
       if (!cfg || !cfg.color) return "";
       if (cfg.color === styles.statGreen) return styles.statIconGreen;
@@ -552,7 +488,6 @@ function Home() {
 
     return (
       <div className={styles.statsGridWrapper}>
-        {/* Active Events - full width */}
         <div className={`${styles.statItem} ${styles.statPrimary}`}>
           <span className={`${styles.statIconBox} ${styles.statIconPrimary}`}>
             {activeCfg.Icon ? (
@@ -576,7 +511,6 @@ function Home() {
           </span>
         </div>
 
-        {/* Responses */}
         <div className={styles.sectionContainer}>
           <h4 className={styles.sectionTitle}>Responses</h4>
           <div className={styles.twoColGrid}>
@@ -585,7 +519,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Action Needed */}
         <div className={styles.sectionContainer}>
           <h4 className={styles.sectionTitle}>Action Needed</h4>
           <div className={styles.twoColGrid}>
@@ -594,7 +527,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Post Event */}
         <div className={styles.sectionContainer}>
           <h4 className={styles.sectionTitle}>Post Event</h4>
           <div className={styles.oneColGrid}>
@@ -605,7 +537,7 @@ function Home() {
     );
   };
 
-  // ── Render a single today event (featured card) ──
+  // ── Render a single Today's Event (same design as Events.jsx) ──
   const renderTodayEvent = (todayEvent) => {
     if (!todayEvent) return null;
 
@@ -621,7 +553,13 @@ function Home() {
 
     const participants = todayEvent.participants || {};
     const depts = participants.departments || [];
-    const users = participants.users || [];
+    const offices = participants.offices || [];
+    const allUsers = participants.users || [];
+    const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
+
+    const status = getEventStatus(todayEvent);
+    const statusCfg = EVENT_STATUS_CONFIG[status];
+    const conflict = todayEvent.conflict || {};
 
     return (
       <div className={styles.featuredEventSection}>
@@ -636,13 +574,17 @@ function Home() {
                   {todayEvent.method || "Unknown Method"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.visibility || "Unknown Event Visibility"}
+                  {todayEvent.visibility || "Unknown Visibility"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.event_type || "Unknown Event Type"}
+                  {todayEvent.event_type || "Unknown Type"}
+                </div>
+                <div
+                  className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
+                >
+                  {statusCfg.label}
                 </div>
               </div>
-
               <div className={styles.heading2}>
                 <div className={styles.featuredTitle}>{todayEvent.title}</div>
               </div>
@@ -685,6 +627,22 @@ function Home() {
                       </div>
                     </div>
                   </div>
+                  {todayEvent.method === "online" && todayEvent.link && (
+                    <div className={styles.linkSection}>
+                      <FiLink size={14} />
+                      <span className={styles.linkText}>{todayEvent.link}</span>
+                      <button
+                        type="button"
+                        className={styles.copyLinkBtn}
+                        onClick={() =>
+                          handleCopyLink(todayEvent.id, todayEvent.link)
+                        }
+                      >
+                        <FiCopy size={12} />
+                        {copiedLinkId === todayEvent.id ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.organizerSection}>
@@ -710,11 +668,31 @@ function Home() {
                       PARTICIPATING DEPARTMENTS
                     </div>
                     <div className={styles.deptBadges}>
-                      {depts.slice(0, 4).map((dept) => (
-                        <div key={dept} className={styles.deptBadge}>
-                          {dept}
-                        </div>
-                      ))}
+                      {depts.length > 0 ? (
+                        depts.slice(0, 4).map((dept) => (
+                          <div key={dept} className={styles.deptBadge}>
+                            {dept}
+                          </div>
+                        ))
+                      ) : (
+                        <span className={styles.noData}>No departments</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.participatingBlock}>
+                    <div className={styles.infoLabel}>
+                      PARTICIPATING OFFICES
+                    </div>
+                    <div className={styles.deptBadges}>
+                      {offices.length > 0 ? (
+                        offices.slice(0, 4).map((office) => (
+                          <div key={office} className={styles.deptBadge}>
+                            {office}
+                          </div>
+                        ))
+                      ) : (
+                        <span className={styles.noData}>No offices</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -728,7 +706,7 @@ function Home() {
                   </div>
                   <div className={styles.audienceRow}>
                     <div className={styles.attendeeStack}>
-                      {users.slice(0, 4).map((u) => {
+                      {acceptedUsers.slice(0, 4).map((u) => {
                         const name =
                           u.full_name || u.username || u.email || "Unknown";
                         return (
@@ -741,19 +719,23 @@ function Home() {
                           </div>
                         );
                       })}
-                      {users.length >= 5 && (
+                      {acceptedUsers.length >= 5 && (
                         <div className={styles.attendeeMore}>
-                          +{users.length - 4}
+                          +{acceptedUsers.length - 4}
                         </div>
                       )}
                     </div>
                     <div className={styles.audienceText}>
-                      {users.length > 0
-                        ? `${users[0].full_name || users[0].username || users[0].email} and ${users.length - 1} others attending`
+                      {acceptedUsers.length > 0
+                        ? `${acceptedUsers[0].full_name || acceptedUsers[0].username || acceptedUsers[0].email} and ${acceptedUsers.length - 1} others attending`
                         : "No attendees yet"}
                     </div>
                   </div>
-                  <button type="button" className={styles.viewAttendeesButton}>
+                  <button
+                    type="button"
+                    className={styles.viewAttendeesButton}
+                    onClick={() => handleViewAttendees(todayEvent)}
+                  >
                     <VisibilityOutlinedIcon fontSize="small" />
                     View Attendees
                   </button>
@@ -761,10 +743,30 @@ function Home() {
               </div>
 
               <div className={styles.actionsRow}>
-                <button type="button" className={styles.viewEventButton}>
+                <button
+                  type="button"
+                  className={styles.viewEventButton}
+                  onClick={() => handleViewEventDetails(todayEvent)}
+                >
                   View Event Details
                 </button>
               </div>
+
+              {conflict.isConflicted && (
+                <button
+                  type="button"
+                  className={`${styles.conflictBtn} ${
+                    conflict.isPriority
+                      ? styles.conflictBtnPriority
+                      : styles.conflictBtnWarning
+                  }`}
+                  onClick={() => handleShowConflict(todayEvent)}
+                >
+                  <FiAlertTriangle size={13} />
+                  {conflict.isPriority ? "Priority Event" : "Conflicted"} — View
+                  details
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -772,12 +774,19 @@ function Home() {
     );
   };
 
-  // ── Render Today's Events carousel ──
   const renderTodayEventsCarousel = () => {
     if (todayLoading)
-      return <p className={styles.noData}>Loading today's event...</p>;
+      return (
+        <div className={styles.emptyStateBox}>
+          <p className={styles.noData}>Loading today's event...</p>
+        </div>
+      );
     if (todayEvents.length === 0)
-      return <p className={styles.noData}>No events today</p>;
+      return (
+        <div className={styles.emptyStateBox}>
+          <p className={styles.noData}>No events today</p>
+        </div>
+      );
 
     return (
       <div
@@ -795,7 +804,6 @@ function Home() {
             </div>
           ))}
         </div>
-
         {todayEvents.length > 1 && (
           <>
             <button
@@ -827,7 +835,7 @@ function Home() {
     );
   };
 
-  // ── Render upcoming events list ──
+  // ── Render upcoming events list (clickable) ──
   const renderUpcomingEvents = () => {
     let filtered = filterEventsByType(upcomingEvents, eventTypeFilter);
     filtered = filterEventsByDuration(filtered, eventDurationFilter);
@@ -838,7 +846,11 @@ function Home() {
     return (
       <div className={styles.upcomingList}>
         {filtered.map((ev) => (
-          <div key={ev.id} className={styles.upcomingItem}>
+          <div
+            key={ev.id}
+            className={styles.upcomingItem}
+            onClick={() => handleViewEventDetails(ev)}
+          >
             <div className={styles.upcomingDate}>
               <div className={styles.dateCard}>
                 <span className={styles.dateMonth}>
@@ -879,33 +891,40 @@ function Home() {
           </div>
         ))}
         {upcomingEventsHasMore && (
-          <button
-            className={styles.showMoreBtn}
-            onClick={handleShowMoreEvents}
-            disabled={upcomingEventsLoading}
-          >
-            {upcomingEventsLoading ? "Loading..." : "Show More ▼"}
-          </button>
+          <div className={styles.showMoreWrapper}>
+            <button
+              className={styles.showMoreBtn}
+              onClick={handleShowMoreEvents}
+              disabled={upcomingEventsLoading}
+            >
+              {upcomingEventsLoading ? "Loading..." : "Show More"}
+              <FiChevronDown size={14} />
+            </button>
+          </div>
         )}
       </div>
     );
   };
 
-  // ── Render upcoming tasks list ──
+  // ── Render ongoing tasks (real data) ──
   const renderUpcomingTasks = () => {
-    let filtered = filterTasksByType(upcomingTasks, taskTypeFilter);
+    let filtered = filterTasksByType(allOngoingTasks, taskTypeFilter);
     filtered = filterTasksByDuration(filtered, taskDurationFilter);
 
-    if (filtered.length === 0 && !upcomingTasksLoading) {
-      return <p className={styles.noData}>No upcoming tasks</p>;
+    const visible = filtered.slice(0, upcomingTasksLimit);
+    const hasMore = filtered.length > upcomingTasksLimit;
+
+    if (visible.length === 0 && !upcomingTasksLoading) {
+      return <p className={styles.noData}>No ongoing tasks</p>;
     }
+
     return (
       <div className={styles.upcomingList}>
-        {filtered.map((task) => {
-          const pct =
-            task.total_items > 0
-              ? Math.round((task.completed_items / task.total_items) * 100)
-              : 0;
+        {visible.map((task) => {
+          const checklist = task.checklist_items || [];
+          const completed = checklist.filter((i) => i.is_completed).length;
+          const total = checklist.length;
+          const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
           return (
             <div
               key={task.id}
@@ -925,20 +944,22 @@ function Home() {
               <div className={styles.taskMetaRow}>
                 <span className={styles.taskMetaItem}>
                   <AccessTimeOutlinedIcon fontSize="small" />
-                  {formatTime(task.start_datetime)} —{" "}
-                  {formatTime(task.end_datetime)}
+                  Due {formatDate(task.deadline_datetime)} ·{" "}
+                  {formatTime(task.deadline_datetime)}
                 </span>
               </div>
               <div className={styles.taskMetaRow}>
                 <span className={styles.taskMetaItem}>
                   <VisibilityOutlinedIcon fontSize="small" />
-                  {task.type}
+                  {task.visibility}
                 </span>
               </div>
 
-              <p className={styles.taskDesc}>
-                {task.description?.substring(0, 60)}...
-              </p>
+              {task.description && (
+                <p className={styles.taskDesc}>
+                  {task.description.substring(0, 60)}...
+                </p>
+              )}
 
               <div className={styles.checklistRow}>
                 <span className={styles.checklistLabel}>
@@ -946,7 +967,7 @@ function Home() {
                   Checklist Progress
                 </span>
                 <span className={styles.checklistFraction}>
-                  {task.completed_items}/{task.total_items}
+                  {completed}/{total}
                 </span>
               </div>
               <div className={styles.progressBarTrack}>
@@ -958,23 +979,17 @@ function Home() {
             </div>
           );
         })}
-        {upcomingTasksHasMore && (
-          <button
-            className={styles.showMoreBtn}
-            onClick={handleShowMoreTasks}
-            disabled={upcomingTasksLoading}
-          >
-            {upcomingTasksLoading ? (
-              "Loading..."
-            ) : (
-              <span>
-                Show More
-                <span>
-                  <KeyboardArrowDownOutlinedIcon />
-                </span>
-              </span>
-            )}
-          </button>
+        {hasMore && (
+          <div className={styles.showMoreWrapper}>
+            <button
+              className={styles.showMoreBtn}
+              onClick={handleShowMoreTasks}
+              disabled={upcomingTasksLoading}
+            >
+              {upcomingTasksLoading ? "Loading..." : "Show More"}
+              <FiChevronDown size={14} />
+            </button>
+          </div>
         )}
       </div>
     );
@@ -1007,10 +1022,10 @@ function Home() {
         <div className={styles.quickTopRow}>
           <div className={styles.quickTopLeft}>
             <h3 className={styles.quickStatType}>
-              {quickStatType === "task"
+              {statTypeFilter === "task"
                 ? "Tasks"
-                : quickStatType.charAt(0).toUpperCase() +
-                  quickStatType.slice(1) +
+                : statTypeFilter.charAt(0).toUpperCase() +
+                  statTypeFilter.slice(1) +
                   " Events"}
             </h3>
             <div className={styles.quickNav}>
@@ -1033,20 +1048,6 @@ function Home() {
             </div>
           </div>
           <div className={styles.quickTopRight}>
-            <div className={styles.btnContainer}>
-              <button
-                className={styles.circleArrowButton}
-                onClick={() => handleQuickStatArrow(-1)}
-              >
-                <IoIosArrowBack />
-              </button>
-              <button
-                className={styles.circleArrowButton}
-                onClick={() => handleQuickStatArrow(1)}
-              >
-                <IoIosArrowForward />
-              </button>
-            </div>
             <button
               type="button"
               className={styles.viewLink}
@@ -1055,6 +1056,20 @@ function Home() {
               View Analytics
             </button>
           </div>
+        </div>
+
+        {/* Filter pills instead of arrows */}
+        <div className={styles.filterRow}>
+          {STAT_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`${styles.pillBtn} ${statTypeFilter === opt.value ? styles.pillBtnActive : ""}`}
+              onClick={() => setStatTypeFilter(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {statsLoading ? (
@@ -1078,7 +1093,6 @@ function Home() {
             </button>
           </div>
         </div>
-
         <div className={styles.todayContent}>{renderTodayEventsCarousel()}</div>
       </div>
 
@@ -1128,10 +1142,10 @@ function Home() {
         </div>
       </div>
 
-      {/* Upcoming Tasks */}
+      {/* Ongoing Tasks */}
       <div className={styles.upcomingTask}>
         <div className={styles.upcomingHeader}>
-          <h2>Upcoming Tasks</h2>
+          <h2>Ongoing Tasks</h2>
           <button
             type="button"
             className={styles.viewLink}
@@ -1166,13 +1180,38 @@ function Home() {
         </div>
 
         <div className={styles.upcomingContent}>
-          {upcomingTasksLoading && upcomingTasks.length === 0 ? (
+          {upcomingTasksLoading && allOngoingTasks.length === 0 ? (
             <p className={styles.noData}>Loading...</p>
           ) : (
             renderUpcomingTasks()
           )}
         </div>
       </div>
+
+      <EventCardView
+        isOpen={showEventModal}
+        onClose={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+      />
+      <AttendeesModal
+        isOpen={showAttendeesModal}
+        onClose={() => {
+          setShowAttendeesModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+      />
+      <ConflictCardEvent
+        isOpen={showConflictModal}
+        onClose={() => {
+          setShowConflictModal(false);
+          setConflictEvent(null);
+        }}
+        event={conflictEvent}
+      />
     </div>
   );
 }
