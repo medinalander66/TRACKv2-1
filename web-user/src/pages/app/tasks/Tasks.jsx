@@ -13,6 +13,14 @@ import {
 } from "react-icons/fi";
 import styles from "./Tasks.module.css";
 import FeedbackModal from "../../../components/common/FeedbackModal";
+import TaskCardView from "../../../components/tasks/TaskCardView";
+import TaskInvitation from "../../../components/tasks/TaskInvitation";
+import {
+  getTaskStatus,
+  TASK_STATUS_CONFIG,
+  isMissedTaskInvitation,
+  TASK_STATUS_SORT_ORDER,
+} from "../../../utils/taskStatus";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
@@ -27,10 +35,7 @@ const formatDate = (dateStr) => {
 const formatTime = (dateStr) => {
   if (!dateStr) return "";
   const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 };
 
 const getPriorityColor = (priority) => {
@@ -49,21 +54,21 @@ const AVATAR_COLORS = ["#f9a825", "#43a047", "#1e88e5", "#8e24aa"];
 const getAvatarColor = (str) => {
   if (!str) return AVATAR_COLORS[0];
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
+  for (let i = 0; i < str.length; i++)
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
-
-import TaskCardView from "../../../components/tasks/TaskCardView";
-import TaskInvitation from "../../../components/tasks/TaskInvitation";
 
 export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { searchTerm, statusFilter, visibilityFilter } = useTasksFilter();
 
-  const [activeTab, setActiveTab] = useState("all"); // all | invited | created | collaboration
+  const [activeTab, setActiveTab] = useState("all");
+  const [invitedSubTab, setInvitedSubTab] = useState("pending");
+
+  const [allStatusFilter, setAllStatusFilter] = useState("all");
+  const [allPriorityFilter, setAllPriorityFilter] = useState("all");
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +77,7 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
+  const [invitationMode, setInvitationMode] = useState("invite");
 
   const [feedback, setFeedback] = useState({ message: "", type: "success" });
   const showFeedback = (msg, type = "success") =>
@@ -81,51 +87,74 @@ export default function Tasks() {
     setLoading(true);
     setError("");
     try {
-      const params = {};
-      if (statusFilter) params.status = statusFilter;
+      const params = { status: "all" };
       if (searchTerm) params.search = searchTerm;
       if (visibilityFilter && visibilityFilter !== "all")
         params.visibility = visibilityFilter;
       const res = await apiClient.get("/tasks", { params });
-      if (res.data.ok) {
-        setTasks(res.data.tasks || []);
-      } else {
-        setError("Failed to load tasks.");
-      }
+      if (res.data.ok) setTasks(res.data.tasks || []);
+      else setError("Failed to load tasks.");
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
       setError("Unable to load tasks. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, searchTerm, visibilityFilter]);
+  }, [searchTerm, visibilityFilter]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
+  const sortByDefaultOrder = (list) => {
+    return [...list].sort((a, b) => {
+      const rankA = TASK_STATUS_SORT_ORDER[getTaskStatus(a)];
+      const rankB = TASK_STATUS_SORT_ORDER[getTaskStatus(b)];
+      if (rankA !== rankB) return rankA - rankB;
+      return new Date(a.deadline_datetime) - new Date(b.deadline_datetime);
+    });
+  };
+
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
+
     if (activeTab === "created") {
       filtered = filtered.filter((t) => t.isCreator);
     } else if (activeTab === "invited") {
-      filtered = filtered.filter(
-        (t) => !t.isCreator && t.response === "pending",
-      );
+      if (invitedSubTab === "pending")
+        filtered = filtered.filter(
+          (t) =>
+            !t.isCreator &&
+            t.response === "pending" &&
+            !isMissedTaskInvitation(t),
+        );
+      else if (invitedSubTab === "declined")
+        filtered = filtered.filter(
+          (t) => !t.isCreator && t.response === "declined",
+        );
+      else if (invitedSubTab === "missed")
+        filtered = filtered.filter(
+          (t) => !t.isCreator && isMissedTaskInvitation(t),
+        );
+      else filtered = filtered.filter((t) => !t.isCreator);
     } else if (activeTab === "collaboration") {
       filtered = filtered.filter((t) => t.isCollaborator);
+    } else if (activeTab === "all") {
+      if (allStatusFilter !== "all")
+        filtered = filtered.filter((t) => getTaskStatus(t) === allStatusFilter);
+      if (allPriorityFilter !== "all")
+        filtered = filtered.filter((t) => t.priority === allPriorityFilter);
+      filtered = sortByDefaultOrder(filtered);
     }
+
     return filtered;
-  }, [tasks, activeTab]);
+  }, [tasks, activeTab, invitedSubTab, allStatusFilter, allPriorityFilter]);
 
   const handleViewTask = async (task) => {
     try {
       const res = await apiClient.get(`/tasks/${task.id}`);
-      if (res.data.ok) {
-        setSelectedTask(res.data.task);
-      } else {
-        setSelectedTask(task);
-      }
+      if (res.data.ok) setSelectedTask(res.data.task);
+      else setSelectedTask(task);
     } catch (err) {
       console.error("Failed to fetch task details:", err);
       setSelectedTask(task);
@@ -134,9 +163,21 @@ export default function Tasks() {
     }
   };
 
-  const handleEditTask = (taskId) => {
-    navigate(`/edit-task/${taskId}`);
+  const handleViewInvitation = async (task, mode = "invite") => {
+    try {
+      const res = await apiClient.get(`/tasks/${task.id}`);
+      if (res.data.ok) setSelectedTask(res.data.task);
+      else setSelectedTask(task);
+    } catch (err) {
+      console.error("Failed to fetch task details:", err);
+      setSelectedTask(task);
+    } finally {
+      setInvitationMode(mode);
+      setShowInvitationModal(true);
+    }
   };
+
+  const handleEditTask = (taskId) => navigate(`/edit-task/${taskId}`);
 
   const handleRespond = async (taskId, response) => {
     try {
@@ -160,9 +201,7 @@ export default function Tasks() {
       });
       if (selectedTask) {
         const res = await apiClient.get(`/tasks/${selectedTask.id}`);
-        if (res.data.ok) {
-          setSelectedTask(res.data.task);
-        }
+        if (res.data.ok) setSelectedTask(res.data.task);
       }
       fetchTasks();
     } catch (err) {
@@ -171,17 +210,18 @@ export default function Tasks() {
     }
   };
 
-  const handleAddComment = async (itemId, comment) => {
+  const handleAddComment = async (itemId, commentText) => {
     try {
-      await apiClient.put(`/tasks/checklist/${itemId}`, { comments: comment });
+      await apiClient.post(`/tasks/checklist/${itemId}/comments`, {
+        comment_text: commentText,
+      });
       if (selectedTask) {
         const res = await apiClient.get(`/tasks/${selectedTask.id}`);
-        if (res.data.ok) {
-          setSelectedTask(res.data.task);
-        }
+        if (res.data.ok) setSelectedTask(res.data.task);
       }
     } catch (err) {
       console.error("Failed to add comment:", err);
+      showFeedback("Failed to add comment.", "error");
     }
   };
 
@@ -189,24 +229,22 @@ export default function Tasks() {
     const isCreator = task.isCreator;
     const isCollaborator = task.isCollaborator;
     const isPending = task.response === "pending";
+    const isDeclined = task.response === "declined";
     const canEdit = isCreator || isCollaborator;
+    const missed = isMissedTaskInvitation(task);
 
     const handleCardClick = () => {
-      if (variant === "invited" && isPending) {
-        setSelectedTask(task);
-        setShowInvitationModal(true);
-      } else {
+      if (isCreator || isCollaborator) {
         handleViewTask(task);
+        return;
       }
+      if (isPending) handleViewInvitation(task, "invite");
+      else if (isDeclined) handleViewInvitation(task, "revert");
+      else handleViewTask(task);
     };
 
-    const deadline = new Date(task.deadline_datetime);
-    const isMissed = deadline < new Date() && !task.is_completed;
-    const statusText = task.is_completed
-      ? "Completed"
-      : isMissed
-        ? "Missed"
-        : "Ongoing";
+    const status = getTaskStatus(task);
+    const statusCfg = TASK_STATUS_CONFIG[status];
 
     return (
       <div
@@ -238,7 +276,14 @@ export default function Tasks() {
             {task.priority}
           </span>
           <span className={styles.visibilityBadge}>{task.visibility}</span>
-          <span className={styles.statusBadge}>{statusText}</span>
+          <span
+            className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
+          >
+            {statusCfg.label}
+          </span>
+          {missed && (
+            <span className={styles.missedBadge}>Missed Invitation</span>
+          )}
         </div>
 
         <div className={styles.cardDetails}>
@@ -291,25 +336,102 @@ export default function Tasks() {
     if (loading) return <p className={styles.loading}>Loading tasks...</p>;
     if (error) return <p className={styles.error}>{error}</p>;
 
-    if (filteredTasks.length === 0) {
+    if (activeTab === "invited") {
+      const invitedAll = tasks.filter((t) => !t.isCreator);
       return (
-        <div className={styles.emptyState}>
-          <FiPlus size={40} />
-          <p>No tasks found.</p>
-          <button
-            className={styles.createBtn}
-            onClick={() => navigate("/create-task")}
-          >
-            Create Task
-          </button>
+        <div className={styles.invitedContainer}>
+          <div className={styles.invitedTabs}>
+            <button
+              className={`${styles.invitedTab} ${invitedSubTab === "pending" ? styles.activeInvitedTab : ""}`}
+              onClick={() => setInvitedSubTab("pending")}
+            >
+              Pending (
+              {
+                invitedAll.filter(
+                  (t) => t.response === "pending" && !isMissedTaskInvitation(t),
+                ).length
+              }
+              )
+            </button>
+            <button
+              className={`${styles.invitedTab} ${invitedSubTab === "all" ? styles.activeInvitedTab : ""}`}
+              onClick={() => setInvitedSubTab("all")}
+            >
+              All ({invitedAll.length})
+            </button>
+            <button
+              className={`${styles.invitedTab} ${invitedSubTab === "declined" ? styles.activeInvitedTab : ""}`}
+              onClick={() => setInvitedSubTab("declined")}
+            >
+              Declined (
+              {invitedAll.filter((t) => t.response === "declined").length})
+            </button>
+            <button
+              className={`${styles.invitedTab} ${invitedSubTab === "missed" ? styles.activeInvitedTab : ""}`}
+              onClick={() => setInvitedSubTab("missed")}
+            >
+              Missed (
+              {invitedAll.filter((t) => isMissedTaskInvitation(t)).length})
+            </button>
+          </div>
+          <div className={styles.taskList}>
+            {filteredTasks.length === 0 ? (
+              <div className={styles.emptyState}>
+                <FiPlus size={40} />
+                <p>No {invitedSubTab} task invitations.</p>
+              </div>
+            ) : (
+              filteredTasks.map((task) => renderTaskCard(task, "invited"))
+            )}
+          </div>
         </div>
       );
     }
 
     return (
-      <div className={styles.taskList}>
-        {filteredTasks.map((task) => renderTaskCard(task, activeTab))}
-      </div>
+      <>
+        {activeTab === "all" && (
+          <div className={styles.subFilterRow}>
+            <select
+              className={styles.subFilterSelect}
+              value={allStatusFilter}
+              onChange={(e) => setAllStatusFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="missed">Missed</option>
+            </select>
+            <select
+              className={styles.subFilterSelect}
+              value={allPriorityFilter}
+              onChange={(e) => setAllPriorityFilter(e.target.value)}
+            >
+              <option value="all">All Priority</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        )}
+
+        {filteredTasks.length === 0 ? (
+          <div className={styles.emptyState}>
+            <FiPlus size={40} />
+            <p>No tasks found.</p>
+            <button
+              className={styles.createBtn}
+              onClick={() => navigate("/create-task")}
+            >
+              Create Task
+            </button>
+          </div>
+        ) : (
+          <div className={styles.taskList}>
+            {filteredTasks.map((task) => renderTaskCard(task, activeTab))}
+          </div>
+        )}
+      </>
     );
   };
 
@@ -364,6 +486,7 @@ export default function Tasks() {
         }}
         task={selectedTask}
         onRespond={handleRespond}
+        mode={invitationMode}
       />
 
       <FeedbackModal
