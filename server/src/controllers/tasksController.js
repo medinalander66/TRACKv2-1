@@ -205,11 +205,14 @@ exports.listTasks = async (req, res) => {
 
     const result = [];
     for (const task of tasks) {
-      const assignees = await TaskAssignee.findAll({
-        where: { task_id: task.id },
-        include: [{ model: User, attributes: ["id", "username", "email"] }],
-      });
-      const userAssignee = assignees.find((a) => a.user_id === userId);
+      const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: task.id } });
+      const assignees = [];
+      for (const a of assigneeRecords) {
+        const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
+        if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+      }
+
+      const userAssignee = assigneeRecords.find((a) => a.user_id === userId);
       const response = userAssignee ? userAssignee.response : null;
       const isCreator = task.creator_id === userId;
       const isCollaborator = collaboratorTaskIds.includes(task.id);
@@ -227,9 +230,7 @@ exports.listTasks = async (req, res) => {
         description: task.description,
         is_completed: task.is_completed,
         creator: creatorProfile,
-        assignees: assignees.map((a) => ({
-          id: a.user.id, username: a.user.username, email: a.user.email, response: a.response,
-        })),
+        assignees,
         response,
         isCreator,
         isCollaborator,
@@ -253,15 +254,19 @@ exports.getTaskById = async (req, res) => {
     const task = await Task.findByPk(id);
     if (!task) return res.status(404).json({ ok: false, message: "Task not found." });
 
-    const assignees = await TaskAssignee.findAll({
-      where: { task_id: id },
-      include: [{ model: User, attributes: ["id", "username", "email"] }],
-    });
+    const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: id } });
+    const assignees = [];
+    for (const a of assigneeRecords) {
+      const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
+      if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+    }
 
-    const collaborators = await TaskCollaborator.findAll({
-      where: { task_id: id },
-      include: [{ model: User, attributes: ["id", "username", "email"] }],
-    });
+    const collaboratorRecords = await TaskCollaborator.findAll({ where: { task_id: id } });
+    const collaborators = [];
+    for (const c of collaboratorRecords) {
+      const u = await User.findByPk(c.user_id, { attributes: ["id", "username", "email"] });
+      if (u) collaborators.push({ id: u.id, username: u.username, email: u.email });
+    }
 
     const checklist = await TaskChecklistItem.findAll({
       where: { task_id: id },
@@ -299,7 +304,7 @@ exports.getTaskById = async (req, res) => {
     }
 
     const creatorProfile = await getUserProfileSummary(task.creator_id);
-    const userAssignee = assignees.find((a) => a.user_id === userId);
+    const userAssignee = assigneeRecords.find((a) => a.user_id === userId);
     const response = userAssignee ? userAssignee.response : null;
 
     const attachmentRecords = await Attachment.findAll({
@@ -319,15 +324,13 @@ exports.getTaskById = async (req, res) => {
         description: task.description,
         is_completed: task.is_completed,
         creator: creatorProfile,
-        assignees: assignees.map((a) => ({
-          id: a.user.id, username: a.user.username, email: a.user.email, response: a.response,
-        })),
-        collaborators: collaborators.map((c) => ({ id: c.user.id, username: c.user.username, email: c.user.email })),
+        assignees,
+        collaborators,
         checklist: checklistFormatted,
         attachments: attachmentRecords.map(a => ({ id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size })),
         response,
         isCreator: task.creator_id === userId,
-        isCollaborator: collaborators.some((c) => c.user_id === userId),
+        isCollaborator: collaboratorRecords.some((c) => c.user_id === userId),
       },
     });
   } catch (error) {
