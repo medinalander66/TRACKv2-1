@@ -11,8 +11,17 @@ const TaskChecklistItem = sequelize.define('task_checklist_items', {
     type: DataTypes.UUID,
     allowNull: false
   },
-  text: {
+  card_id: {
+    type: DataTypes.STRING(64),
+    allowNull: true
+  },
+  card_title: {
     type: DataTypes.STRING(255),
+    allowNull: true,
+    defaultValue: 'Checklist'
+  },
+  text: {
+    type: DataTypes.STRING(500),
     allowNull: false
   },
   is_completed: {
@@ -21,7 +30,7 @@ const TaskChecklistItem = sequelize.define('task_checklist_items', {
   },
   sort_order: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    defaultValue: 0
   },
   completed_by_user_id: {
     type: DataTypes.UUID,
