@@ -4,19 +4,7 @@ import styles from "./EventInvitation.module.css";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import {
-  FiCheck,
-  FiX,
-  FiMail,
-  FiPaperclip,
-  FiDownload,
-  FiUsers,
-  FiLink,
-  FiCopy,
-  FiAlertTriangle,
-} from "react-icons/fi";
-import { getEventStatus, EVENT_STATUS_CONFIG } from "../../utils/eventStatus";
-import ConflictCardEvent from "./ConflictCardEvent";
+import { FiCheck, FiX, FiMail, FiUsers, FiAlertTriangle } from "react-icons/fi";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -31,17 +19,7 @@ const formatDate = (dateStr) => {
 const formatTime = (dateStr) => {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatFileSize = (bytes) => {
-  if (!bytes && bytes !== 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 };
 
 const getInitials = (name) => {
@@ -60,38 +38,39 @@ const AVATAR_COLORS = [
   "#00897b",
   "#5e35b1",
 ];
-
 const getAvatarColor = (str) => {
   if (!str) return AVATAR_COLORS[0];
   let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
+  for (let i = 0; i < str.length; i += 1)
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
 const hexToRgba = (hex, alpha = 0.15) => {
   if (!hex) return `rgba(255, 2, 0, ${alpha})`;
   let c = hex.replace("#", "");
-  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  if (c.length === 3)
+    c = c
+      .split("")
+      .map((x) => x + x)
+      .join("");
   const num = parseInt(c, 16);
   if (isNaN(num)) return `rgba(255, 2, 0, ${alpha})`;
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
+  const r = (num >> 16) & 255,
+    g = (num >> 8) & 255,
+    b = num & 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const RESPONSE_LABELS = {
-  accepted: "Accepted",
-  declined: "Declined",
-  pending: "Pending",
-};
-
-export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
+export default function EventInvitation({
+  isOpen,
+  onClose,
+  event,
+  onRespond,
+  mode = "invite",
+}) {
   const [responding, setResponding] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
 
   if (!event) {
     return (
@@ -116,12 +95,8 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
   const offices = participants.offices || [];
   const allUsers = participants.users || [];
   const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
-  const attachments = event.attachments || [];
-  const conflict = event.conflict || {};
 
   const locationDisplay = event.venue || event.location || "Online";
-  const status = getEventStatus(event);
-  const statusCfg = EVENT_STATUS_CONFIG[status];
 
   const handleResponse = async (response) => {
     setResponding(true);
@@ -131,22 +106,15 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
       console.error("Failed to respond:", err);
     } finally {
       setResponding(false);
+      setShowRevertConfirm(false);
     }
   };
 
-  const handleCopyLink = () => {
-    if (!event.link) return;
-    navigator.clipboard
-      .writeText(event.link)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {});
-  };
+  const modalTitle =
+    mode === "revert" ? "Revert Declined Invitation" : "Event Invitation";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Event Invitation">
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle}>
       <div className={styles.mainContent}>
         <div className={styles.featuredCard}>
           <div
@@ -179,28 +147,7 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
               </div>
             </div>
 
-            <div className={styles.statusRow}>
-              <div
-                className={`${styles.eventStatusBadge} ${styles[statusCfg.className]}`}
-              >
-                {statusCfg.label}
-              </div>
-              {conflict.isConflicted && (
-                <button
-                  type="button"
-                  className={`${styles.conflictBadgeBtn} ${
-                    conflict.isPriority ? styles.conflictPriority : styles.conflictWarning
-                  }`}
-                  onClick={() => setShowConflictModal(true)}
-                >
-                  <FiAlertTriangle size={13} />
-                  {conflict.isPriority ? "Priority Event" : "Conflicted"}
-                </button>
-              )}
-            </div>
-
             <div className={styles.container8}>
-              {/* WHEN & WHERE */}
               <div className={styles.whenWhereGroup}>
                 <div className={styles.sectionHeader}>
                   <EventNoteOutlinedIcon fontSize="small" />
@@ -228,23 +175,11 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                     <div className={styles.infoValue}>{locationDisplay}</div>
                   </div>
                 </div>
-                {event.method === "online" && event.link && (
-                  <div className={styles.linkSection}>
-                    <FiLink size={14} />
-                    <span className={styles.linkText}>{event.link}</span>
-                    <button
-                      type="button"
-                      className={styles.copyLinkBtn}
-                      onClick={handleCopyLink}
-                    >
-                      <FiCopy size={12} />
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                )}
+                <p className={styles.hiddenNote}>
+                  Event link will be visible once you accept.
+                </p>
               </div>
 
-              {/* ORGANIZER */}
               <div className={styles.organizerSection}>
                 <div className={styles.sectionHeader}>
                   <PersonOutlinedIcon fontSize="small" />
@@ -282,14 +217,14 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                       </div>
                     ))}
                     {depts.length > 4 && (
-                      <div className={styles.deptBadge}>+{depts.length - 4}</div>
+                      <div className={styles.deptBadge}>
+                        +{depts.length - 4}
+                      </div>
                     )}
                   </div>
                 </div>
                 <div className={styles.participatingBlock}>
-                  <div className={styles.infoLabel}>
-                    PARTICIPATING OFFICES
-                  </div>
+                  <div className={styles.infoLabel}>PARTICIPATING OFFICES</div>
                   <div className={styles.deptBadges}>
                     {offices.slice(0, 4).map((office) => (
                       <div key={office} className={styles.deptBadge}>
@@ -297,13 +232,14 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                       </div>
                     ))}
                     {offices.length > 4 && (
-                      <div className={styles.deptBadge}>+{offices.length - 4}</div>
+                      <div className={styles.deptBadge}>
+                        +{offices.length - 4}
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* AUDIENCE — accepted only */}
               <div className={styles.audienceSection}>
                 <div className={styles.sectionHeader}>
                   <GroupsOutlinedIcon fontSize="small" />
@@ -314,7 +250,8 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                 <div className={styles.audienceRow}>
                   <div className={styles.attendeeStack}>
                     {acceptedUsers.slice(0, 4).map((u) => {
-                      const name = u.full_name || u.username || u.email || "Unknown";
+                      const name =
+                        u.full_name || u.username || u.email || "Unknown";
                       return (
                         <div
                           key={u.id}
@@ -342,7 +279,6 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                 </div>
               </div>
 
-              {/* INVITED ATTENDEES — everyone regardless of response */}
               <div className={styles.audienceSection}>
                 <div className={styles.sectionHeader}>
                   <FiUsers size={16} />
@@ -353,13 +289,14 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                 <div className={styles.audienceRow}>
                   <div className={styles.attendeeStack}>
                     {allUsers.slice(0, 4).map((u) => {
-                      const name = u.full_name || u.username || u.email || "Unknown";
+                      const name =
+                        u.full_name || u.username || u.email || "Unknown";
                       return (
                         <div
                           key={u.id}
                           className={styles.attendeeAvatar}
                           style={{ background: getAvatarColor(name) }}
-                          title={`${name} (${RESPONSE_LABELS[u.response] || "Pending"})`}
+                          title={name}
                         >
                           {getInitials(name)}
                         </div>
@@ -378,73 +315,84 @@ export default function EventInvitation({ isOpen, onClose, event, onRespond }) {
                   </div>
                 </div>
               </div>
-
-              {/* ATTACHMENTS */}
-              {attachments.length > 0 && (
-                <div className={styles.attachmentsSection}>
-                  <div className={styles.sectionHeader}>
-                    <FiPaperclip size={16} />
-                    <div className={styles.heading4}>
-                      <div className={styles.text7}>ATTACHMENTS</div>
-                    </div>
-                  </div>
-                  <div className={styles.attachList}>
-                    {attachments.map((file) => (
-                      <a
-                        key={file.id}
-                        href={file.file_url}
-                        download
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.attachItem}
-                      >
-                        <FiDownload size={14} />
-                        <span className={styles.attachName}>{file.file_name}</span>
-                        {(file.file_size || file.file_size === 0) && (
-                          <span className={styles.attachSize}>
-                            {formatFileSize(file.file_size)}
-                          </span>
-                        )}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ─── Response Buttons ─── */}
             <div className={styles.responseSection}>
-              <p className={styles.responseText}>
-                You have been invited to this event. Accept or Decline?
-              </p>
-              <div className={styles.responseBtns}>
-                <button
-                  type="button"
-                  className={styles.acceptBtn}
-                  onClick={() => handleResponse("accepted")}
-                  disabled={responding}
-                >
-                  <FiCheck size={18} /> Accept
-                </button>
-                <button
-                  type="button"
-                  className={styles.declineBtn}
-                  onClick={() => handleResponse("declined")}
-                  disabled={responding}
-                >
-                  <FiX size={18} /> Decline
-                </button>
-              </div>
+              {mode === "revert" ? (
+                showRevertConfirm ? (
+                  <div className={styles.revertConfirmBox}>
+                    <FiAlertTriangle
+                      size={20}
+                      className={styles.revertConfirmIcon}
+                    />
+                    <p className={styles.revertConfirmText}>
+                      Are you sure? You already declined this invitation.
+                    </p>
+                    <div className={styles.responseBtns}>
+                      <button
+                        type="button"
+                        className={styles.acceptBtn}
+                        onClick={() => handleResponse("accepted")}
+                        disabled={responding}
+                      >
+                        <FiCheck size={18} /> Yes, Accept
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.declineBtn}
+                        onClick={() => setShowRevertConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className={styles.responseText}>
+                      You previously declined this invitation. Would you like to
+                      accept it now?
+                    </p>
+                    <div className={styles.responseBtns}>
+                      <button
+                        type="button"
+                        className={styles.acceptBtn}
+                        onClick={() => setShowRevertConfirm(true)}
+                      >
+                        <FiCheck size={18} /> Accept
+                      </button>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <p className={styles.responseText}>
+                    You have been invited to this event. Accept or Decline?
+                  </p>
+                  <div className={styles.responseBtns}>
+                    <button
+                      type="button"
+                      className={styles.acceptBtn}
+                      onClick={() => handleResponse("accepted")}
+                      disabled={responding}
+                    >
+                      <FiCheck size={18} /> Accept
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.declineBtn}
+                      onClick={() => handleResponse("declined")}
+                      disabled={responding}
+                    >
+                      <FiX size={18} /> Decline
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
-
-      <ConflictCardEvent
-        isOpen={showConflictModal}
-        onClose={() => setShowConflictModal(false)}
-        event={event}
-      />
     </Modal>
   );
 }
