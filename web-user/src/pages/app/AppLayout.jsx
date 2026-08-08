@@ -28,6 +28,7 @@ const FOCUSED_ROUTES = [
   "/create-event",
   "/create-task",
   "/edit-event",
+  "/edit-task",
 ];
 
 const UUID_REGEX =
