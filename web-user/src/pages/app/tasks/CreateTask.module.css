@@ -357,3 +357,19 @@
   cursor: pointer;
   color: var(--primary-color, #800000);
 }
+
+.titleSection {
+  padding: 3rem 0;
+  margin: 0;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.titleWordDisplay {
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 1rem;
+}

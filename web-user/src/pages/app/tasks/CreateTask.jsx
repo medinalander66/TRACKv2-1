@@ -9,10 +9,14 @@ import TaskColor from "../../../components/tasks/TaskColor";
 import InviteAssigneeModal from "../../../components/tasks/InviteAssigneeModal";
 import InvitationModal from "../../../components/tasks/InvitationModal";
 import FileAttachment from "../../../components/common/FileAttachment";
+import FeedbackModal from "../../../components/common/FeedbackModal";
+import { getReadableTextColor } from "../../../utils/colorUtils";
+import { buildLocalDateTimeISO } from "../../../utils/dateTimeUtils";
 import {
   FiCalendar,
   FiClock,
   FiInfo,
+  FiType,
   FiList,
   FiPlus,
   FiUserPlus,
@@ -36,7 +40,6 @@ export default function CreateTask() {
     deadlineTime: "",
     description: "",
     remind_before_minutes: "",
-    is_email_reminder: false,
   });
 
   const [assigneeIds, setAssigneeIds] = useState([]);
@@ -50,17 +53,15 @@ export default function CreateTask() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (e) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: checked }));
-  };
-
-  // Checklist helpers
   const toggleChecklistItem = (cardId, itemId) => {
     setChecklistCards((prev) =>
       prev.map((card) =>
@@ -68,11 +69,11 @@ export default function CreateTask() {
           ? {
               ...card,
               items: card.items.map((item) =>
-                item.id === itemId ? { ...item, done: !item.done } : item
+                item.id === itemId ? { ...item, done: !item.done } : item,
               ),
             }
-          : card
-      )
+          : card,
+      ),
     );
   };
 
@@ -87,15 +88,15 @@ export default function CreateTask() {
           items: [...card.items, { id: Date.now(), text, done: false }],
           newItemText: "",
         };
-      })
+      }),
     );
   };
 
   const handleNewItemTextChange = (cardId, value) => {
     setChecklistCards((prev) =>
       prev.map((card) =>
-        card.id === cardId ? { ...card, newItemText: value } : card
-      )
+        card.id === cardId ? { ...card, newItemText: value } : card,
+      ),
     );
   };
 
@@ -113,13 +114,11 @@ export default function CreateTask() {
 
   const handleEditChecklistTitle = (cardId, value) => {
     setChecklistCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, title: value } : c))
+      prev.map((c) => (c.id === cardId ? { ...c, title: value } : c)),
     );
   };
 
-  // File attachment handlers
   const handleFileAdd = () => {
-    // Trigger file input (we can add a hidden input in the component)
     document.getElementById("taskFileInput")?.click();
   };
 
@@ -143,24 +142,23 @@ export default function CreateTask() {
     setLoading(true);
     setStatusMessage("");
 
-    // Validation
     if (!formData.title.trim()) {
       setStatusMessage("Please enter a task title.");
+      showFeedback("Please enter a task title.", "error");
       setLoading(false);
       return;
     }
-    if (!formData.deadlineDate) {
-      setStatusMessage("Please select a deadline date.");
-      setLoading(false);
-      return;
-    }
-    if (!formData.deadlineTime) {
-      setStatusMessage("Please select a deadline time.");
+    if (!formData.deadlineDate || !formData.deadlineTime) {
+      setStatusMessage("Please select a deadline date and time.");
+      showFeedback("Please select a deadline date and time.", "error");
       setLoading(false);
       return;
     }
 
-    const deadline_datetime = `${formData.deadlineDate}T${formData.deadlineTime}:00`;
+    const deadline_datetime = buildLocalDateTimeISO(
+      formData.deadlineDate,
+      formData.deadlineTime,
+    );
 
     const checklistItems = [];
     checklistCards.forEach((card) => {
@@ -177,7 +175,6 @@ export default function CreateTask() {
       deadline_datetime,
       description: formData.description.trim(),
       remind_before_minutes: formData.remind_before_minutes || null,
-      is_email_reminder: formData.is_email_reminder,
       assignee_ids: assigneeIds,
       collaborator_ids: collaboratorIds,
       checklist_items: checklistItems,
@@ -187,7 +184,6 @@ export default function CreateTask() {
       const res = await apiClient.post("/tasks", payload);
       if (res.data?.ok) {
         const taskId = res.data.task.id;
-        // Upload attachments if any
         if (attachments.length > 0) {
           const formDataObj = new FormData();
           attachments.forEach(({ file }) => formDataObj.append("files", file));
@@ -196,12 +192,16 @@ export default function CreateTask() {
           });
         }
         setStatusMessage("Task created successfully!");
+        showFeedback("Task created successfully!", "success");
         setTimeout(() => navigate("/tasks"), 1000);
       } else {
         setStatusMessage(res.data?.message || "Failed to create task.");
+        showFeedback(res.data?.message || "Failed to create task.", "error");
       }
     } catch (error) {
-      setStatusMessage(error.response?.data?.message || "Server error.");
+      const msg = error.response?.data?.message || "Server error.";
+      setStatusMessage(msg);
+      showFeedback(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -216,19 +216,32 @@ export default function CreateTask() {
       <form onSubmit={handleSubmit} className={styles.form}>
         <div
           className={styles.titleSection}
-          style={{ backgroundColor: formData.color }}
+          style={{
+            backgroundColor: formData.color,
+            color: getReadableTextColor(formData.color),
+          }}
         >
-          <InputField
-            className={styles.titleInput}
-            name="title"
-            value={formData.title}
-            placeholder="Enter title for your task.."
-            onChange={handleInputChange}
-            required
-          />
+          <div className={styles.titleWordDisplay}>
+            {formData.title || "Title"}
+          </div>
         </div>
 
         <div className={styles.sectionContent}>
+          {/* Title */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiType size={16} className={styles.cardHeaderIcon} />
+              <span>Title</span>
+            </div>
+            <InputField
+              name="title"
+              value={formData.title}
+              placeholder="Enter title for your task.."
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
           {/* Basics */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
@@ -491,31 +504,27 @@ export default function CreateTask() {
               <FiClock size={16} className={styles.cardHeaderIcon} />
               <span>Reminder</span>
             </div>
-            <div className={styles.row}>
-              <select
-                className={styles.select}
-                name="remind_before_minutes"
-                value={formData.remind_before_minutes}
-                onChange={handleInputChange}
-              >
-                <option value="">None</option>
-                <option value="5">5 min before</option>
-                <option value="10">10 min before</option>
-                <option value="15">15 min before</option>
-                <option value="30">30 min before</option>
-                <option value="60">1 hour before</option>
-                <option value="1440">1 day before</option>
-              </select>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  name="is_email_reminder"
-                  checked={formData.is_email_reminder}
-                  onChange={handleCheckboxChange}
-                />
-                Email Reminder
-              </label>
-            </div>
+            <select
+              className={styles.select}
+              name="remind_before_minutes"
+              value={formData.remind_before_minutes}
+              onChange={handleInputChange}
+            >
+              <option value="">None</option>
+              <option value="5">5 min before</option>
+              <option value="10">10 min before</option>
+              <option value="15">15 min before</option>
+              <option value="30">30 min before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+            </select>
+            <p
+              className={styles.statusMessage}
+              style={{ color: "#6b7280", fontWeight: 400 }}
+            >
+              Assignees and collaborators are always notified by email when
+              assigned or when the task changes.
+            </p>
           </div>
 
           {/* Submit */}
@@ -553,6 +562,12 @@ export default function CreateTask() {
         onSave={setCollaboratorIds}
         title="Add Collaborators"
         type="collaborators"
+      />
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
       />
     </div>
   );
