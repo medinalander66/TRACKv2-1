@@ -74,7 +74,11 @@ const getAvatarColor = (str) => {
 const hexToRgba = (hex, alpha = 0.15) => {
   if (!hex) return `rgba(255, 2, 0, ${alpha})`;
   let c = hex.replace("#", "");
-  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  if (c.length === 3)
+    c = c
+      .split("")
+      .map((x) => x + x)
+      .join("");
   const num = parseInt(c, 16);
   if (isNaN(num)) return `rgba(255, 2, 0, ${alpha})`;
   const r = (num >> 16) & 255;
@@ -84,9 +88,21 @@ const hexToRgba = (hex, alpha = 0.15) => {
 };
 
 const RESPONSE_CONFIG = {
-  accepted: { class: "viewerResponseAccepted", icon: FiCheckCircle, label: "You accepted" },
-  declined: { class: "viewerResponseDeclined", icon: FiXCircle, label: "You declined" },
-  pending: { class: "viewerResponsePending", icon: FiClock, label: "Awaiting your response" },
+  accepted: {
+    class: "viewerResponseAccepted",
+    icon: FiCheckCircle,
+    label: "You accepted",
+  },
+  declined: {
+    class: "viewerResponseDeclined",
+    icon: FiXCircle,
+    label: "You declined",
+  },
+  pending: {
+    class: "viewerResponsePending",
+    icon: FiClock,
+    label: "Awaiting your response",
+  },
 };
 
 export default function EventCardView({ isOpen, onClose, event }) {
@@ -120,7 +136,9 @@ export default function EventCardView({ isOpen, onClose, event }) {
   const conflict = event.conflict || {};
 
   const locationDisplay = event.venue || event.location || "Online";
-  const respCfg = event.viewerResponse ? RESPONSE_CONFIG[event.viewerResponse] : null;
+  const respCfg = event.viewerResponse
+    ? RESPONSE_CONFIG[event.viewerResponse]
+    : null;
 
   const status = getEventStatus(event);
   const statusCfg = EVENT_STATUS_CONFIG[status];
@@ -177,7 +195,9 @@ export default function EventCardView({ isOpen, onClose, event }) {
                 {statusCfg.label}
               </div>
               {respCfg && (
-                <div className={`${styles.viewerResponseBadge} ${styles[respCfg.class]}`}>
+                <div
+                  className={`${styles.viewerResponseBadge} ${styles[respCfg.class]}`}
+                >
                   <respCfg.icon size={13} /> {respCfg.label}
                 </div>
               )}
@@ -185,7 +205,9 @@ export default function EventCardView({ isOpen, onClose, event }) {
                 <button
                   type="button"
                   className={`${styles.conflictBadgeBtn} ${
-                    conflict.isPriority ? styles.conflictPriority : styles.conflictWarning
+                    conflict.isPriority
+                      ? styles.conflictPriority
+                      : styles.conflictWarning
                   }`}
                   onClick={() => setShowConflictModal(true)}
                 >
@@ -224,20 +246,22 @@ export default function EventCardView({ isOpen, onClose, event }) {
                     <div className={styles.infoValue}>{locationDisplay}</div>
                   </div>
                 </div>
-                {event.method === "online" && event.link && (
-                  <div className={styles.linkSection}>
-                    <FiLink size={14} />
-                    <span className={styles.linkText}>{event.link}</span>
-                    <button
-                      type="button"
-                      className={styles.copyLinkBtn}
-                      onClick={handleCopyLink}
-                    >
-                      <FiCopy size={12} />
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                )}
+                {event.method === "online" &&
+                  event.link &&
+                  event.viewerResponse === "accepted" && (
+                    <div className={styles.linkSection}>
+                      <FiLink size={14} />
+                      <span className={styles.linkText}>{event.link}</span>
+                      <button
+                        type="button"
+                        className={styles.copyLinkBtn}
+                        onClick={handleCopyLink}
+                      >
+                        <FiCopy size={12} />
+                        {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  )}
               </div>
 
               {/* ORGANIZER */}
@@ -289,9 +313,7 @@ export default function EventCardView({ isOpen, onClose, event }) {
                   </div>
                 </div>
                 <div className={styles.participatingBlock}>
-                  <div className={styles.infoLabel}>
-                    PARTICIPATING OFFICES
-                  </div>
+                  <div className={styles.infoLabel}>PARTICIPATING OFFICES</div>
                   <div className={styles.deptBadges}>
                     {offices.length > 0 ? (
                       offices.slice(0, 4).map((office) => (
@@ -352,36 +374,39 @@ export default function EventCardView({ isOpen, onClose, event }) {
               </div>
 
               {/* ATTACHMENTS */}
-              {attachments.length > 0 && (
-                <div className={styles.attachmentsSection}>
-                  <div className={styles.sectionHeader}>
-                    <FiPaperclip size={16} />
-                    <div className={styles.heading4}>
-                      <div className={styles.text7}>ATTACHMENTS</div>
+              {attachments.length > 0 &&
+                event.viewerResponse === "accepted" && (
+                  <div className={styles.attachmentsSection}>
+                    <div className={styles.sectionHeader}>
+                      <FiPaperclip size={16} />
+                      <div className={styles.heading4}>
+                        <div className={styles.text7}>ATTACHMENTS</div>
+                      </div>
+                    </div>
+                    <div className={styles.attachList}>
+                      {attachments.map((file) => (
+                        <a
+                          key={file.id}
+                          href={file.file_url}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.attachItem}
+                        >
+                          <FiDownload size={14} />
+                          <span className={styles.attachName}>
+                            {file.file_name}
+                          </span>
+                          {(file.file_size || file.file_size === 0) && (
+                            <span className={styles.attachSize}>
+                              {formatFileSize(file.file_size)}
+                            </span>
+                          )}
+                        </a>
+                      ))}
                     </div>
                   </div>
-                  <div className={styles.attachList}>
-                    {attachments.map((file) => (
-                      <a
-                        key={file.id}
-                        href={file.file_url}
-                        download
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.attachItem}
-                      >
-                        <FiDownload size={14} />
-                        <span className={styles.attachName}>{file.file_name}</span>
-                        {(file.file_size || file.file_size === 0) && (
-                          <span className={styles.attachSize}>
-                            {formatFileSize(file.file_size)}
-                          </span>
-                        )}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         </div>

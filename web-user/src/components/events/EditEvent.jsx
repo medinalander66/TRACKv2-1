@@ -13,12 +13,18 @@ import ConflictCard from "./ConflictCard";
 import FeedbackModal from "../common/FeedbackModal";
 import apiClient from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { getReadableTextColor } from "../../utils/colorUtils";
+import {
+  buildLocalDateTimeISO,
+  splitISOToLocalParts,
+} from "../../utils/dateTimeUtils";
 import {
   FiAlertCircle,
   FiCheckCircle,
   FiClock,
   FiInfo,
   FiTag,
+  FiType,
   FiMapPin,
   FiUsers,
   FiCalendar,
@@ -74,7 +80,6 @@ export default function EditEvent() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // ─── Feedback modal ───
   const [feedback, setFeedback] = useState({ message: "", type: "success" });
   const showFeedback = (msg, type = "success") =>
     setFeedback({ message: msg, type });
@@ -102,13 +107,12 @@ export default function EditEvent() {
 
         const event = eventRes.data.event;
 
-        const startDate = new Date(event.start_datetime);
-        const endDate = new Date(event.end_datetime);
-
-        const startDateStr = startDate.toISOString().slice(0, 10);
-        const endDateStr = endDate.toISOString().slice(0, 10);
-        const startTimeStr = startDate.toTimeString().slice(0, 5);
-        const endTimeStr = endDate.toTimeString().slice(0, 5);
+        const { date: startDateStr, time: startTimeStr } = splitISOToLocalParts(
+          event.start_datetime,
+        );
+        const { date: endDateStr, time: endTimeStr } = splitISOToLocalParts(
+          event.end_datetime,
+        );
 
         setForm({
           title: event.title || "",
@@ -177,7 +181,6 @@ export default function EditEvent() {
     setExistingAttachments((prev) => prev.filter((f) => f.id !== fileId));
   };
 
-  // ─── Conflict Detection ────────────────────────────────
   const checkConflicts = useCallback(async () => {
     if (
       !form.start_date ||
@@ -189,11 +192,17 @@ export default function EditEvent() {
       return;
     }
 
-    const startDateTime = `${form.start_date}T${form.start_time}:00`;
-    const endDateTime = `${form.end_date}T${form.end_time}:00`;
+    const startDateTime = buildLocalDateTimeISO(
+      form.start_date,
+      form.start_time,
+    );
+    const endDateTime = buildLocalDateTimeISO(form.end_date, form.end_time);
 
-    // Guard: skip the request while the range is still invalid mid-typing
-    if (new Date(startDateTime) >= new Date(endDateTime)) {
+    if (
+      !startDateTime ||
+      !endDateTime ||
+      new Date(startDateTime) >= new Date(endDateTime)
+    ) {
       setConflictData(null);
       return;
     }
@@ -239,7 +248,6 @@ export default function EditEvent() {
     return () => debouncedCheck.cancel();
   }, [debouncedCheck]);
 
-  // ─── Submit ────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -253,8 +261,8 @@ export default function EditEvent() {
       method: form.method,
       link: form.method === "online" ? form.link : undefined,
       hierarchy: form.hierarchy,
-      start_datetime: `${form.start_date}T${form.start_time}:00`,
-      end_datetime: `${form.end_date}T${form.end_time}:00`,
+      start_datetime: buildLocalDateTimeISO(form.start_date, form.start_time),
+      end_datetime: buildLocalDateTimeISO(form.end_date, form.end_time),
       department_id:
         form.visibility === "department" ? form.department_id : undefined,
       description: form.description,
@@ -305,7 +313,6 @@ export default function EditEvent() {
     }
   };
 
-  // ─── Visibility Options ──────────────────────────────
   const canEditVisibility = role === "officials" && isEventCreator;
 
   const visibilityOptions = [];
@@ -356,16 +363,30 @@ export default function EditEvent() {
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.titleSection}>
-          <InputField
-            className={styles.titleInput}
-            value={form.title}
-            placeholder="Enter title for your event.."
-            onChange={(e) => updateField("title", e.target.value)}
-          />
+        <div
+          className={styles.titleSection}
+          style={{
+            background: form.color,
+            color: getReadableTextColor(form.color),
+          }}
+        >
+          <div className={styles.titleWordDisplay}>{form.title || "Title"}</div>
         </div>
 
         <div className={styles.sectionContent}>
+          {/* ── Title ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiType size={16} className={styles.cardHeaderIcon} />
+              <span>Title</span>
+            </div>
+            <InputField
+              value={form.title}
+              placeholder="Enter title for your event.."
+              onChange={(e) => updateField("title", e.target.value)}
+            />
+          </div>
+
           {/* ── Event Basics ── */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
