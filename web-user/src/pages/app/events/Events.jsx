@@ -29,15 +29,16 @@ import styles from "./Events.module.css";
 import {
   getEventStatus,
   EVENT_STATUS_CONFIG,
+  EVENT_STATUS_SORT_ORDER,
+  isMissedInvitation,
 } from "../../../utils/eventStatus";
 
-// ─── Modals ───
 import EventCardView from "../../../components/events/EventCardView";
 import EventInvitation from "../../../components/events/EventInvitation";
 import AttendeesModal from "../../../components/events/AttendeesModal";
 import ConflictCardEvent from "../../../components/events/ConflictCardEvent";
+import FeedbackModal from "../../../components/common/FeedbackModal";
 
-// ─── Helpers ──────────────────────────────────────────────
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -86,9 +87,8 @@ const AVATAR_COLORS = [
 const getAvatarColor = (str) => {
   if (!str) return AVATAR_COLORS[0];
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
+  for (let i = 0; i < str.length; i++)
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
@@ -107,26 +107,30 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ─── Modal states ───
+  // ── All tab local filters ──
+  const [allStatusFilter, setAllStatusFilter] = useState("all");
+  const [allMethodFilter, setAllMethodFilter] = useState("all");
+
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
+  const [invitationMode, setInvitationMode] = useState("invite"); // invite | revert
   const [showAttendeesModal, setShowAttendeesModal] = useState(false);
 
-  // ─── Conflict modal ───
   const [conflictEvent, setConflictEvent] = useState(null);
   const [showConflictModal, setShowConflictModal] = useState(false);
 
-  // ─── Copy-link feedback ───
   const [copiedLinkId, setCopiedLinkId] = useState(null);
 
-  // ─── Today's Events ──────────────────────────────────
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
+
   const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
   const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
   const [todayTouchStartX, setTodayTouchStartX] = useState(0);
 
-  // ─── Fetch Today's Events ──────────────────────────
   const fetchTodayEvents = useCallback(async () => {
     setTodayLoading(true);
     try {
@@ -134,9 +138,7 @@ export default function Events() {
       if (res.data.ok) {
         setTodayEvents(res.data.events || []);
         setCurrentTodayIndex(0);
-      } else {
-        setTodayEvents([]);
-      }
+      } else setTodayEvents([]);
     } catch (err) {
       console.error("Failed to fetch today's events:", err);
       setTodayEvents([]);
@@ -145,7 +147,6 @@ export default function Events() {
     }
   }, []);
 
-  // ─── Fetch All Events ──────────────────────────────
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -163,7 +164,6 @@ export default function Events() {
       const allEventsData = eventsRes.data.events || [];
 
       const currentUserId = user?.id;
-
       const created = allEventsData.filter(
         (ev) => ev.creatorId === currentUserId,
       );
@@ -176,7 +176,6 @@ export default function Events() {
         response: ev.userResponse || "accepted",
         isCreator: true,
       }));
-
       const invitedWithResponse = invited.map((ev) => ({
         ...ev,
         response: ev.userResponse || "accepted",
@@ -194,15 +193,11 @@ export default function Events() {
     }
   }, [user]);
 
-  // ─── Fetch Collaboration Events ────────────────────
   const fetchCollaborationEvents = useCallback(async () => {
     try {
       const res = await apiClient.get("/events/collaborations");
-      if (res.data.ok) {
-        setCollaborationEvents(res.data.events || []);
-      } else {
-        setCollaborationEvents([]);
-      }
+      if (res.data.ok) setCollaborationEvents(res.data.events || []);
+      else setCollaborationEvents([]);
     } catch (err) {
       console.error("Failed to fetch collaboration events:", err);
       setCollaborationEvents([]);
@@ -215,22 +210,17 @@ export default function Events() {
     fetchCollaborationEvents();
   }, [fetchTodayEvents, fetchEvents, fetchCollaborationEvents]);
 
-  // ─── Filter events ──────────────────────────────────
   const filterEvents = useCallback(
     (events) => {
       let filtered = events;
-
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         filtered = filtered.filter((ev) =>
           ev.title.toLowerCase().includes(lower),
         );
       }
-
-      if (eventType !== "all") {
+      if (eventType !== "all")
         filtered = filtered.filter((ev) => ev.type === eventType);
-      }
-
       if (duration !== "all") {
         const now = new Date();
         const today = new Date(
@@ -258,21 +248,16 @@ export default function Events() {
           return evDate >= startDate && evDate < endDate;
         });
       }
-
       return filtered;
     },
     [searchTerm, eventType, duration],
   );
 
-  // ─── View handlers ──
   const handleViewEvent = async (event) => {
     try {
       const res = await apiClient.get(`/events/${event.id}`);
-      if (res.data.ok) {
-        setSelectedEvent(res.data.event);
-      } else {
-        setSelectedEvent(event);
-      }
+      if (res.data.ok) setSelectedEvent(res.data.event);
+      else setSelectedEvent(event);
     } catch (err) {
       console.error("Failed to fetch event details:", err);
       setSelectedEvent(event);
@@ -281,18 +266,16 @@ export default function Events() {
     }
   };
 
-  const handleViewInvitation = async (event) => {
+  const handleViewInvitation = async (event, mode = "invite") => {
     try {
       const res = await apiClient.get(`/events/${event.id}`);
-      if (res.data.ok) {
-        setSelectedEvent(res.data.event);
-      } else {
-        setSelectedEvent(event);
-      }
+      if (res.data.ok) setSelectedEvent(res.data.event);
+      else setSelectedEvent(event);
     } catch (err) {
       console.error("Failed to fetch invitation details:", err);
       setSelectedEvent(event);
     } finally {
+      setInvitationMode(mode);
       setShowInvitationModal(true);
     }
   };
@@ -305,11 +288,8 @@ export default function Events() {
     }
     try {
       const res = await apiClient.get(`/events/${event.id}`);
-      if (res.data.ok) {
-        setSelectedEvent(res.data.event);
-      } else {
-        setSelectedEvent(event);
-      }
+      if (res.data.ok) setSelectedEvent(res.data.event);
+      else setSelectedEvent(event);
     } catch (err) {
       console.error("Failed to fetch event details:", err);
       setSelectedEvent(event);
@@ -334,37 +314,35 @@ export default function Events() {
       .catch(() => {});
   };
 
-  const handleEditEvent = (eventId) => {
-    navigate(`/edit-event/${eventId}`);
-  };
+  const handleEditEvent = (eventId) => navigate(`/edit-event/${eventId}`);
 
   const handleRespond = async (eventId, response) => {
     try {
       await apiClient.put(`/notifications/${eventId}/respond`, { response });
       fetchEvents();
       setShowInvitationModal(false);
+      showFeedback(
+        response === "accepted"
+          ? "Invitation accepted!"
+          : "Invitation declined.",
+        "success",
+      );
     } catch (err) {
       console.error("Failed to respond:", err);
+      showFeedback("Failed to respond to invitation.", "error");
     }
   };
 
-  // ─── Carousel handlers ──────────────────────────────
-  const handleTodayPrev = () => {
+  const handleTodayPrev = () =>
     setCurrentTodayIndex((prev) =>
       prev === 0 ? todayEvents.length - 1 : prev - 1,
     );
-  };
-
-  const handleTodayNext = () => {
+  const handleTodayNext = () =>
     setCurrentTodayIndex((prev) =>
       prev === todayEvents.length - 1 ? 0 : prev + 1,
     );
-  };
-
-  const handleTodayTouchStart = (e) => {
+  const handleTodayTouchStart = (e) =>
     setTodayTouchStartX(e.touches[0].clientX);
-  };
-
   const handleTodayTouchEnd = (e) => {
     const endX = e.changedTouches[0].clientX;
     const diff = todayTouchStartX - endX;
@@ -374,7 +352,13 @@ export default function Events() {
     }
   };
 
-  // ─── Render Today Event Card ────────────────────────
+  const isTodayEventAccepted = (todayEvent) => {
+    const myEntry = (todayEvent.participants?.users || []).find(
+      (u) => u.id === user?.id,
+    );
+    return myEntry ? myEntry.response === "accepted" : true;
+  };
+
   const renderTodayEventCard = (todayEvent) => {
     if (!todayEvent) return null;
 
@@ -397,6 +381,7 @@ export default function Events() {
     const status = getEventStatus(todayEvent);
     const statusCfg = EVENT_STATUS_CONFIG[status];
     const conflict = todayEvent.conflict || {};
+    const accepted = isTodayEventAccepted(todayEvent);
 
     return (
       <div className={styles.featuredEventSection}>
@@ -411,10 +396,10 @@ export default function Events() {
                   {todayEvent.method || "Unknown Method"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.visibility || "Unknown Event Visibility"}
+                  {todayEvent.visibility || "Unknown Visibility"}
                 </div>
                 <div className={styles.badgePill}>
-                  {todayEvent.event_type || "Unknown Event Type"}
+                  {todayEvent.event_type || "Unknown Type"}
                 </div>
                 <div
                   className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
@@ -422,7 +407,6 @@ export default function Events() {
                   {statusCfg.label}
                 </div>
               </div>
-
               <div className={styles.heading2}>
                 <div className={styles.featuredTitle}>{todayEvent.title}</div>
               </div>
@@ -465,22 +449,26 @@ export default function Events() {
                       </div>
                     </div>
                   </div>
-                  {todayEvent.method === "online" && todayEvent.link && (
-                    <div className={styles.linkSection}>
-                      <FiLink size={14} />
-                      <span className={styles.linkText}>{todayEvent.link}</span>
-                      <button
-                        type="button"
-                        className={styles.copyLinkBtn}
-                        onClick={() =>
-                          handleCopyLink(todayEvent.id, todayEvent.link)
-                        }
-                      >
-                        <FiCopy size={12} />
-                        {copiedLinkId === todayEvent.id ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
-                  )}
+                  {todayEvent.method === "online" &&
+                    todayEvent.link &&
+                    accepted && (
+                      <div className={styles.linkSection}>
+                        <FiLink size={14} />
+                        <span className={styles.linkText}>
+                          {todayEvent.link}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.copyLinkBtn}
+                          onClick={() =>
+                            handleCopyLink(todayEvent.id, todayEvent.link)
+                          }
+                        >
+                          <FiCopy size={12} />
+                          {copiedLinkId === todayEvent.id ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
+                    )}
                 </div>
 
                 <div className={styles.organizerSection}>
@@ -595,11 +583,7 @@ export default function Events() {
               {conflict.isConflicted && (
                 <button
                   type="button"
-                  className={`${styles.conflictBtn} ${
-                    conflict.isPriority
-                      ? styles.conflictBtnPriority
-                      : styles.conflictBtnWarning
-                  }`}
+                  className={`${styles.conflictBtn} ${conflict.isPriority ? styles.conflictBtnPriority : styles.conflictBtnWarning}`}
                   onClick={() => handleShowConflict(todayEvent)}
                 >
                   <FiAlertTriangle size={13} />
@@ -614,7 +598,6 @@ export default function Events() {
     );
   };
 
-  // ─── Render Today's Events carousel ─────────────────
   const renderTodayEventsCarousel = () => {
     if (todayLoading)
       return (
@@ -650,7 +633,6 @@ export default function Events() {
             </div>
           ))}
         </div>
-
         {todayEvents.length > 1 && (
           <>
             <button
@@ -671,9 +653,7 @@ export default function Events() {
               {todayEvents.map((_, idx) => (
                 <span
                   key={idx}
-                  className={`${styles.dot} ${
-                    idx === currentTodayIndex ? styles.dotActive : ""
-                  }`}
+                  className={`${styles.dot} ${idx === currentTodayIndex ? styles.dotActive : ""}`}
                   onClick={() => setCurrentTodayIndex(idx)}
                 />
               ))}
@@ -684,18 +664,16 @@ export default function Events() {
     );
   };
 
-  // ─── Render Event Card (list) — new layout ──
   const renderEventCard = (event, variant = "all") => {
     let locationDisplay = "";
-    if (event.method === "online") {
-      locationDisplay = "Online";
-    } else {
-      locationDisplay = event.venue || event.location || "";
-    }
+    if (event.method === "online") locationDisplay = "Online";
+    else locationDisplay = event.venue || event.location || "";
 
     const handleCardClick = () => {
-      if (variant === "invited" && event.response === "pending") {
-        handleViewInvitation(event);
+      if (event.response === "pending") {
+        handleViewInvitation(event, "invite");
+      } else if (event.response === "declined") {
+        handleViewInvitation(event, "revert");
       } else {
         handleViewEvent(event);
       }
@@ -705,6 +683,7 @@ export default function Events() {
     const status = getEventStatus(event);
     const statusCfg = EVENT_STATUS_CONFIG[status];
     const conflict = event.conflict || {};
+    const missed = isMissedInvitation(event);
 
     return (
       <div
@@ -727,7 +706,6 @@ export default function Events() {
           </button>
         )}
 
-        {/* title + description */}
         <div className={styles.cardTitleLarge}>{event.title}</div>
         {event.description && (
           <div className={styles.cardDescription}>{event.description}</div>
@@ -735,7 +713,6 @@ export default function Events() {
 
         <div className={styles.cardSeparator} />
 
-        {/* hierarchy | eventType | status */}
         <div className={styles.cardMetaRow}>
           <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
           <span className={styles.metaBadge}>
@@ -746,47 +723,50 @@ export default function Events() {
           >
             {statusCfg.label}
           </span>
+          {missed && (
+            <span className={styles.missedBadge}>Missed Invitation</span>
+          )}
         </div>
 
         <div className={styles.cardSeparator} />
 
-        {/* date time location */}
         <div className={styles.cardDetails}>
           <span>
             <FiCalendar size={14} />{" "}
-            {formatDate(event.date || event.start_datetime)}
+            {formatDate(event.start_datetime || event.date)}
           </span>
           <span>
             <FiClock size={14} />{" "}
-            {formatTime(event.time || event.start_datetime)} -{" "}
-            {formatTime(event.endTime || event.end_datetime)}
+            {formatTime(event.start_datetime || event.time)} -{" "}
+            {formatTime(event.end_datetime || event.endTime)}
           </span>
           <span>
             <FiMapPin size={14} /> {locationDisplay}
           </span>
         </div>
 
-        {event.method === "online" && event.link && (
-          <div
-            className={styles.linkSection}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <FiLink size={14} />
-            <span className={styles.linkText}>{event.link}</span>
-            <button
-              type="button"
-              className={styles.copyLinkBtn}
-              onClick={() => handleCopyLink(event.id, event.link)}
+        {event.method === "online" &&
+          event.link &&
+          event.response === "accepted" && (
+            <div
+              className={styles.linkSection}
+              onClick={(e) => e.stopPropagation()}
             >
-              <FiCopy size={12} />
-              {copiedLinkId === event.id ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        )}
+              <FiLink size={14} />
+              <span className={styles.linkText}>{event.link}</span>
+              <button
+                type="button"
+                className={styles.copyLinkBtn}
+                onClick={() => handleCopyLink(event.id, event.link)}
+              >
+                <FiCopy size={12} />
+                {copiedLinkId === event.id ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          )}
 
         <div className={styles.cardSeparator} />
 
-        {/* creator */}
         {event.creator && (
           <div className={styles.creatorBlock}>
             <div
@@ -825,7 +805,6 @@ export default function Events() {
 
         <div className={styles.cardSeparator} />
 
-        {/* visibility | method | response status */}
         <div className={styles.cardBadges}>
           {getVisibilityBadge(event.type || event.visibility)}
           <span className={styles.methodBadge}>
@@ -842,11 +821,7 @@ export default function Events() {
         {conflict.isConflicted && (
           <button
             type="button"
-            className={`${styles.conflictBtn} ${
-              conflict.isPriority
-                ? styles.conflictBtnPriority
-                : styles.conflictBtnWarning
-            }`}
+            className={`${styles.conflictBtn} ${conflict.isPriority ? styles.conflictBtnPriority : styles.conflictBtnWarning}`}
             onClick={(e) => {
               e.stopPropagation();
               handleShowConflict(event);
@@ -861,7 +836,6 @@ export default function Events() {
     );
   };
 
-  // ─── Badge helpers ──────────────────────────────────
   const getVisibilityBadge = (type) => {
     const map = {
       campus: { class: styles.badgeCampus, label: "Campus" },
@@ -898,18 +872,38 @@ export default function Events() {
     );
   };
 
-  const getMethodLabel = (method) => {
-    return method === "online" ? "Online" : "Face-to-face";
+  const getMethodLabel = (method) =>
+    method === "online" ? "Online" : "Face-to-face";
+
+  const sortByDefaultOrder = (events) => {
+    return [...events].sort((a, b) => {
+      const rankA = EVENT_STATUS_SORT_ORDER[getEventStatus(a)];
+      const rankB = EVENT_STATUS_SORT_ORDER[getEventStatus(b)];
+      if (rankA !== rankB) return rankA - rankB;
+      return (
+        new Date(a.start_datetime || a.date) -
+        new Date(b.start_datetime || b.date)
+      );
+    });
   };
 
-  // ─── Render Content ──────────────────────────────────
   const renderContent = () => {
     if (loading) return <p className={styles.loading}>Loading events...</p>;
     if (error) return <p className={styles.error}>{error}</p>;
 
     switch (activeTab) {
       case "all": {
-        const filteredAll = filterEvents(allEvents);
+        let filteredAll = filterEvents(allEvents);
+        if (allStatusFilter !== "all")
+          filteredAll = filteredAll.filter(
+            (ev) => getEventStatus(ev) === allStatusFilter,
+          );
+        if (allMethodFilter !== "all")
+          filteredAll = filteredAll.filter(
+            (ev) => ev.method === allMethodFilter,
+          );
+        filteredAll = sortByDefaultOrder(filteredAll);
+
         return (
           <>
             <div className={styles.todaySection}>
@@ -924,14 +918,33 @@ export default function Events() {
               </div>
             </div>
 
+            <div className={styles.subFilterRow}>
+              <select
+                className={styles.subFilterSelect}
+                value={allStatusFilter}
+                onChange={(e) => setAllStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="past">Past</option>
+              </select>
+              <select
+                className={styles.subFilterSelect}
+                value={allMethodFilter}
+                onChange={(e) => setAllMethodFilter(e.target.value)}
+              >
+                <option value="all">All Methods</option>
+                <option value="online">Online</option>
+                <option value="face-to-face">Face-to-face</option>
+              </select>
+            </div>
+
             <div className={styles.eventList}>
               {filteredAll.length === 0 ? (
                 <div className={styles.emptyStateBox}>
                   <FiCalendar size={28} className={styles.emptyStateIcon} />
                   <p className={styles.emptyStateText}>No events found</p>
-                  <p className={styles.emptyStateSubtext}>
-                    Try adjusting your filters or check back later.
-                  </p>
                 </div>
               ) : (
                 filteredAll.map((ev) => renderEventCard(ev, "all"))
@@ -943,15 +956,19 @@ export default function Events() {
 
       case "invited": {
         let invitedFiltered = filterEvents(invitedEvents);
-        if (invitedSubTab === "pending") {
+        if (invitedSubTab === "pending")
           invitedFiltered = invitedFiltered.filter(
-            (ev) => ev.response === "pending",
+            (ev) => ev.response === "pending" && !isMissedInvitation(ev),
           );
-        } else if (invitedSubTab === "declined") {
+        else if (invitedSubTab === "declined")
           invitedFiltered = invitedFiltered.filter(
             (ev) => ev.response === "declined",
           );
-        }
+        else if (invitedSubTab === "missed")
+          invitedFiltered = invitedFiltered.filter((ev) =>
+            isMissedInvitation(ev),
+          );
+
         return (
           <div className={styles.invitedContainer}>
             <div className={styles.invitedTabs}>
@@ -960,7 +977,12 @@ export default function Events() {
                 onClick={() => setInvitedSubTab("pending")}
               >
                 Pending (
-                {invitedEvents.filter((ev) => ev.response === "pending").length}
+                {
+                  invitedEvents.filter(
+                    (ev) =>
+                      ev.response === "pending" && !isMissedInvitation(ev),
+                  ).length
+                }
                 )
               </button>
               <button
@@ -980,17 +1002,20 @@ export default function Events() {
                 }
                 )
               </button>
+              <button
+                className={`${styles.invitedTab} ${invitedSubTab === "missed" ? styles.activeInvitedTab : ""}`}
+                onClick={() => setInvitedSubTab("missed")}
+              >
+                Missed (
+                {invitedEvents.filter((ev) => isMissedInvitation(ev)).length})
+              </button>
             </div>
             <div className={styles.eventList}>
               {invitedFiltered.length === 0 ? (
                 <div className={styles.emptyStateBox}>
                   <FiCalendar size={28} className={styles.emptyStateIcon} />
                   <p className={styles.emptyStateText}>
-                    {invitedSubTab === "pending"
-                      ? "No pending invitations"
-                      : invitedSubTab === "declined"
-                        ? "No declined invitations"
-                        : "No invited events"}
+                    No {invitedSubTab} invitations
                   </p>
                 </div>
               ) : (
@@ -1050,7 +1075,6 @@ export default function Events() {
     }
   };
 
-  // ─── Main Render ────────────────────────────────────
   return (
     <div className={styles.container}>
       <div className={styles.tabs}>
@@ -1082,7 +1106,6 @@ export default function Events() {
 
       <div className={styles.content}>{renderContent()}</div>
 
-      {/* ─── Modals ─── */}
       <EventCardView
         isOpen={showViewModal}
         onClose={() => {
@@ -1100,6 +1123,7 @@ export default function Events() {
         }}
         event={selectedEvent}
         onRespond={handleRespond}
+        mode={invitationMode}
       />
 
       <AttendeesModal
@@ -1118,6 +1142,12 @@ export default function Events() {
           setConflictEvent(null);
         }}
         event={conflictEvent}
+      />
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
       />
     </div>
   );
