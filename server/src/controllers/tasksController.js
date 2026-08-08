@@ -12,6 +12,7 @@ const {
   Department,
   Office,
   Position,
+  PositionAssignment,
   Attachment,
 } = require("../models");
 const {
@@ -74,6 +75,20 @@ exports.createTask = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Missing required fields." });
     }
 
+    let finalDepartmentId = null;
+    if (visibility === "department") {
+      if (!department_id) {
+        await t.rollback();
+        return res.status(400).json({ ok: false, message: "department_id is required for department tasks." });
+      }
+      const profile = await UserProfile.findOne({ where: { user_id: req.userId } });
+      if (!profile || profile.department_id !== department_id) {
+        await t.rollback();
+        return res.status(403).json({ ok: false, message: "You can only create department tasks for your own department." });
+      }
+      finalDepartmentId = department_id;
+    }
+
     const task = await Task.create(
       {
         id: uuidv4(),
@@ -82,7 +97,7 @@ exports.createTask = async (req, res) => {
         priority: priority || "medium",
         visibility,
         deadline_datetime,
-        department_id: visibility === "department" ? department_id : null,
+        department_id: finalDepartmentId,
         office_id: office_id || null,
         creator_id: req.userId,
         description,
@@ -119,6 +134,8 @@ exports.createTask = async (req, res) => {
       const items = checklist_items.map((item, index) => ({
         id: uuidv4(),
         task_id: task.id,
+        card_id: item.card_id ? String(item.card_id) : 'default',
+        card_title: item.card_title || 'Checklist',
         text: item.text,
         sort_order: index,
         is_completed: false,
@@ -208,8 +225,8 @@ exports.listTasks = async (req, res) => {
       const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: task.id } });
       const assignees = [];
       for (const a of assigneeRecords) {
-        const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
-        if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+        const profile = await getUserProfileSummary(a.user_id);
+        if (profile) assignees.push({ ...profile, response: a.response });
       }
 
       const userAssignee = assigneeRecords.find((a) => a.user_id === userId);
@@ -257,15 +274,15 @@ exports.getTaskById = async (req, res) => {
     const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: id } });
     const assignees = [];
     for (const a of assigneeRecords) {
-      const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
-      if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+      const profile = await getUserProfileSummary(a.user_id);
+      if (profile) assignees.push({ ...profile, response: a.response });
     }
 
     const collaboratorRecords = await TaskCollaborator.findAll({ where: { task_id: id } });
     const collaborators = [];
     for (const c of collaboratorRecords) {
-      const u = await User.findByPk(c.user_id, { attributes: ["id", "username", "email"] });
-      if (u) collaborators.push({ id: u.id, username: u.username, email: u.email });
+      const profile = await getUserProfileSummary(c.user_id);
+      if (profile) collaborators.push(profile);
     }
 
     const checklist = await TaskChecklistItem.findAll({
@@ -295,6 +312,8 @@ exports.getTaskById = async (req, res) => {
       }
       checklistFormatted.push({
         id: item.id,
+        card_id: item.card_id || 'default',
+        card_title: item.card_title || 'Checklist',
         text: item.text,
         is_completed: item.is_completed,
         completed_by: completedByProfile,
@@ -321,6 +340,7 @@ exports.getTaskById = async (req, res) => {
         priority: task.priority,
         visibility: task.visibility,
         deadline_datetime: task.deadline_datetime,
+        department_id: task.department_id,
         description: task.description,
         is_completed: task.is_completed,
         creator: creatorProfile,
@@ -363,11 +383,41 @@ exports.updateTask = async (req, res) => {
       return res.status(403).json({ ok: false, message: "Not authorized to edit." });
     }
 
+    const isCollaboratorEdit = !isCreator;
+
+    let finalVisibility = visibility;
+    let finalDepartmentId = null;
+
+    if (isCollaboratorEdit) {
+      finalVisibility = task.visibility;
+      finalDepartmentId = task.department_id;
+    } else {
+      if (visibility === "department") {
+        if (!department_id) {
+          await t.rollback();
+          return res.status(400).json({ ok: false, message: "department_id is required for department tasks." });
+        }
+        const profile = await UserProfile.findOne({ where: { user_id: req.userId } });
+        if (!profile || profile.department_id !== department_id) {
+          await t.rollback();
+          return res.status(403).json({ ok: false, message: "You can only set department tasks for your own department." });
+        }
+        finalDepartmentId = department_id;
+      } else if (visibility === "campus") {
+        const assignments = await PositionAssignment.findAll({ where: { user_id: req.userId, status: 'active' } });
+        if (assignments.length === 0) {
+          await t.rollback();
+          return res.status(403).json({ ok: false, message: "Only officials can set campus visibility." });
+        }
+      }
+    }
+
     await task.update(
       {
-        title, color: color || "#3B82F6", priority: priority || "medium", visibility,
+        title, color: color || "#3B82F6", priority: priority || "medium",
+        visibility: finalVisibility,
         deadline_datetime,
-        department_id: visibility === "department" ? department_id : null,
+        department_id: finalDepartmentId,
         office_id: office_id || null,
         description,
         remind_before_minutes: remind_before_minutes || null,
@@ -407,24 +457,32 @@ exports.updateTask = async (req, res) => {
       );
     }
 
-    // Checklist: keep matching by text so existing item ids (and their comments) survive when unchanged
+    // ── Checklist: match by (card_id + text) so unchanged items keep their
+    // id (and therefore their comments/checked-by history). Items no longer
+    // submitted (per card) get deleted along with their comments. ──
     if (checklist_items && Array.isArray(checklist_items)) {
       const existingItems = await TaskChecklistItem.findAll({ where: { task_id: id } });
-      const existingByText = {};
-      existingItems.forEach((it) => { existingByText[it.text] = it; });
+      const keyOf = (cardId, text) => `${cardId}||${text}`;
+      const existingByKey = {};
+      existingItems.forEach((it) => { existingByKey[keyOf(it.card_id || 'default', it.text)] = it; });
       const keepIds = [];
 
       for (let index = 0; index < checklist_items.length; index++) {
         const incoming = checklist_items[index];
-        const match = existingByText[incoming.text];
+        const cardId = incoming.card_id ? String(incoming.card_id) : 'default';
+        const cardTitle = incoming.card_title || 'Checklist';
+        const key = keyOf(cardId, incoming.text);
+        const match = existingByKey[key];
         if (match) {
           match.sort_order = index;
+          match.card_title = cardTitle;
           if (incoming.is_completed !== undefined) match.is_completed = incoming.is_completed;
           await match.save({ transaction: t });
           keepIds.push(match.id);
         } else {
           const created = await TaskChecklistItem.create({
-            id: uuidv4(), task_id: id, text: incoming.text, sort_order: index,
+            id: uuidv4(), task_id: id, card_id: cardId, card_title: cardTitle,
+            text: incoming.text, sort_order: index,
             is_completed: incoming.is_completed || false,
           }, { transaction: t });
           keepIds.push(created.id);
@@ -518,7 +576,7 @@ exports.toggleChecklistItem = async (req, res) => {
   }
 };
 
-// ─── ADD CHECKLIST COMMENT (new, stacking) ─────────────
+// ─── ADD CHECKLIST COMMENT (stacking) ──────────────────
 exports.addChecklistComment = async (req, res) => {
   try {
     const { itemId } = req.params;
@@ -559,7 +617,7 @@ exports.addChecklistComment = async (req, res) => {
   }
 };
 
-// ─── RESPOND TO TASK INVITATION (any transition allowed) ──
+// ─── RESPOND TO TASK INVITATION ────────────────────────
 exports.respondToTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -584,7 +642,7 @@ exports.respondToTask = async (req, res) => {
   }
 };
 
-// ─── GET INVITED TASKS ─────────────────────────────────
+// ─── GET INVITED TASKS ──────────────────────────────────
 exports.getInvitedTasks = async (req, res) => {
   try {
     const userId = req.userId;
