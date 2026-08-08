@@ -2,12 +2,9 @@ import { useState } from "react";
 import {
   FiX,
   FiCheckCircle,
-  FiClock,
   FiCalendar,
   FiUser,
   FiUsers,
-  FiEdit,
-  FiTrash2,
   FiPaperclip,
   FiDownload,
   FiPlus,
@@ -46,6 +43,13 @@ export default function TaskCardView({
     });
   };
 
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0]?.slice(0, 2).toUpperCase() || "?";
+  };
+
   const isAssignee = task.assignees?.some((a) => a.id === currentUserId);
   const isCollaborator = task.collaborators?.some(
     (c) => c.id === currentUserId,
@@ -53,9 +57,8 @@ export default function TaskCardView({
   const isCreator = task.creator?.id === currentUserId;
   const canModifyChecklist = isAssignee || isCreator || isCollaborator;
 
-  // ─── Color luminance check ──────────────────────────────
   const getTextColor = (hexColor) => {
-    if (!hexColor) return "#111827"; // default dark
+    if (!hexColor) return "#111827";
     const r = parseInt(hexColor.slice(1, 3), 16);
     const g = parseInt(hexColor.slice(3, 5), 16);
     const b = parseInt(hexColor.slice(5, 7), 16);
@@ -70,10 +73,7 @@ export default function TaskCardView({
   };
 
   const handleCommentToggle = (itemId) => {
-    setShowCommentInput((prev) => ({
-      ...prev,
-      [itemId]: !prev[itemId],
-    }));
+    setShowCommentInput((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
   const handleCommentChange = (itemId, value) => {
@@ -105,13 +105,9 @@ export default function TaskCardView({
           <FiX size={24} />
         </button>
 
-        {/* ─── Header with task color background ─── */}
         <div
           className={styles.header}
-          style={{
-            backgroundColor: task.color || "#3B82F6",
-            color: textColor,
-          }}
+          style={{ backgroundColor: task.color || "#3B82F6", color: textColor }}
         >
           <h2 className={styles.title} style={{ color: textColor }}>
             {task.title}
@@ -147,7 +143,6 @@ export default function TaskCardView({
           </div>
         </div>
 
-        {/* ─── Details ─── */}
         <div className={styles.details}>
           <div className={styles.detailRow}>
             <FiCalendar size={16} />
@@ -185,7 +180,6 @@ export default function TaskCardView({
           </div>
         )}
 
-        {/* ─── Attachments ──────────────────────────────────── */}
         {task.attachments && task.attachments.length > 0 && (
           <div className={styles.attachmentsSection}>
             <h4 className={styles.attachmentsTitle}>
@@ -205,9 +199,6 @@ export default function TaskCardView({
                   <span className={styles.attachmentName}>
                     {file.file_name}
                   </span>
-                  <span className={styles.attachmentSize}>
-                    {file.file_size}
-                  </span>
                   <FiDownload size={14} className={styles.downloadIcon} />
                 </a>
               ))}
@@ -215,13 +206,13 @@ export default function TaskCardView({
           </div>
         )}
 
-        {/* ─── Checklist ────────────────────────────────────── */}
         <div className={styles.checklistSection}>
           <h3>Checklist</h3>
           {task.checklist && task.checklist.length > 0 ? (
             <div className={styles.checklist}>
               {task.checklist.map((item) => (
                 <div key={item.id} className={styles.checklistItem}>
+                  {/* ── Top part: checkbox, title, checked by ── */}
                   <div className={styles.checklistTop}>
                     <button
                       className={styles.checkToggle}
@@ -241,43 +232,57 @@ export default function TaskCardView({
                     >
                       {item.text}
                     </span>
-                    {item.is_completed && item.completed_by && (
+                  </div>
+                  {item.is_completed && item.completed_by && (
+                    <div className={styles.completedByRow}>
                       <span className={styles.completedBy}>
-                        ✓ by{" "}
+                        ✓ Checked by{" "}
                         {item.completed_by.full_name ||
                           item.completed_by.username}
                       </span>
-                    )}
-                  </div>
-
-                  {/* ─── Comments Display ────────────────────── */}
-                  {item.comments && (
-                    <div className={styles.commentDisplay}>
-                      <div className={styles.commentAvatar}>
-                        {item.completed_by?.full_name?.charAt(0) || "U"}
-                      </div>
-                      <div className={styles.commentBubble}>
-                        <div className={styles.commentHeader}>
-                          <span className={styles.commentAuthor}>
-                            {item.completed_by?.full_name ||
-                              item.completed_by?.username ||
-                              "User"}
-                          </span>
-                          <span className={styles.commentTime}>
-                            {item.completed_at
-                              ? new Date(item.completed_at).toLocaleDateString()
-                              : ""}
-                          </span>
-                        </div>
-                        <div className={styles.commentText}>
-                          {item.comments}
-                        </div>
-                      </div>
                     </div>
                   )}
 
-                  {/* ─── Add Comment Button ───────────────────── */}
-                  {canModifyChecklist && (
+                  <div className={styles.checklistSeparator} />
+
+                  {/* ── Comments thread (stacked, newest at bottom) ── */}
+                  {item.comments && item.comments.length > 0 && (
+                    <div className={styles.commentsThread}>
+                      {item.comments.map((comment) => (
+                        <div key={comment.id} className={styles.commentDisplay}>
+                          <div className={styles.commentAvatar}>
+                            {getInitials(
+                              comment.author?.full_name ||
+                                comment.author?.username,
+                            )}
+                          </div>
+                          <div className={styles.commentBubble}>
+                            <div className={styles.commentHeader}>
+                              <span className={styles.commentAuthor}>
+                                {comment.author?.full_name ||
+                                  comment.author?.username ||
+                                  "Unknown"}
+                              </span>
+                              <span className={styles.commentTime}>
+                                {comment.created_at
+                                  ? new Date(
+                                      comment.created_at,
+                                    ).toLocaleDateString()
+                                  : ""}
+                              </span>
+                            </div>
+                            <div className={styles.commentText}>
+                              {comment.text}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className={styles.checklistSeparator} />
+                    </div>
+                  )}
+
+                  {/* ── Add comment button/input ── */}
+                  {canModifyChecklist && !showCommentInput[item.id] && (
                     <div className={styles.commentAction}>
                       <button
                         className={styles.addCommentBtn}
@@ -289,7 +294,6 @@ export default function TaskCardView({
                     </div>
                   )}
 
-                  {/* ─── Comment Input ────────────────────────── */}
                   {canModifyChecklist && showCommentInput[item.id] && (
                     <div className={styles.commentInputWrapper}>
                       <div className={styles.commentInputRow}>
@@ -344,8 +348,3 @@ export default function TaskCardView({
     </div>
   );
 }
-
-const getPriorityColor = (priority) => {
-  const map = { high: "#dc2626", medium: "#f59e0b", low: "#10b981" };
-  return map[priority] || "#6b7280";
-};
