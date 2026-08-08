@@ -1,6 +1,3 @@
-// Determines whether an event is Upcoming, Ongoing, or Past based on the
-// current date/time vs. the event's start/end. Frontend-only, no backend needed.
-
 export function getEventStatus(event) {
   const now = new Date();
   const start = event.start_datetime
@@ -20,3 +17,9 @@ export const EVENT_STATUS_CONFIG = {
   ongoing: { label: "Ongoing", className: "statusOngoing" },
   past: { label: "Past Event", className: "statusPast" },
 };
+
+export const EVENT_STATUS_SORT_ORDER = { ongoing: 0, upcoming: 1, past: 2 };
+
+export function isMissedInvitation(event) {
+  return event.response === "pending" && getEventStatus(event) === "past";
+}
