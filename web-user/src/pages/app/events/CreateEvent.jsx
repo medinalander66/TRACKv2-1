@@ -13,12 +13,15 @@ import ConflictCard from "../../../components/events/ConflictCard";
 import FeedbackModal from "../../../components/common/FeedbackModal";
 import apiClient from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
+import { getReadableTextColor } from "../../../utils/colorUtils";
+import { buildLocalDateTimeISO } from "../../../utils/dateTimeUtils";
 import {
   FiAlertCircle,
   FiCheckCircle,
   FiClock,
   FiInfo,
   FiTag,
+  FiType,
   FiMapPin,
   FiUsers,
   FiCalendar,
@@ -71,12 +74,10 @@ export default function CreateEvent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // ─── Feedback modal ───
   const [feedback, setFeedback] = useState({ message: "", type: "success" });
   const showFeedback = (msg, type = "success") =>
     setFeedback({ message: msg, type });
 
-  // Conflict detection states
   const [conflictData, setConflictData] = useState(null);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [showConflictSheet, setShowConflictSheet] = useState(false);
@@ -145,7 +146,6 @@ export default function CreateEvent() {
     setAttachments((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
-  // ─── Conflict Detection ────────────────────────────────
   const checkConflicts = useCallback(async () => {
     if (
       !form.start_date ||
@@ -157,11 +157,17 @@ export default function CreateEvent() {
       return;
     }
 
-    const startDateTime = `${form.start_date}T${form.start_time}:00`;
-    const endDateTime = `${form.end_date}T${form.end_time}:00`;
+    const startDateTime = buildLocalDateTimeISO(
+      form.start_date,
+      form.start_time,
+    );
+    const endDateTime = buildLocalDateTimeISO(form.end_date, form.end_time);
 
-    // Guard: skip the request while the range is still invalid mid-typing
-    if (new Date(startDateTime) >= new Date(endDateTime)) {
+    if (
+      !startDateTime ||
+      !endDateTime ||
+      new Date(startDateTime) >= new Date(endDateTime)
+    ) {
       setConflictData(null);
       return;
     }
@@ -205,7 +211,6 @@ export default function CreateEvent() {
     return () => debouncedCheck.cancel();
   }, [debouncedCheck]);
 
-  // ─── Submit ────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -219,8 +224,8 @@ export default function CreateEvent() {
       method: form.method,
       link: form.method === "online" ? form.link : undefined,
       hierarchy: form.hierarchy,
-      start_datetime: `${form.start_date}T${form.start_time}:00`,
-      end_datetime: `${form.end_date}T${form.end_time}:00`,
+      start_datetime: buildLocalDateTimeISO(form.start_date, form.start_time),
+      end_datetime: buildLocalDateTimeISO(form.end_date, form.end_time),
       department_id:
         form.visibility === "department" ? form.department_id : undefined,
       description: form.description,
@@ -271,7 +276,6 @@ export default function CreateEvent() {
     }
   };
 
-  // ─── Visibility Options ──────────────────────────────
   const visibilityOptions = [];
   if (role === "officials") {
     visibilityOptions.push({ value: "private", label: "Private" });
@@ -293,16 +297,30 @@ export default function CreateEvent() {
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.titleSection}>
-          <InputField
-            className={styles.titleInput}
-            value={form.title}
-            placeholder="Enter title for your event.."
-            onChange={(e) => updateField("title", e.target.value)}
-          />
+        <div
+          className={styles.titleSection}
+          style={{
+            background: form.color,
+            color: getReadableTextColor(form.color),
+          }}
+        >
+          <div className={styles.titleWordDisplay}>{form.title || "Title"}</div>
         </div>
 
         <div className={styles.sectionContent}>
+          {/* ── Title ── */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiType size={16} className={styles.cardHeaderIcon} />
+              <span>Title</span>
+            </div>
+            <InputField
+              value={form.title}
+              placeholder="Enter title for your event.."
+              onChange={(e) => updateField("title", e.target.value)}
+            />
+          </div>
+
           {/* ── Event Basics ── */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>

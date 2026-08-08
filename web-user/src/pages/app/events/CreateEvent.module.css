@@ -27,24 +27,6 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.titleInput {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-color);
-  background: transparent;
-  border: none;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  outline: none;
-  padding: 0;
-  display: block;
-}
-
-.titleInput::placeholder {
-  color: var(--fifth-color);
-}
-
 /* Card */
 .card {
   background: var(--background-color, #fff);
@@ -346,4 +328,22 @@
   font-weight: 600;
   color: var(--text-color, #111827);
   margin: 0;
+}
+
+.titleSection {
+  padding: 3rem 1.5rem;
+  margin: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.titleWordDisplay {
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-align: center;
+  max-width: 720px;
+  word-break: break-word;
 }
