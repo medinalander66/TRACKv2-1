@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
-import styles from './TaskColor.module.css';
+import { useState, useRef } from "react";
+import styles from "./TaskColor.module.css";
 
 const PRESET_COLORS = [
-  { name: 'Grey', value: '#808080' },
-  { name: 'Blue', value: '#3B82F6' },
-  { name: 'Green', value: '#10B981' },
-  { name: 'Purple', value: '#7C3AED' },
+  { name: "Grey", value: "#808080" },
+  { name: "Blue", value: "#3B82F6" },
+  { name: "Green", value: "#10B981" },
+  { name: "Purple", value: "#7C3AED" },
 ];
 
 export default function TaskColor({ value, onChange }) {
@@ -29,12 +29,14 @@ export default function TaskColor({ value, onChange }) {
           <button
             key={color.name}
             type="button"
-            className={`${styles.swatch} ${value === color.value ? styles.selected : ''}`}
+            className={`${styles.swatch} ${value === color.value ? styles.selected : ""}`}
             style={{ backgroundColor: color.value }}
             onClick={() => handlePresetClick(color.value)}
             title={color.name}
           >
-            {value === color.value && <span className={styles.checkmark}>✓</span>}
+            {value === color.value && (
+              <span className={styles.checkmark}>✓</span>
+            )}
           </button>
         ))}
         <button

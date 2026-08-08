@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import styles from "./layout.module.css";
-import { MdDashboard } from "react-icons/md";
+import { MdDashboard, MdManageAccounts } from "react-icons/md";
 import { FaCode } from "react-icons/fa";
 import { BiAtom, BiMenu, BiSolidUser, BiLogOut } from "react-icons/bi";
 import { useState } from "react";
@@ -16,7 +16,7 @@ export default function Layout({ children }) {
     navigate("/login");
   };
 
-  const [menuActive, setMenuActive] = useState(false);
+  const [menuActive, setMenuActive] = useState(true);
 
   return (
     <div className={styles.mainContainer}>
@@ -55,6 +55,7 @@ export default function Layout({ children }) {
               className={({ isActive }) =>
                 `${styles.navLink} ${isActive ? styles.active : ""}`
               }
+              title="dashboard"
             >
               <MdDashboard className={styles.icon} />
               <span className={!menuActive ? styles.hide : ""}>Dashboard</span>
@@ -65,6 +66,7 @@ export default function Layout({ children }) {
               className={({ isActive }) =>
                 `${styles.navLink} ${isActive ? styles.active : ""}`
               }
+              title="account codes"
             >
               <FaCode className={styles.icon} />
               <span className={!menuActive ? styles.hide : ""}>
@@ -77,6 +79,7 @@ export default function Layout({ children }) {
               className={({ isActive }) =>
                 `${styles.navLink} ${isActive ? styles.active : ""}`
               }
+              title="declaration"
             >
               <BiAtom className={styles.icon} />
               <span className={!menuActive ? styles.hide : ""}>
@@ -89,15 +92,16 @@ export default function Layout({ children }) {
               className={({ isActive }) =>
                 `${styles.navLink} ${isActive ? styles.active : ""}`
               }
+              title="manage users"
             >
-              <BiAtom className={styles.icon} />
+              <MdManageAccounts className={styles.icon} />
               <span className={!menuActive ? styles.hide : ""}>
                 User Management
               </span>
             </NavLink>
           </nav>
 
-          <button onClick={handleLogout} className={styles.btnLogout}>
+          <button onClick={handleLogout} className={styles.btnLogout} title="logout">
             <BiLogOut className={styles.icon} />
             <span className={!menuActive ? styles.hide : ""}>Logout</span>
           </button>

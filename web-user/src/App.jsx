@@ -18,7 +18,6 @@ import FacultyHome from "./pages/app/faculty/Home";
 
 // Feature pages (placeholders)
 import CalendarView from "./pages/app/calendar/CalendarView";
-import TasksList from "./pages/app/tasks/TasksList";
 import UserAnalytics from "./pages/app/analytics/UserAnalytics";
 import VenuesList from "./pages/app/venues/VenuesList";
 import Notifications from "./pages/app/notifications/Notifications";
@@ -27,6 +26,7 @@ import CreateEvent from "./pages/app/events/CreateEvent";
 import CreateTask from "./pages/app/tasks/CreateTask";
 import Events from "./pages/app/events/Events";
 import EditEvent from "./components/events/EditEvent";
+import Tasks from "./pages/app/tasks/Tasks";
 
 const RoleRedirect = () => {
   const { user } = useAuth();
@@ -61,7 +61,7 @@ export default function App() {
             <Route path="/staff/home" element={<StaffHome />} />
             <Route path="/faculty/home" element={<FacultyHome />} />
             <Route path="/calendar" element={<CalendarView />} />
-            <Route path="/tasks" element={<TasksList />} />
+            <Route path="/tasks" element={<Tasks />} />
             <Route path="/analytics" element={<UserAnalytics />} />
             <Route path="/venues" element={<VenuesList />} />
             <Route path="/events" element={<Events />} />

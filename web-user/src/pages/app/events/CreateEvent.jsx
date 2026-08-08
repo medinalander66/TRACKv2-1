@@ -10,6 +10,7 @@ import InviteAttendeesModal from "../../../components/events/InviteAttendeesModa
 import MapPicker from "../../../components/common/MapPicker";
 import FileAttachment from "../../../components/common/FileAttachment";
 import ConflictCard from "../../../components/events/ConflictCard";
+import FeedbackModal from "../../../components/common/FeedbackModal";
 import apiClient from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -26,7 +27,6 @@ import {
   FiUserPlus,
 } from "react-icons/fi";
 import styles from "./CreateEvent.module.css";
-import { IoCreateOutline } from "react-icons/io5";
 
 export default function CreateEvent() {
   const { user } = useAuth();
@@ -57,7 +57,6 @@ export default function CreateEvent() {
     street: "",
     map_location: "",
     remind_before_minutes: "",
-    is_email_reminder: false,
     event_type: "event",
   });
 
@@ -72,17 +71,20 @@ export default function CreateEvent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  // ─── Feedback modal ───
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
+
   // Conflict detection states
   const [conflictData, setConflictData] = useState(null);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [showConflictSheet, setShowConflictSheet] = useState(false);
 
-  // Store current user's full profile (includes department_id)
   const [currentProfile, setCurrentProfile] = useState(null);
 
   const fileInputRef = useRef(null);
 
-  // Fetch lookup data and current user's profile
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -103,7 +105,6 @@ export default function CreateEvent() {
     fetchData();
   }, []);
 
-  // When visibility changes to "department", auto‑set department
   useEffect(() => {
     if (form.visibility === "department" && currentProfile?.department_id) {
       if (form.department_id !== currentProfile.department_id) {
@@ -112,7 +113,6 @@ export default function CreateEvent() {
     }
   }, [form.visibility, currentProfile]);
 
-  // Auto‑invite all members of the selected department (excluding creator)
   useEffect(() => {
     if (form.visibility === "department" && form.department_id) {
       apiClient
@@ -147,7 +147,6 @@ export default function CreateEvent() {
 
   // ─── Conflict Detection ────────────────────────────────
   const checkConflicts = useCallback(async () => {
-    // Only check if we have date and time
     if (
       !form.start_date ||
       !form.end_date ||
@@ -161,6 +160,12 @@ export default function CreateEvent() {
     const startDateTime = `${form.start_date}T${form.start_time}:00`;
     const endDateTime = `${form.end_date}T${form.end_time}:00`;
 
+    // Guard: skip the request while the range is still invalid mid-typing
+    if (new Date(startDateTime) >= new Date(endDateTime)) {
+      setConflictData(null);
+      return;
+    }
+
     setCheckingConflicts(true);
     try {
       const res = await apiClient.post("/events/check-conflicts", {
@@ -169,7 +174,6 @@ export default function CreateEvent() {
         creator_id: user.id,
         start_datetime: startDateTime,
         end_datetime: endDateTime,
-        // exclude_event_id: null for create
       });
       if (res.data.ok) {
         setConflictData(res.data);
@@ -205,14 +209,6 @@ export default function CreateEvent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // If there's a venue conflict, ask for confirmation
-    if (conflictData?.conflicts?.venue?.has) {
-      const confirmProceed = window.confirm(
-        "The selected venue is already booked for this time. Are you sure you want to proceed?",
-      );
-      if (!confirmProceed) return;
-    }
-
     setLoading(true);
     setMessage("");
 
@@ -239,16 +235,14 @@ export default function CreateEvent() {
       attendee_ids: attendeeIds,
       collaborator_ids: collaboratorIds,
       remind_before_minutes: form.remind_before_minutes || null,
-      is_email_reminder: form.is_email_reminder,
       event_type: form.event_type,
     };
-
-    console.log("Submitting event payload:", payload);
 
     try {
       const res = await apiClient.post("/events", payload);
       if (!res.data.ok) {
         setMessage(res.data.message || "Failed to create event");
+        showFeedback(res.data.message || "Failed to create event", "error");
         setLoading(false);
         return;
       }
@@ -267,9 +261,12 @@ export default function CreateEvent() {
         }
       }
 
-      navigate("/calendar");
+      showFeedback("Event created successfully!", "success");
+      setTimeout(() => navigate("/calendar"), 800);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Server error");
+      const errMsg = err.response?.data?.message || "Server error";
+      setMessage(errMsg);
+      showFeedback(errMsg, "error");
       setLoading(false);
     }
   };
@@ -287,7 +284,6 @@ export default function CreateEvent() {
   }
   const showVisibilityRadio = visibilityOptions.length > 1;
 
-  // Determine if there are any conflicts
   const hasAnyConflict =
     conflictData &&
     (conflictData.conflicts.venue.has ||
@@ -297,7 +293,7 @@ export default function CreateEvent() {
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.titleSection} style={{backgroundColor: form.color, transition:"background-color 0.15s ease"}}>
+        <div className={styles.titleSection}>
           <InputField
             className={styles.titleInput}
             value={form.title}
@@ -450,12 +446,14 @@ export default function CreateEvent() {
               <InputField
                 label="START DATE"
                 type="date"
+                autoComplete="off"
                 value={form.start_date}
                 onChange={(e) => updateField("start_date", e.target.value)}
               />
               <InputField
                 label="END DATE"
                 type="date"
+                autoComplete="off"
                 value={form.end_date}
                 onChange={(e) => updateField("end_date", e.target.value)}
               />
@@ -464,18 +462,19 @@ export default function CreateEvent() {
               <InputField
                 label="START TIME"
                 type="time"
+                autoComplete="off"
                 value={form.start_time}
                 onChange={(e) => updateField("start_time", e.target.value)}
               />
               <InputField
                 label="END TIME"
                 type="time"
+                autoComplete="off"
                 value={form.end_time}
                 onChange={(e) => updateField("end_time", e.target.value)}
               />
             </div>
 
-            {/* ── Conflict Notice Card ── */}
             {checkingConflicts && (
               <div className={styles.checkingNotice}>
                 <FiClock size={18} />
@@ -490,7 +489,8 @@ export default function CreateEvent() {
                 <div className={styles.conflictNoticeLeft}>
                   <FiAlertCircle size={20} className={styles.conflictIcon} />
                   <span>
-                    {conflictData.conflicts.venue.has && "Venue conflict "}
+                    {conflictData.conflicts.venue.has &&
+                      "Venue conflict — must be resolved before saving "}
                     {conflictData.conflicts.attendees.has &&
                       "· Attendee conflicts "}
                     {conflictData.conflicts.creator.has &&
@@ -527,29 +527,10 @@ export default function CreateEvent() {
                   updateField("remind_before_minutes", e.target.value)
                 }
               />
-              <div className={styles.checkRow}>
-                <span className={styles.reminderLabel}>Email Reminder</span>
-                <div className={styles.reminderToggleGroup}>
-                  <button
-                    type="button"
-                    className={`${styles.reminderToggleButton} ${
-                      form.is_email_reminder === true ? styles.active : ""
-                    }`}
-                    onClick={() => updateField("is_email_reminder", true)}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.reminderToggleButton} ${
-                      form.is_email_reminder === false ? styles.active : ""
-                    }`}
-                    onClick={() => updateField("is_email_reminder", false)}
-                  >
-                    No
-                  </button>
-                </div>
-              </div>
+              <p className={styles.helperText}>
+                Attendees and collaborators are always notified by email when
+                invited or when the event changes.
+              </p>
             </div>
           </div>
 
@@ -599,15 +580,7 @@ export default function CreateEvent() {
             </button>
           </div>
 
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <IoCreateOutline size={16} className={styles.cardHeaderIcon} />
-              <span>Submit Event</span>
-            </div>
-            <p className={styles.submitInfo}>
-              Once you submit, the event will be created and visible to the
-              selected attendees and collaborators.
-            </p>
+          <div className={styles.submitBar}>
             <Button type="submit" disabled={loading}>
               {loading ? "Creating..." : "Create Event"}
             </Button>
@@ -641,14 +614,12 @@ export default function CreateEvent() {
           onChange={handleFileChange}
         />
 
-        {/* Conflict Bottom Sheet */}
         <ConflictCard
           conflictData={conflictData}
           checking={checkingConflicts}
           isOpen={showConflictSheet}
           onClose={() => setShowConflictSheet(false)}
           onApplyRecommendation={(slot) => {
-            // Apply the selected recommended slot to the form
             const startDate = slot.start_datetime.split("T")[0];
             const startTime = slot.start_datetime.split("T")[1].slice(0, 5);
             const endDate = slot.end_datetime.split("T")[0];
@@ -661,6 +632,12 @@ export default function CreateEvent() {
           }}
         />
       </form>
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
+      />
     </div>
   );
 }

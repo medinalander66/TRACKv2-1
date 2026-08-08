@@ -9,12 +9,22 @@ import {
 import {
   FiChevronLeft,
   FiChevronRight,
-  FiX,
   FiChevronDown,
+  FiLink,
+  FiCopy,
+  FiPaperclip,
+  FiDownload,
 } from "react-icons/fi";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import apiClient from "../../../api/client";
 import { getInvitations } from "../../../api/notifications";
 import { useCalendar } from "../../../context/CalendarContext";
+import {
+  getEventStatus,
+  EVENT_STATUS_CONFIG,
+} from "../../../utils/eventStatus";
 import styles from "./CalendarView.module.css";
 
 const MONTH_NAMES = [
@@ -68,9 +78,49 @@ const timeToMinutes = (timeStr) => {
 const formatHour = (i) =>
   i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`;
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+const formatTimeFull = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0]?.slice(0, 2).toUpperCase() || "?";
+};
+
+const AVATAR_COLORS = [
+  "#f9a825",
+  "#43a047",
+  "#1e88e5",
+  "#8e24aa",
+  "#fb8c00",
+  "#00897b",
+  "#5e35b1",
+];
+const getAvatarColor = (str) => {
+  if (!str) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++)
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 const HOUR_HEIGHT = 64;
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const SWIPE_ANIM_MS = 250;
+const DRAG_CLOSE_THRESHOLD = 90;
 
 export default function CalendarView() {
   const {
@@ -82,11 +132,14 @@ export default function CalendarView() {
     activeFilters,
   } = useCalendar();
 
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetIndex, setSheetIndex] = useState(0);
   const [holidays, setHolidays] = useState([]);
   const [userEvents, setUserEvents] = useState([]);
   const [pendingEventIds, setPendingEventIds] = useState([]);
+  const [detailedEvent, setDetailedEvent] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const viewportRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -101,6 +154,14 @@ export default function CalendarView() {
   });
   const navigateRef = useRef(() => {});
 
+  // ── Sheet drag-to-close (handle only) ──
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const [sheetDragging, setSheetDragging] = useState(false);
+  const sheetDragRef = useRef({ startY: 0 });
+
+  // ── Sheet event carousel swipe (left/right) ──
+  const [carouselTouchStartX, setCarouselTouchStartX] = useState(0);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -110,7 +171,6 @@ export default function CalendarView() {
     return d;
   }, [currentDate]);
 
-  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const monthGrid = useMemo(
     () => generateMonthGrid(year, month),
     [year, month],
@@ -140,7 +200,6 @@ export default function CalendarView() {
     return { start, end };
   }, [duration, selectedDate, weekStart, year, month]);
 
-  // Fetch holidays
   useEffect(() => {
     fetch("https://trackv2-68rg.onrender.com/data/holidays.json")
       .then((res) => res.json())
@@ -148,7 +207,6 @@ export default function CalendarView() {
       .catch(() => {});
   }, []);
 
-  // Fetch user events
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -163,7 +221,6 @@ export default function CalendarView() {
     fetchEvents();
   }, [visibleRange.start, visibleRange.end]);
 
-  // Fetch pending invitations
   useEffect(() => {
     const fetchPending = async () => {
       try {
@@ -206,7 +263,6 @@ export default function CalendarView() {
     .slice(0, 3)
     .toUpperCase();
 
-  // Navigation
   const navigate = useCallback(
     (direction) => {
       const date = new Date(currentDate);
@@ -230,14 +286,12 @@ export default function CalendarView() {
   const goToPrev = () => navigate(-1);
   const goToNext = () => navigate(1);
 
-  // Go to today
   const goToToday = () => {
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(today.toISOString().slice(0, 10));
   };
 
-  // Month dropdown
   const handleMonthChange = (e) => {
     const newMonth = parseInt(e.target.value, 10);
     const d = new Date(currentDate);
@@ -250,7 +304,6 @@ export default function CalendarView() {
     }
   };
 
-  // Measure viewport
   useLayoutEffect(() => {
     const measure = () =>
       setContainerWidth(viewportRef.current?.offsetWidth || 0);
@@ -259,7 +312,7 @@ export default function CalendarView() {
     return () => window.removeEventListener("resize", measure);
   }, [duration]);
 
-  // Native touch listeners
+  // ── Native touch listeners for date-navigation swipe (month/week/day panels) ──
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -274,14 +327,12 @@ export default function CalendarView() {
         dragging: true,
       };
     };
-
     const onTouchMove = (e) => {
       const state = dragStateRef.current;
       if (!state.dragging) return;
       const t = e.touches[0];
       const deltaX = t.clientX - state.startX;
       const deltaY = t.clientY - state.startY;
-
       if (!state.locked) {
         if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
           state.locked = Math.abs(deltaX) > Math.abs(deltaY) ? "x" : "y";
@@ -292,12 +343,10 @@ export default function CalendarView() {
         setDragX(deltaX);
       }
     };
-
     const onTouchEnd = () => {
       const state = dragStateRef.current;
       if (!state.dragging) return;
       state.dragging = false;
-
       if (state.locked === "x") {
         setDragX((current) => {
           const threshold = state.width * SWIPE_THRESHOLD_RATIO;
@@ -324,7 +373,6 @@ export default function CalendarView() {
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
     el.addEventListener("touchcancel", onTouchEnd, { passive: true });
-
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
@@ -333,23 +381,104 @@ export default function CalendarView() {
     };
   }, []);
 
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setSheetIndex(0);
+    setDetailedEvent(null);
+  };
+
   const handleDayClick = useCallback(
     (dateStr) => {
       setSelectedDate(dateStr);
-      setSelectedEvent(null);
+      setSheetIndex(0);
       if (duration !== "day") setSheetOpen(true);
     },
     [duration, setSelectedDate],
   );
 
-  const handleEventClick = useCallback((ev) => {
-    setSelectedEvent(ev);
-    setSheetOpen(true);
-  }, []);
+  const handleEventClick = useCallback(
+    (ev) => {
+      const dayList = eventsByDate[ev.date] || [ev];
+      const idx = dayList.findIndex((e) => e.id === ev.id);
+      setSelectedDate(ev.date);
+      setSheetIndex(idx >= 0 ? idx : 0);
+      setSheetOpen(true);
+    },
+    [eventsByDate, setSelectedDate],
+  );
 
-  const closeSheet = () => {
-    setSheetOpen(false);
-    setSelectedEvent(null);
+  // ── Fetch full details of the event currently shown in the sheet ──
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const ev = dailyEvents[sheetIndex];
+    if (!ev || !ev.id) {
+      setDetailedEvent(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    apiClient
+      .get(`/events/${ev.id}`)
+      .then((res) => {
+        if (!cancelled && res.data.ok) setDetailedEvent(res.data.event);
+        else if (!cancelled) setDetailedEvent(null);
+      })
+      .catch(() => {
+        if (!cancelled) setDetailedEvent(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOpen, sheetIndex, selectedDate]);
+
+  // ── Sheet drag-to-close handlers (grab handle only) ──
+  const handleHandleTouchStart = (e) => {
+    sheetDragRef.current.startY = e.touches[0].clientY;
+    setSheetDragging(true);
+  };
+  const handleHandleTouchMove = (e) => {
+    const delta = e.touches[0].clientY - sheetDragRef.current.startY;
+    if (delta > 0) setSheetDragY(delta);
+  };
+  const handleHandleTouchEnd = () => {
+    if (sheetDragY > DRAG_CLOSE_THRESHOLD) {
+      closeSheet();
+    }
+    setSheetDragY(0);
+    setSheetDragging(false);
+  };
+
+  // ── Sheet event carousel horizontal swipe ──
+  const handleCarouselTouchStart = (e) =>
+    setCarouselTouchStartX(e.touches[0].clientX);
+  const handleCarouselTouchEnd = (e) => {
+    const endX = e.changedTouches[0].clientX;
+    const diff = carouselTouchStartX - endX;
+    if (Math.abs(diff) > 50 && dailyEvents.length > 1) {
+      if (diff > 0)
+        setSheetIndex((prev) =>
+          prev === dailyEvents.length - 1 ? 0 : prev + 1,
+        );
+      else
+        setSheetIndex((prev) =>
+          prev === 0 ? dailyEvents.length - 1 : prev - 1,
+        );
+    }
+  };
+
+  const handleCopyLink = (link) => {
+    if (!link) return;
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 1500);
+      })
+      .catch(() => {});
   };
 
   const headerTitle = useMemo(() => {
@@ -379,7 +508,7 @@ export default function CalendarView() {
     return `${MONTH_NAMES[month]} ${year}`;
   }, [duration, selectedDate, weekStart, month, year]);
 
-  /* ---------- Panel renderers ---------- */
+  /* ---------- Panel renderers (month/week/day date grids — unchanged) ---------- */
   const renderMonthPanel = (offset) => {
     const d = new Date(year, month + offset, 1);
     const grid = generateMonthGrid(d.getFullYear(), d.getMonth());
@@ -389,9 +518,7 @@ export default function CalendarView() {
           {DAY_NAMES.map((day, idx) => (
             <div
               key={day}
-              className={`${styles.dayHeader} ${
-                idx === todayWeekday ? styles.dayHeaderToday : ""
-              }`}
+              className={`${styles.dayHeader} ${idx === todayWeekday ? styles.dayHeaderToday : ""}`}
             >
               {day}
             </div>
@@ -403,15 +530,11 @@ export default function CalendarView() {
             return (
               <button
                 key={idx}
-                className={`${styles.dayCell} ${
-                  !cell.isCurrentMonth ? styles.otherMonthCell : ""
-                } ${isSelected ? styles.activeCell : ""}`}
+                className={`${styles.dayCell} ${!cell.isCurrentMonth ? styles.otherMonthCell : ""} ${isSelected ? styles.activeCell : ""}`}
                 onClick={() => handleDayClick(cell.dateStr)}
               >
                 <span
-                  className={`${styles.dayNumber} ${
-                    isToday ? styles.todayNumber : ""
-                  } ${!cell.isCurrentMonth ? styles.otherMonthNumber : ""}`}
+                  className={`${styles.dayNumber} ${isToday ? styles.todayNumber : ""} ${!cell.isCurrentMonth ? styles.otherMonthNumber : ""}`}
                 >
                   {cell.day}
                 </span>
@@ -461,9 +584,7 @@ export default function CalendarView() {
               return (
                 <div
                   key={idx}
-                  className={`${styles.weekDayLabel} ${
-                    isToday ? styles.weekDayLabelToday : ""
-                  }`}
+                  className={`${styles.weekDayLabel} ${isToday ? styles.weekDayLabelToday : ""}`}
                 >
                   <span className={styles.weekDayName}>
                     {DAY_NAMES[day.getDay()]}
@@ -487,9 +608,7 @@ export default function CalendarView() {
                   return (
                     <div
                       key={dayIdx}
-                      className={`${styles.weekCell} ${
-                        isToday ? styles.weekCellToday : ""
-                      }`}
+                      className={`${styles.weekCell} ${isToday ? styles.weekCellToday : ""}`}
                     >
                       {eventsAtHour.map((ev) => (
                         <div
@@ -556,10 +675,220 @@ export default function CalendarView() {
     return renderMonthPanel(offset);
   };
 
+  // ── Detailed event card inside the bottom sheet ──
+  const renderSheetEventCard = () => {
+    const basicEvent = dailyEvents[sheetIndex];
+    if (!basicEvent) return null;
+
+    const ev = detailedEvent || basicEvent;
+    const isHoliday =
+      !basicEvent.id || (basicEvent.creatorId === undefined && !detailedEvent);
+
+    const creator = ev.creator || {};
+    const creatorName = creator.full_name || creator.username || null;
+    const creatorSub = [
+      creator.position,
+      [creator.department, creator.office].filter(Boolean).join(" | "),
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    const participants = ev.participants || {};
+    const depts = participants.departments || [];
+    const offices = participants.offices || [];
+    const allUsers = participants.users || [];
+    const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
+    const attachments = ev.attachments || [];
+    const conflict = ev.conflict;
+
+    const status = getEventStatus({
+      start_datetime:
+        ev.start_datetime || `${basicEvent.date}T${basicEvent.time}`,
+      end_datetime:
+        ev.end_datetime || `${basicEvent.date}T${basicEvent.endTime}`,
+    });
+    const statusCfg = EVENT_STATUS_CONFIG[status];
+
+    return (
+      <div className={styles.sheetCard}>
+        <div
+          className={styles.sheetCardHeader}
+          style={{ borderLeftColor: ev.color || basicEvent.color || "#800000" }}
+        >
+          <div className={styles.sheetBadgeRow}>
+            {ev.hierarchy && (
+              <span className={styles.sheetBadge}>{ev.hierarchy}</span>
+            )}
+            {(ev.method || basicEvent.method) && (
+              <span className={styles.sheetBadge}>
+                {ev.method || basicEvent.method}
+              </span>
+            )}
+            {(ev.visibility || basicEvent.type) && (
+              <span className={styles.sheetBadge}>
+                {ev.visibility || basicEvent.type}
+              </span>
+            )}
+            <span
+              className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
+            >
+              {statusCfg.label}
+            </span>
+          </div>
+          <h3 className={styles.sheetTitle}>{ev.title || basicEvent.title}</h3>
+        </div>
+
+        {ev.description && (
+          <p className={styles.sheetDescription}>{ev.description}</p>
+        )}
+
+        <div className={styles.sheetSection}>
+          <div className={styles.sheetSectionHeader}>
+            <EventNoteOutlinedIcon fontSize="small" />
+            <span>WHEN &amp; WHERE</span>
+          </div>
+          <div className={styles.sheetInfoGrid}>
+            <div>
+              <div className={styles.sheetInfoLabel}>DATE</div>
+              <div className={styles.sheetInfoValue}>
+                {formatDate(ev.start_datetime || basicEvent.date)}
+              </div>
+            </div>
+            <div>
+              <div className={styles.sheetInfoLabel}>TIME</div>
+              <div className={styles.sheetInfoValue}>
+                {ev.start_datetime
+                  ? `${formatTimeFull(ev.start_datetime)} — ${formatTimeFull(ev.end_datetime)}`
+                  : `${basicEvent.time} — ${basicEvent.endTime}`}
+              </div>
+            </div>
+            <div>
+              <div className={styles.sheetInfoLabel}>LOCATION</div>
+              <div className={styles.sheetInfoValue}>
+                {ev.venue || ev.location || basicEvent.location || "Online"}
+              </div>
+            </div>
+          </div>
+          {(ev.method === "online" || basicEvent.method === "online") &&
+            ev.link && (
+              <div className={styles.sheetLinkRow}>
+                <FiLink size={14} />
+                <span className={styles.sheetLinkText}>{ev.link}</span>
+                <button
+                  className={styles.sheetCopyBtn}
+                  onClick={() => handleCopyLink(ev.link)}
+                >
+                  <FiCopy size={12} /> {copiedLink ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            )}
+        </div>
+
+        {creatorName && (
+          <div className={styles.sheetSection}>
+            <div className={styles.sheetSectionHeader}>
+              <PersonOutlinedIcon fontSize="small" />
+              <span>ORGANIZER</span>
+            </div>
+            <div className={styles.sheetOrganizerRow}>
+              <div
+                className={styles.sheetOrganizerAvatar}
+                style={{ background: getAvatarColor(creatorName) }}
+              >
+                {getInitials(creatorName)}
+              </div>
+              <div>
+                <div className={styles.sheetOrganizerName}>{creatorName}</div>
+                {creatorSub && (
+                  <div className={styles.sheetOrganizerSub}>{creatorSub}</div>
+                )}
+              </div>
+            </div>
+            {(depts.length > 0 || offices.length > 0) && (
+              <div className={styles.sheetTagRow}>
+                {depts.map((d) => (
+                  <span key={d} className={styles.sheetTag}>
+                    {d}
+                  </span>
+                ))}
+                {offices.map((o) => (
+                  <span key={o} className={styles.sheetTag}>
+                    {o}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {allUsers.length > 0 && (
+          <div className={styles.sheetSection}>
+            <div className={styles.sheetSectionHeader}>
+              <GroupsOutlinedIcon fontSize="small" />
+              <span>AUDIENCE</span>
+            </div>
+            <div className={styles.sheetAttendeeStack}>
+              {acceptedUsers.slice(0, 6).map((u) => {
+                const name = u.full_name || u.username || u.email || "Unknown";
+                return (
+                  <div
+                    key={u.id}
+                    className={styles.sheetAttendeeAvatar}
+                    style={{ background: getAvatarColor(name) }}
+                    title={name}
+                  >
+                    {getInitials(name)}
+                  </div>
+                );
+              })}
+              {acceptedUsers.length > 6 && (
+                <div className={styles.sheetAttendeeMore}>
+                  +{acceptedUsers.length - 6}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {attachments.length > 0 && (
+          <div className={styles.sheetSection}>
+            <div className={styles.sheetSectionHeader}>
+              <FiPaperclip size={14} />
+              <span>ATTACHMENTS</span>
+            </div>
+            <div className={styles.sheetAttachList}>
+              {attachments.map((file) => (
+                <a
+                  key={file.id}
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.sheetAttachItem}
+                >
+                  <FiDownload size={13} />
+                  <span>{file.file_name}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {conflict?.isConflicted && (
+          <div
+            className={`${styles.sheetConflictNotice} ${conflict.isPriority ? styles.sheetConflictPriority : styles.sheetConflictWarning}`}
+          >
+            {conflict.isPriority
+              ? "This event takes priority."
+              : "This event conflicts with another."}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={styles.pageWrapper}>
       <div className={styles.container}>
-        {/* Top Content */}
         <div className={styles.topContent}>
           <div className={styles.headerLeft}>
             <button onClick={goToPrev} className={styles.navBtn}>
@@ -595,7 +924,6 @@ export default function CalendarView() {
           </div>
         </div>
 
-        {/* Main swipeable view */}
         <div className={styles.mainContent}>
           <div className={styles.viewport} ref={viewportRef}>
             <div
@@ -612,75 +940,63 @@ export default function CalendarView() {
           </div>
         </div>
 
-        {/* Bottom Sheet */}
         {sheetOpen && (
           <div className={styles.sheetOverlay} onClick={closeSheet}>
-            <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.sheetHandle}>
-                <FiChevronDown size={20} />
+            <div
+              className={styles.sheet}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                transform: `translateY(${sheetDragY}px)`,
+                transition: sheetDragging ? "none" : "transform 0.2s ease",
+              }}
+            >
+              <div
+                className={styles.sheetHandle}
+                onTouchStart={handleHandleTouchStart}
+                onTouchMove={handleHandleTouchMove}
+                onTouchEnd={handleHandleTouchEnd}
+              >
+                <FiChevronDown size={22} />
               </div>
-              {selectedEvent ? (
-                <div className={styles.eventDetail}>
-                  <button
-                    className={styles.backBtn}
-                    onClick={() => setSelectedEvent(null)}
-                  >
-                    ← Back
-                  </button>
-                  <h3>{selectedEvent.title}</h3>
-                  <div className={styles.meta}>
-                    <div>
-                      <strong>Date:</strong> {selectedEvent.date}
-                    </div>
-                    <div>
-                      <strong>Time:</strong> {selectedEvent.time} –{" "}
-                      {selectedEvent.endTime}
-                    </div>
-                    <div>
-                      <strong>Type:</strong> {selectedEvent.type}
-                    </div>
-                    {selectedEvent.location && (
-                      <div>
-                        <strong>Location:</strong> {selectedEvent.location}
-                      </div>
-                    )}
-                  </div>
-                  <p className={styles.desc}>{selectedEvent.description}</p>
-                </div>
+
+              <div className={styles.sheetDateHeader}>
+                {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  },
+                )}
+              </div>
+
+              {dailyEvents.length === 0 ? (
+                <p className={styles.noTasks}>No events</p>
               ) : (
-                <div className={styles.agenda}>
-                  <h3 className={styles.agendaTitle}>
-                    {new Date(selectedDate + "T00:00:00").toLocaleDateString(
-                      "en-US",
-                      { weekday: "long", month: "short", day: "numeric" },
-                    )}
-                  </h3>
-                  {dailyEvents.length === 0 && (
-                    <p className={styles.noTasks}>No events</p>
+                <div
+                  className={styles.sheetCarouselWrapper}
+                  onTouchStart={handleCarouselTouchStart}
+                  onTouchEnd={handleCarouselTouchEnd}
+                >
+                  {detailLoading ? (
+                    <p className={styles.noTasks}>Loading details...</p>
+                  ) : (
+                    renderSheetEventCard()
                   )}
-                  {dailyEvents.map((ev) => (
-                    <div
-                      key={ev.id}
-                      className={styles.agendaItem}
-                      onClick={() => handleEventClick(ev)}
-                      style={{ borderLeftColor: ev.color }}
-                    >
-                      <div className={styles.agendaTime}>
-                        {ev.time} – {ev.endTime}
-                      </div>
-                      <div className={styles.agendaInfo}>
-                        <div className={styles.agendaTitle}>{ev.title}</div>
-                        <div className={styles.agendaMeta}>
-                          {ev.type} · {ev.location}
-                        </div>
-                      </div>
+
+                  {dailyEvents.length > 1 && (
+                    <div className={styles.sheetDotsContainer}>
+                      {dailyEvents.map((_, idx) => (
+                        <span
+                          key={idx}
+                          className={`${styles.sheetDot} ${idx === sheetIndex ? styles.sheetDotActive : ""}`}
+                          onClick={() => setSheetIndex(idx)}
+                        />
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
-              <button className={styles.closeBtn} onClick={closeSheet}>
-                <FiX size={20} />
-              </button>
             </div>
           </div>
         )}

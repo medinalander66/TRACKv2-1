@@ -18,17 +18,24 @@ import {
   FiLink,
   FiChevronLeft,
   FiChevronRight,
+  FiAlertTriangle,
+  FiCopy,
 } from "react-icons/fi";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import styles from "./Events.module.css";
+import {
+  getEventStatus,
+  EVENT_STATUS_CONFIG,
+} from "../../../utils/eventStatus";
 
 // ─── Modals ───
 import EventCardView from "../../../components/events/EventCardView";
 import EventInvitation from "../../../components/events/EventInvitation";
 import AttendeesModal from "../../../components/events/AttendeesModal";
+import ConflictCardEvent from "../../../components/events/ConflictCardEvent";
 
 // ─── Helpers ──────────────────────────────────────────────
 const formatDate = (dateStr) => {
@@ -106,6 +113,13 @@ export default function Events() {
   const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [showAttendeesModal, setShowAttendeesModal] = useState(false);
 
+  // ─── Conflict modal ───
+  const [conflictEvent, setConflictEvent] = useState(null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+
+  // ─── Copy-link feedback ───
+  const [copiedLinkId, setCopiedLinkId] = useState(null);
+
   // ─── Today's Events ──────────────────────────────────
   const [todayEvents, setTodayEvents] = useState([]);
   const [todayLoading, setTodayLoading] = useState(false);
@@ -131,7 +145,7 @@ export default function Events() {
     }
   }, []);
 
-  // ─── Fetch All Events (now includes userResponse per event) ──
+  // ─── Fetch All Events ──────────────────────────────
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -250,7 +264,7 @@ export default function Events() {
     [searchTerm, eventType, duration],
   );
 
-  // ─── View handlers (always fetch full details for the modal) ──
+  // ─── View handlers ──
   const handleViewEvent = async (event) => {
     try {
       const res = await apiClient.get(`/events/${event.id}`);
@@ -302,6 +316,22 @@ export default function Events() {
     } finally {
       setShowAttendeesModal(true);
     }
+  };
+
+  const handleShowConflict = (event) => {
+    setConflictEvent(event);
+    setShowConflictModal(true);
+  };
+
+  const handleCopyLink = (id, link) => {
+    if (!link) return;
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        setCopiedLinkId(id);
+        setTimeout(() => setCopiedLinkId(null), 1500);
+      })
+      .catch(() => {});
   };
 
   const handleEditEvent = (eventId) => {
@@ -364,6 +394,10 @@ export default function Events() {
     const allUsers = participants.users || [];
     const acceptedUsers = allUsers.filter((u) => u.response === "accepted");
 
+    const status = getEventStatus(todayEvent);
+    const statusCfg = EVENT_STATUS_CONFIG[status];
+    const conflict = todayEvent.conflict || {};
+
     return (
       <div className={styles.featuredEventSection}>
         <div className={styles.featuredContainer}>
@@ -381,6 +415,11 @@ export default function Events() {
                 </div>
                 <div className={styles.badgePill}>
                   {todayEvent.event_type || "Unknown Event Type"}
+                </div>
+                <div
+                  className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
+                >
+                  {statusCfg.label}
                 </div>
               </div>
 
@@ -426,6 +465,22 @@ export default function Events() {
                       </div>
                     </div>
                   </div>
+                  {todayEvent.method === "online" && todayEvent.link && (
+                    <div className={styles.linkSection}>
+                      <FiLink size={14} />
+                      <span className={styles.linkText}>{todayEvent.link}</span>
+                      <button
+                        type="button"
+                        className={styles.copyLinkBtn}
+                        onClick={() =>
+                          handleCopyLink(todayEvent.id, todayEvent.link)
+                        }
+                      >
+                        <FiCopy size={12} />
+                        {copiedLinkId === todayEvent.id ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.organizerSection}>
@@ -536,6 +591,22 @@ export default function Events() {
                   View Event Details
                 </button>
               </div>
+
+              {conflict.isConflicted && (
+                <button
+                  type="button"
+                  className={`${styles.conflictBtn} ${
+                    conflict.isPriority
+                      ? styles.conflictBtnPriority
+                      : styles.conflictBtnWarning
+                  }`}
+                  onClick={() => handleShowConflict(todayEvent)}
+                >
+                  <FiAlertTriangle size={13} />
+                  {conflict.isPriority ? "Priority Event" : "Conflicted"} — View
+                  details
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -546,9 +617,22 @@ export default function Events() {
   // ─── Render Today's Events carousel ─────────────────
   const renderTodayEventsCarousel = () => {
     if (todayLoading)
-      return <p className={styles.noData}>Loading today's event...</p>;
+      return (
+        <div className={styles.emptyStateBox}>
+          <FiClock size={28} className={styles.emptyStateIcon} />
+          <p className={styles.emptyStateText}>Loading today's event...</p>
+        </div>
+      );
     if (todayEvents.length === 0)
-      return <p className={styles.noData}>No events today</p>;
+      return (
+        <div className={styles.emptyStateBox}>
+          <FiCalendar size={28} className={styles.emptyStateIcon} />
+          <p className={styles.emptyStateText}>No events today</p>
+          <p className={styles.emptyStateSubtext}>
+            Enjoy the free time — nothing on your schedule for today.
+          </p>
+        </div>
+      );
 
     return (
       <div
@@ -600,7 +684,7 @@ export default function Events() {
     );
   };
 
-  // ─── Render Event Card (list) — whole card is clickable ──
+  // ─── Render Event Card (list) — new layout ──
   const renderEventCard = (event, variant = "all") => {
     let locationDisplay = "";
     if (event.method === "online") {
@@ -618,6 +702,9 @@ export default function Events() {
     };
 
     const showEditIcon = variant === "created" || variant === "collaboration";
+    const status = getEventStatus(event);
+    const statusCfg = EVENT_STATUS_CONFIG[status];
+    const conflict = event.conflict || {};
 
     return (
       <div
@@ -640,15 +727,30 @@ export default function Events() {
           </button>
         )}
 
+        {/* title + description */}
         <div className={styles.cardTitleLarge}>{event.title}</div>
+        {event.description && (
+          <div className={styles.cardDescription}>{event.description}</div>
+        )}
 
+        <div className={styles.cardSeparator} />
+
+        {/* hierarchy | eventType | status */}
         <div className={styles.cardMetaRow}>
           <span className={styles.metaBadge}>{event.hierarchy || "Local"}</span>
           <span className={styles.metaBadge}>
             {event.event_type || "Event"}
           </span>
+          <span
+            className={`${styles.statusBadgeSmall} ${styles[statusCfg.className]}`}
+          >
+            {statusCfg.label}
+          </span>
         </div>
 
+        <div className={styles.cardSeparator} />
+
+        {/* date time location */}
         <div className={styles.cardDetails}>
           <span>
             <FiCalendar size={14} />{" "}
@@ -664,6 +766,27 @@ export default function Events() {
           </span>
         </div>
 
+        {event.method === "online" && event.link && (
+          <div
+            className={styles.linkSection}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FiLink size={14} />
+            <span className={styles.linkText}>{event.link}</span>
+            <button
+              type="button"
+              className={styles.copyLinkBtn}
+              onClick={() => handleCopyLink(event.id, event.link)}
+            >
+              <FiCopy size={12} />
+              {copiedLinkId === event.id ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        )}
+
+        <div className={styles.cardSeparator} />
+
+        {/* creator */}
         {event.creator && (
           <div className={styles.creatorBlock}>
             <div
@@ -700,6 +823,9 @@ export default function Events() {
           </div>
         )}
 
+        <div className={styles.cardSeparator} />
+
+        {/* visibility | method | response status */}
         <div className={styles.cardBadges}>
           {getVisibilityBadge(event.type || event.visibility)}
           <span className={styles.methodBadge}>
@@ -712,6 +838,25 @@ export default function Events() {
           </span>
           {event.response && getStatusBadge(event.response)}
         </div>
+
+        {conflict.isConflicted && (
+          <button
+            type="button"
+            className={`${styles.conflictBtn} ${
+              conflict.isPriority
+                ? styles.conflictBtnPriority
+                : styles.conflictBtnWarning
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShowConflict(event);
+            }}
+          >
+            <FiAlertTriangle size={13} />
+            {conflict.isPriority ? "Priority Event" : "Conflicted"} — View
+            details
+          </button>
+        )}
       </div>
     );
   };
@@ -781,7 +926,13 @@ export default function Events() {
 
             <div className={styles.eventList}>
               {filteredAll.length === 0 ? (
-                <div className={styles.emptyState}>No events found.</div>
+                <div className={styles.emptyStateBox}>
+                  <FiCalendar size={28} className={styles.emptyStateIcon} />
+                  <p className={styles.emptyStateText}>No events found</p>
+                  <p className={styles.emptyStateSubtext}>
+                    Try adjusting your filters or check back later.
+                  </p>
+                </div>
               ) : (
                 filteredAll.map((ev) => renderEventCard(ev, "all"))
               )}
@@ -832,12 +983,15 @@ export default function Events() {
             </div>
             <div className={styles.eventList}>
               {invitedFiltered.length === 0 ? (
-                <div className={styles.emptyState}>
-                  {invitedSubTab === "pending"
-                    ? "No pending invitations."
-                    : invitedSubTab === "declined"
-                      ? "No declined invitations."
-                      : "No invited events."}
+                <div className={styles.emptyStateBox}>
+                  <FiCalendar size={28} className={styles.emptyStateIcon} />
+                  <p className={styles.emptyStateText}>
+                    {invitedSubTab === "pending"
+                      ? "No pending invitations"
+                      : invitedSubTab === "declined"
+                        ? "No declined invitations"
+                        : "No invited events"}
+                  </p>
                 </div>
               ) : (
                 invitedFiltered.map((ev) => renderEventCard(ev, "invited"))
@@ -852,9 +1006,11 @@ export default function Events() {
         return (
           <div className={styles.eventList}>
             {filteredCreated.length === 0 ? (
-              <div className={styles.emptyState}>
-                <FiPlus size={24} />
-                <span>You haven't created any events yet.</span>
+              <div className={styles.emptyStateBox}>
+                <FiPlus size={28} className={styles.emptyStateIcon} />
+                <p className={styles.emptyStateText}>
+                  You haven't created any events yet
+                </p>
                 <button
                   className={styles.createBtn}
                   onClick={() => navigate("/create-event")}
@@ -874,9 +1030,11 @@ export default function Events() {
         return (
           <div className={styles.eventList}>
             {filteredCollaboration.length === 0 ? (
-              <div className={styles.emptyState}>
-                <FiUsers size={24} />
-                <span>You are not a collaborator on any events.</span>
+              <div className={styles.emptyStateBox}>
+                <FiUsers size={28} className={styles.emptyStateIcon} />
+                <p className={styles.emptyStateText}>
+                  You are not a collaborator on any events
+                </p>
               </div>
             ) : (
               filteredCollaboration.map((ev) =>
@@ -951,6 +1109,15 @@ export default function Events() {
           setSelectedEvent(null);
         }}
         event={selectedEvent}
+      />
+
+      <ConflictCardEvent
+        isOpen={showConflictModal}
+        onClose={() => {
+          setShowConflictModal(false);
+          setConflictEvent(null);
+        }}
+        event={conflictEvent}
       />
     </div>
   );

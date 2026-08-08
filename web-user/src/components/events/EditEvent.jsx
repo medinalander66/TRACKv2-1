@@ -10,6 +10,7 @@ import InviteAttendeesModal from "./InviteAttendeesModal";
 import MapPicker from "../common/MapPicker";
 import FileAttachment from "../common/FileAttachment";
 import ConflictCard from "./ConflictCard";
+import FeedbackModal from "../common/FeedbackModal";
 import apiClient from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -55,7 +56,6 @@ export default function EditEvent() {
     street: "",
     map_location: "",
     remind_before_minutes: "",
-    is_email_reminder: false,
     event_type: "event",
   });
 
@@ -74,10 +74,13 @@ export default function EditEvent() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // ── Whether the CURRENT user is the actual creator of THIS event ──
+  // ─── Feedback modal ───
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
+
   const [isEventCreator, setIsEventCreator] = useState(false);
 
-  // Conflict detection states
   const [conflictData, setConflictData] = useState(null);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [showConflictSheet, setShowConflictSheet] = useState(false);
@@ -86,7 +89,6 @@ export default function EditEvent() {
 
   const goBack = () => navigate("/events");
 
-  // ─── Fetch event data ──────────────────────────────────
   useEffect(() => {
     const fetchEventData = async () => {
       try {
@@ -127,7 +129,6 @@ export default function EditEvent() {
           street: event.street || "",
           map_location: event.map_location || "",
           remind_before_minutes: event.remind_before_minutes || "",
-          is_email_reminder: event.is_email_reminder || false,
           event_type: event.event_type || "event",
         });
 
@@ -140,10 +141,7 @@ export default function EditEvent() {
         setCollaboratorIds(collaborators);
 
         setIsEventCreator(!!event.isCreator);
-
-        if (event.attachments) {
-          setExistingAttachments(event.attachments);
-        }
+        setExistingAttachments(event.attachments || []);
 
         setDepartments(deptRes.data.items || []);
         setVenues(venueRes.data.venues || []);
@@ -194,6 +192,12 @@ export default function EditEvent() {
     const startDateTime = `${form.start_date}T${form.start_time}:00`;
     const endDateTime = `${form.end_date}T${form.end_time}:00`;
 
+    // Guard: skip the request while the range is still invalid mid-typing
+    if (new Date(startDateTime) >= new Date(endDateTime)) {
+      setConflictData(null);
+      return;
+    }
+
     setCheckingConflicts(true);
     try {
       const res = await apiClient.post("/events/check-conflicts", {
@@ -239,13 +243,6 @@ export default function EditEvent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (conflictData?.conflicts?.venue?.has) {
-      const confirmProceed = window.confirm(
-        "The selected venue is already booked for this time. Are you sure you want to proceed?",
-      );
-      if (!confirmProceed) return;
-    }
-
     setLoading(true);
     setMessage("");
 
@@ -272,7 +269,6 @@ export default function EditEvent() {
       attendee_ids: attendeeIds,
       collaborator_ids: collaboratorIds,
       remind_before_minutes: form.remind_before_minutes || null,
-      is_email_reminder: form.is_email_reminder,
       event_type: form.event_type,
     };
 
@@ -280,6 +276,7 @@ export default function EditEvent() {
       const res = await apiClient.put(`/events/${id}`, payload);
       if (!res.data.ok) {
         setMessage(res.data.message || "Failed to update event");
+        showFeedback(res.data.message || "Failed to update event", "error");
         setLoading(false);
         return;
       }
@@ -296,20 +293,19 @@ export default function EditEvent() {
         }
       }
 
-      navigate("/events");
+      showFeedback("Event updated successfully!", "success");
+      setTimeout(() => navigate("/events"), 800);
     } catch (err) {
       console.error("Update error:", err);
       const errorMsg =
         err.response?.data?.message || err.message || "Server error";
       setMessage(errorMsg);
+      showFeedback(errorMsg, "error");
       setLoading(false);
     }
   };
 
   // ─── Visibility Options ──────────────────────────────
-  // Editable lang kapag officials AT ikaw talaga yung creator ng event na ito.
-  // Kung collaborator ka lang (kahit officials ka), o hindi officials, hindi mo
-  // pwedeng baguhin ang visibility — makikita mo lang yung totoong current value.
   const canEditVisibility = role === "officials" && isEventCreator;
 
   const visibilityOptions = [];
@@ -520,12 +516,14 @@ export default function EditEvent() {
               <InputField
                 label="START DATE"
                 type="date"
+                autoComplete="off"
                 value={form.start_date}
                 onChange={(e) => updateField("start_date", e.target.value)}
               />
               <InputField
                 label="END DATE"
                 type="date"
+                autoComplete="off"
                 value={form.end_date}
                 onChange={(e) => updateField("end_date", e.target.value)}
               />
@@ -534,18 +532,19 @@ export default function EditEvent() {
               <InputField
                 label="START TIME"
                 type="time"
+                autoComplete="off"
                 value={form.start_time}
                 onChange={(e) => updateField("start_time", e.target.value)}
               />
               <InputField
                 label="END TIME"
                 type="time"
+                autoComplete="off"
                 value={form.end_time}
                 onChange={(e) => updateField("end_time", e.target.value)}
               />
             </div>
 
-            {/* ── Conflict Notice Card ── */}
             {checkingConflicts && (
               <div className={styles.checkingNotice}>
                 <FiClock size={18} />
@@ -560,7 +559,8 @@ export default function EditEvent() {
                 <div className={styles.conflictNoticeLeft}>
                   <FiAlertCircle size={20} className={styles.conflictIcon} />
                   <span>
-                    {conflictData.conflicts.venue.has && "Venue conflict "}
+                    {conflictData.conflicts.venue.has &&
+                      "Venue conflict — must be resolved before saving "}
                     {conflictData.conflicts.attendees.has &&
                       "· Attendee conflicts "}
                     {conflictData.conflicts.creator.has &&
@@ -597,18 +597,10 @@ export default function EditEvent() {
                   updateField("remind_before_minutes", e.target.value)
                 }
               />
-              <div className={styles.checkRow}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={form.is_email_reminder}
-                    onChange={(e) =>
-                      updateField("is_email_reminder", e.target.checked)
-                    }
-                  />
-                  Email Reminder
-                </label>
-              </div>
+              <p className={styles.helperText}>
+                Attendees and collaborators are always notified by email when
+                invited or when the event changes.
+              </p>
             </div>
           </div>
 
@@ -732,6 +724,12 @@ export default function EditEvent() {
           }}
         />
       </form>
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
+      />
     </div>
   );
 }

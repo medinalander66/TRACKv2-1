@@ -20,7 +20,9 @@ export default function Login() {
   return (
     <div className={styles.loginPage}>
       <div className={styles.pageContent}>
-        <BrandHeader />
+        <div className={styles.brandHeaderContainer}>
+          <BrandHeader />
+        </div>  
         <div className={styles.loginCard}>
           <h1 className={styles.title}>Admin Login</h1>
           <p className={styles.subTitle}>Welcome back!</p>

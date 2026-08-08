@@ -5,6 +5,295 @@
   margin-bottom: 1.5rem;
 }
 
+.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--page-background-color, #f8fafb);
+}
+
+.content {
+  min-height: 400px;
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.taskCard {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-left: 4px solid #800000;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.taskCard:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toggleCompleteButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggleCompleteButton:hover {
+  background: #f3f4f6;
+  border-color: #ccc;
+}
+
+.taskBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badgePill,
+.badgePillAlt,
+.statusBadge {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badgePill {
+  background: var(--secondary-color);
+  color: var(--tertiary-color);
+}
+
+.badgePillAlt {
+  background: #f3f4f6;
+  color: #333;
+}
+
+.statusBadge {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.completionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  width: fit-content;
+}
+
+.completedBadge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.pendingBadge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.cardActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.iconButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.iconButton:hover {
+  background: #f3f4f6;
+  border-color: #ccc;
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cardTitleLarge {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cardMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.cardDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.cardDetails span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+}
+
+.creatorBlock {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 0;
+  margin: 1rem 0;
+}
+
+.creatorAvatar {
+width: 48px;
+    height: 48px;
+    border-radius: 100%;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.creatorInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.creatorName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.creatorEmail,
+.creatorAffiliation {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.creatorAffiliation {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.metaBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+}
+
+.taskDesc {
+  color: #41413f;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.checklistSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.checklistSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.checklistLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.checklistCount {
+  font-size: 0.85rem;
+  color: #374151;
+  font-weight: 700;
+}
+
+.progressBarTrack {
+  background: #e5e7eb;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  background: var(--primary-color, #800000);
+  height: 100%;
+  width: 0;
+  transition: width 0.25s ease;
+}
+
 .searchRow {
   width: 100%;
 }

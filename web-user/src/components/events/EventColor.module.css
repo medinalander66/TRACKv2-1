@@ -5,11 +5,11 @@
 }
 
 .label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-        color: #2d2d2d;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #6c757d;
+  text-transform: uppercase;
 }
 
 .swatchGroup {

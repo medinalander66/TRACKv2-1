@@ -7,6 +7,7 @@ const {
   getTaskById,
   updateTask,
   toggleChecklistItem,
+  addChecklistComment,
   respondToTask,
   getInvitedTasks,
   deleteTask
@@ -20,5 +21,6 @@ router.put('/:id', authenticate, updateTask);
 router.delete('/:id', authenticate, deleteTask);
 router.put('/:taskId/respond', authenticate, respondToTask);
 router.put('/checklist/:itemId', authenticate, toggleChecklistItem);
+router.post('/checklist/:itemId/comments', authenticate, addChecklistComment);
 
 module.exports = router;

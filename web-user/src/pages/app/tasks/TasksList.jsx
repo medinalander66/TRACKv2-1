@@ -8,9 +8,9 @@ import {
   IoIosArrowUp,
   IoIosArrowDown,
 } from "react-icons/io";
-import { FiEye, FiEdit, FiUsers, FiCheckCircle } from "react-icons/fi";
+import { FiEye, FiEdit, FiUsers, FiCheckCircle, FiSquare, FiCheckSquare } from "react-icons/fi";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
@@ -75,6 +75,31 @@ const getPriorityBadgeColor = (priority) => {
     default:
       return "#6b7280";
   }
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0]?.slice(0, 2).toUpperCase() || "?";
+};
+
+const getAvatarColor = (str) => {
+  const AVATAR_COLORS = [
+    "#f9a825",
+    "#43a047",
+    "#1e88e5",
+    "#8e24aa",
+    "#fb8c00",
+    "#00897b",
+    "#5e35b1",
+  ];
+  if (!str) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < str.length; i += 1) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
 export default function TasksList() {
@@ -183,6 +208,26 @@ export default function TasksList() {
   // ─── Handle Edit Task ──────────────────────────────
   const handleEditTask = (taskId) => {
     navigate(`/edit-task/${taskId}`);
+  };
+
+  // ─── Handle Toggle Completed ───────────────────────
+  const handleToggleCompleted = async (task, event) => {
+    event.stopPropagation();
+    const nextCompleted = !isTaskCompleted(task);
+    try {
+      const res = await apiClient.put(`/tasks/${task.id}/completed`, {
+        is_completed: nextCompleted,
+      });
+      if (res.data?.ok) {
+        await Promise.all([
+          fetchAllTasks(),
+          fetchCreatedTasks(),
+          fetchInvitedTasks(),
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to update task completion:", err);
+    }
   };
 
   // ─── Handle Respond to Invitation ──────────────────
@@ -335,84 +380,155 @@ export default function TasksList() {
   };
 
   // ─── Render Task Card ─────────────────────────────
-  const renderTaskCard = (task) => {
-    let checklistCompleted = 0;
-    let checklistTotal = 0;
+  const renderTaskCard = (task, variant = "all") => {
+    const checklistTotal = Array.isArray(task.checklist)
+      ? task.checklist.length
+      : 0;
+    const checklistCompleted = Array.isArray(task.checklist)
+      ? task.checklist.filter((item) => item.is_completed).length
+      : 0;
+    const pct = checklistTotal > 0
+      ? Math.round((checklistCompleted / checklistTotal) * 100)
+      : 0;
 
-    if (task.checklist && Array.isArray(task.checklist)) {
-      checklistTotal = task.checklist.length;
-      checklistCompleted = task.checklist.filter(
-        (item) => item.is_completed,
-      ).length;
-    }
-
-    const pct =
-      checklistTotal > 0
-        ? Math.round((checklistCompleted / checklistTotal) * 100)
-        : 0;
+    const locationDisplay = task.venue || task.location || "Online";
+    const creator = task.creator || {};
+    const creatorName =
+      creator.full_name || creator.username || creator.email || "Unknown";
+    const creatorPosition = creator.position || "";
+    const creatorAffiliation = [creator.department, creator.office]
+      .filter(Boolean)
+      .join(" | ");
+    const creatorSub = [creatorPosition, creatorAffiliation]
+      .filter(Boolean)
+      .join(" | ");
+    const completed = isTaskCompleted(task);
 
     return (
       <div
         key={task.id}
-        className={`${styles.taskCard} ${getPriorityClass(task.priority)}`}
+        className={taskStyles.taskCard}
+        style={{ borderLeftColor: task.color || getPriorityBadgeColor(task.priority) }}
         onClick={() => handleViewTask(task)}
-        style={{ cursor: "pointer" }}
       >
-        <div className={styles.taskCardTop}>
-          <span className={styles.taskCheckbox} />
-          {task.priority && (
-            <span
-              className={styles.priorityBadge}
-              style={{
-                backgroundColor: getPriorityBadgeColor(task.priority),
-                color: "#fff",
-              }}
+        <div className={taskStyles.cardHeader}>
+          <div className={taskStyles.cardTitleLarge}>{task.title}</div>
+
+          <div className={taskStyles.cardHeaderActions}>
+            <button
+              type="button"
+              className={taskStyles.toggleCompleteButton}
+              onClick={(e) => handleToggleCompleted(task, e)}
+              title={completed ? "Mark as not completed" : "Mark as completed"}
             >
-              {task.priority}
+              {completed ? <FiCheckSquare size={16} /> : <FiSquare size={16} />}
+            </button>
+            <button
+              type="button"
+              className={taskStyles.iconButton}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditTask(task.id);
+              }}
+              title="Edit task"
+            >
+              <FiEdit size={16} />
+            </button>
+            <button
+              type="button"
+              className={taskStyles.iconButton}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteTask(task.id);
+              }}
+              title="Delete task"
+            >
+              <RiDeleteBin6Line size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className={taskStyles.cardContent}>
+          <div className={taskStyles.taskBadgeRow}>
+            {task.priority && (
+              <span
+                className={taskStyles.badgePill}
+                style={{
+                  backgroundColor: getPriorityBadgeColor(task.priority),
+                  color: "#fff",
+                }}
+              >
+                {task.priority}
+              </span>
+            )}
+            {task.visibility && (
+              <span className={taskStyles.badgePillAlt}>
+                {getVisibilityBadge(task.visibility)}
+              </span>
+            )}
+            {variant === "invited" && task.response && (
+              <span className={taskStyles.statusBadge}>
+                {task.response.charAt(0).toUpperCase() + task.response.slice(1)}
+              </span>
+            )}
+          </div>
+
+          <div className={taskStyles.cardDetails}>
+            <span>
+              <AccessTimeOutlinedIcon fontSize="small" /> {formatDate(task.deadline_datetime)}
             </span>
+          </div>
+
+          {creator && (creator.full_name || creator.username || creator.email) && (
+            <div className={taskStyles.creatorBlock}>
+              <div
+                className={taskStyles.creatorAvatar}
+                style={{ background: getAvatarColor(creatorName) }}
+              >
+                {getInitials(creatorName)}
+              </div>
+              <div className={taskStyles.creatorInfo}>
+                <span className={taskStyles.creatorName}>{creatorName}</span>
+                <span className={taskStyles.creatorEmail}>
+                  {creator.email || creator.username || ""}
+                </span>
+                {creatorSub && (
+                  <span className={taskStyles.creatorAffiliation}>
+                    {creatorSub}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <span
+            className={`${taskStyles.completionBadge} ${
+              completed ? taskStyles.completedBadge : taskStyles.pendingBadge
+            }`}
+          >
+            {completed ? "Completed" : "Not Completed"}
+          </span>
+
+          {checklistTotal > 0 && (
+            <div className={taskStyles.checklistSection}>
+              <div className={taskStyles.checklistSummary}>
+                <span className={taskStyles.checklistLabel}>
+                  <ChecklistOutlinedIcon fontSize="small" />
+                  Checklist Progress
+                </span>
+                <span className={taskStyles.checklistCount}>
+                  {checklistCompleted}/{checklistTotal} items
+                </span>
+              </div>
+              <div className={taskStyles.progressBarTrack}>
+                <div
+                  className={taskStyles.progressBarFill}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
-
-        <h4 className={styles.taskTitle}>{task.title}</h4>
-
-        <div className={styles.taskMetaRow}>
-          <span className={styles.taskMetaItem}>
-            <AccessTimeOutlinedIcon fontSize="small" />
-            {formatDate(task.deadline_datetime)}
-          </span>
-        </div>
-
-        <div className={styles.taskMetaRow}>
-          <span className={styles.taskMetaItem}>
-            <VisibilityOutlinedIcon fontSize="small" />
-            {getVisibilityBadge(task.visibility)}
-          </span>
-        </div>
-
-        <p className={styles.taskDesc}>
-          {task.description?.substring(0, 100)}
-          {task.description?.length > 100 ? "..." : ""}
-        </p>
-
-        {checklistTotal > 0 && (
-          <>
-            <div className={styles.checklistRow}>
-              <span className={styles.checklistLabel}>
-                <ChecklistOutlinedIcon fontSize="small" />
-                Checklist Progress
-              </span>
-              <span className={styles.checklistFraction}>
-                {checklistCompleted}/{checklistTotal}
-              </span>
-            </div>
-            <div className={styles.progressBarTrack}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </>
-        )}
       </div>
     );
   };
@@ -420,12 +536,12 @@ export default function TasksList() {
   // ─── Render Content Based on Tab ───────────────────
   const renderContent = () => {
     if (loading) {
-      return <p className={styles.noData}>Loading tasks...</p>;
+      return <p className={taskStyles.noData}>Loading tasks...</p>;
     }
 
     if (error) {
       return (
-        <p className={styles.noData} style={{ color: "#dc2626" }}>
+        <p className={taskStyles.noData} style={{ color: "#dc2626" }}>
           {error}
         </p>
       );
@@ -464,10 +580,10 @@ export default function TasksList() {
           {currentTasks.length === 0 ? (
             <p className={taskStyles.noData}>No tasks in this category</p>
           ) : (
-            <div className={styles.upcomingList}>
+            <div className={taskStyles.taskList}>
               {currentTasks.map((task) => (
-                <div key={task.id}>
-                  {renderTaskCard(task)}
+                <div key={task.id}> 
+                  {renderTaskCard(task, "invited")}
                   {task.response === "pending" && (
                     <div className={taskStyles.invitationActions}>
                       <button
@@ -499,48 +615,49 @@ export default function TasksList() {
     }
 
     if (currentTasks.length === 0) {
-      return <p className={styles.noData}>No tasks available</p>;
+      return <p className={taskStyles.noData}>No tasks available</p>;
     }
 
     return (
-      <div className={styles.upcomingList}>
+      <div className={taskStyles.taskList}>
         {currentTasks.map((task) => renderTaskCard(task))}
       </div>
     );
   };
 
   return (
-    <div className={styles.mainContainer}>
-      {/* ─── Tabs ─── */}
-      <div className={taskStyles.tabs}>
-        <button
-          className={`${taskStyles.tab} ${activeTab === "all" ? taskStyles.activeTab : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          <FiEye size={16} /> All Tasks
-        </button>
-        <button
-          className={`${taskStyles.tab} ${activeTab === "invited" ? taskStyles.activeTab : ""}`}
-          onClick={() => setActiveTab("invited")}
-        >
-          <FiUsers size={16} /> Invited
-        </button>
-        <button
-          className={`${taskStyles.tab} ${activeTab === "created" ? taskStyles.activeTab : ""}`}
-          onClick={() => setActiveTab("created")}
-        >
-          <FiEdit size={16} /> Created
-        </button>
-        <button
-          className={`${taskStyles.tab} ${activeTab === "collaborators" ? taskStyles.activeTab : ""}`}
-          onClick={() => setActiveTab("collaborators")}
-        >
-          <FiCheckCircle size={16} /> Collaborators ({collaboratorCount})
-        </button>
-      </div>
+    <div className={taskStyles.container}>
+      <div className={taskStyles.content}>
+        {/* ─── Tabs ─── */}
+        <div className={taskStyles.tabs}>
+          <button
+            className={`${taskStyles.tab} ${activeTab === "all" ? taskStyles.activeTab : ""}`}
+            onClick={() => setActiveTab("all")}
+          >
+            <FiEye size={16} /> All Tasks
+          </button>
+          <button
+            className={`${taskStyles.tab} ${activeTab === "invited" ? taskStyles.activeTab : ""}`}
+            onClick={() => setActiveTab("invited")}
+          >
+            <FiUsers size={16} /> Invited
+          </button>
+          <button
+            className={`${taskStyles.tab} ${activeTab === "created" ? taskStyles.activeTab : ""}`}
+            onClick={() => setActiveTab("created")}
+          >
+            <FiEdit size={16} /> Created
+          </button>
+          <button
+            className={`${taskStyles.tab} ${activeTab === "collaborators" ? taskStyles.activeTab : ""}`}
+            onClick={() => setActiveTab("collaborators")}
+          >
+            <FiCheckCircle size={16} /> Collaborators ({collaboratorCount})
+          </button>
+        </div>
 
-      {/* ─── Controls ─── */}
-      <div className={taskStyles.taskControls}>
+        {/* ─── Controls ─── */}
+        <div className={taskStyles.taskControls}>
         <div className={taskStyles.searchRow}>
           <div className={taskStyles.searchInputWrapper}>
             <SearchOutlinedIcon className={taskStyles.searchIcon} />
@@ -656,6 +773,7 @@ export default function TasksList() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

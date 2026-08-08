@@ -5,62 +5,74 @@ import apiClient from "../../../api/client";
 import InputField from "../../../components/common/InputField";
 import Button from "../../../components/common/Button";
 import RadioGroup from "../../../components/common/RadioGroup";
-import TaskColor from "../../../components/tasks/TaskColor";  
-import InvitationModal from "../../../components/tasks/InvitationModal";
+import TaskColor from "../../../components/tasks/TaskColor";
 import InviteAssigneeModal from "../../../components/tasks/InviteAssigneeModal";
-import styles from "./CreateTask.module.css";
-
-import { IoCreateOutline } from "react-icons/io5";
-import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
-
+import InvitationModal from "../../../components/tasks/InvitationModal";
+import FileAttachment from "../../../components/common/FileAttachment";
 import {
   FiCalendar,
-  FiFileText,
+  FiClock,
   FiInfo,
   FiList,
   FiPlus,
   FiUserPlus,
   FiUsers,
+  FiFileText,
+  FiPaperclip,
 } from "react-icons/fi";
+import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
+import styles from "./CreateTask.module.css";
 
 export default function CreateTask() {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     title: "",
     color: "#3B82F6",
-    label: "medium",
+    priority: "medium",
     visibility: "personal",
-    dueDate: "",
+    deadlineDate: "",
+    deadlineTime: "",
     description: "",
+    remind_before_minutes: "",
+    is_email_reminder: false,
   });
 
-  const [statusMessage, setStatusMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
-  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
-  const [collaboratorIds, setCollaboratorIds] = useState([]);
   const [assigneeIds, setAssigneeIds] = useState([]);
-
-  const [newChecklistItem, setNewChecklistItem] = useState("");
-  const [checklistCards, setChecklistCards] = useState([]);
+  const [collaboratorIds, setCollaboratorIds] = useState([]);
+  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
+  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [checklistCards, setChecklistCards] = useState([
+    { id: 1, title: "Checklist", items: [], newItemText: "" },
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleCheckboxChange = (e) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  // Checklist helpers
   const toggleChecklistItem = (cardId, itemId) => {
     setChecklistCards((prev) =>
       prev.map((card) =>
         card.id === cardId
-          ? { ...card, items: card.items.map((it) => (it.id === itemId ? { ...it, done: !it.done } : it)) }
-          : card,
-      ),
+          ? {
+              ...card,
+              items: card.items.map((item) =>
+                item.id === itemId ? { ...item, done: !item.done } : item
+              ),
+            }
+          : card
+      )
     );
   };
 
@@ -68,34 +80,62 @@ export default function CreateTask() {
     setChecklistCards((prev) =>
       prev.map((card) => {
         if (card.id !== cardId) return card;
-        const trimmedValue = (card.newItemText || "").trim();
-        if (!trimmedValue) return card;
+        const text = card.newItemText?.trim();
+        if (!text) return card;
         return {
           ...card,
-          items: [...card.items, { id: Date.now(), text: trimmedValue, done: false }],
+          items: [...card.items, { id: Date.now(), text, done: false }],
           newItemText: "",
         };
-      }),
+      })
     );
   };
 
   const handleNewItemTextChange = (cardId, value) => {
-    setChecklistCards((prev) => prev.map((card) => (card.id === cardId ? { ...card, newItemText: value } : card)));
+    setChecklistCards((prev) =>
+      prev.map((card) =>
+        card.id === cardId ? { ...card, newItemText: value } : card
+      )
+    );
   };
 
   const handleAddChecklistCard = () => {
     setChecklistCards((prev) => [
       ...prev,
-      { id: Date.now(), title: "New Checklist", items: [], newItemText: "" },
+      { id: Date.now(), title: "Checklist", items: [], newItemText: "" },
     ]);
   };
 
   const handleDeleteChecklistCard = (cardId) => {
+    if (checklistCards.length <= 1) return;
     setChecklistCards((prev) => prev.filter((c) => c.id !== cardId));
   };
 
   const handleEditChecklistTitle = (cardId, value) => {
-    setChecklistCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, title: value } : c)));
+    setChecklistCards((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, title: value } : c))
+    );
+  };
+
+  // File attachment handlers
+  const handleFileAdd = () => {
+    // Trigger file input (we can add a hidden input in the component)
+    document.getElementById("taskFileInput")?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    const newAttachments = files.map((file) => ({
+      file,
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(1)} KB`,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = "";
+  };
+
+  const handleRemoveFile = (fileToRemove) => {
+    setAttachments((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
   const handleSubmit = async (e) => {
@@ -103,67 +143,80 @@ export default function CreateTask() {
     setLoading(true);
     setStatusMessage("");
 
+    // Validation
+    if (!formData.title.trim()) {
+      setStatusMessage("Please enter a task title.");
+      setLoading(false);
+      return;
+    }
+    if (!formData.deadlineDate) {
+      setStatusMessage("Please select a deadline date.");
+      setLoading(false);
+      return;
+    }
+    if (!formData.deadlineTime) {
+      setStatusMessage("Please select a deadline time.");
+      setLoading(false);
+      return;
+    }
+
+    const deadline_datetime = `${formData.deadlineDate}T${formData.deadlineTime}:00`;
+
+    const checklistItems = [];
+    checklistCards.forEach((card) => {
+      card.items.forEach((item) => {
+        checklistItems.push({ text: item.text });
+      });
+    });
+
+    const payload = {
+      title: formData.title.trim(),
+      color: formData.color,
+      priority: formData.priority,
+      visibility: formData.visibility,
+      deadline_datetime,
+      description: formData.description.trim(),
+      remind_before_minutes: formData.remind_before_minutes || null,
+      is_email_reminder: formData.is_email_reminder,
+      assignee_ids: assigneeIds,
+      collaborator_ids: collaboratorIds,
+      checklist_items: checklistItems,
+    };
+
     try {
-      // Validate required fields
-      if (!formData.title.trim()) {
-        setStatusMessage("Task title is required.");
-        setLoading(false);
-        return;
-      }
-
-      if (!formData.dueDate) {
-        setStatusMessage("Deadline date is required.");
-        setLoading(false);
-        return;
-      }
-
-      // Map frontend field names to backend expected keys
-      const payload = {
-        title: formData.title,
-        color: formData.color,
-        priority: formData.label, // frontend uses `label` for priority
-        visibility: formData.visibility,
-        deadline_datetime: formData.dueDate, // backend expects `deadline_datetime`
-        description: formData.description,
-        collaborator_ids: collaboratorIds,
-        assignee_ids: assigneeIds,
-        checklist_items: (checklistCards || []).flatMap((card) =>
-          (card.items || []).map((item) => ({ text: item.text }))
-        ),
-      };
-
       const res = await apiClient.post("/tasks", payload);
-      if (!res.data?.ok) {
+      if (res.data?.ok) {
+        const taskId = res.data.task.id;
+        // Upload attachments if any
+        if (attachments.length > 0) {
+          const formDataObj = new FormData();
+          attachments.forEach(({ file }) => formDataObj.append("files", file));
+          await apiClient.post(`/attachments/task/${taskId}`, formDataObj, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+        setStatusMessage("Task created successfully!");
+        setTimeout(() => navigate("/tasks"), 1000);
+      } else {
         setStatusMessage(res.data?.message || "Failed to create task.");
-        setLoading(false);
-        return;
       }
-
-      setStatusMessage(
-        `Task created successfully for ${user?.username || "you"}.`,
-      );
-      setTimeout(() => navigate("/tasks"), 1000);
     } catch (error) {
-      setStatusMessage(
-        error.response?.data?.message || "Failed to create task.",
-      );
+      setStatusMessage(error.response?.data?.message || "Server error.");
     } finally {
       setLoading(false);
     }
   };
 
   const totalCompleted = (items) => items.filter((it) => it.done).length;
-  const progressFor = (items) => (items.length ? Math.round((totalCompleted(items) / items.length) * 100) : 0);
+  const progressFor = (items) =>
+    items.length ? Math.round((totalCompleted(items) / items.length) * 100) : 0;
 
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
         <div
           className={styles.titleSection}
-          style={{
-            backgroundColor: formData.color,
-            transition: "background-color 0.15s ease",
-          }}
+          style={{ backgroundColor: formData.color }}
         >
           <InputField
             className={styles.titleInput}
@@ -176,6 +229,7 @@ export default function CreateTask() {
         </div>
 
         <div className={styles.sectionContent}>
+          {/* Basics */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <FiInfo size={16} className={styles.cardHeaderIcon} />
@@ -185,31 +239,48 @@ export default function CreateTask() {
               value={formData.color}
               onChange={(color) => setFormData((prev) => ({ ...prev, color }))}
             />
-
-            <div className={styles.stackRow}>
-              <RadioGroup
-                name="label"
-                label="LABEL"
-                groupClassName={styles.labelGroup}
-                optionsClassName={styles.labelOptions}
-                radioLabelClassName={styles.labelRadioLabel}
-                labelClassName={styles.labelLabel}
-                optionContentClassName={styles.labelOptionContent}
-                options={[
-                  { value: "high", label: "High", color: "#800000" },
-                  { value: "medium", label: "Medium", color: "#AF4402" },
-                  { value: "low", label: "Low", color: "#095000" },
-                ]}
-                value={formData.label}
-                onChange={handleInputChange}
-              />
-            </div>
+            <RadioGroup
+              name="priority"
+              label="PRIORITY"
+              groupClassName={styles.labelGroup}
+              optionsClassName={styles.labelOptions}
+              radioLabelClassName={styles.labelRadioLabel}
+              labelClassName={styles.labelLabel}
+              optionContentClassName={styles.labelOptionContent}
+              options={[
+                { value: "high", label: "High", color: "#800000" },
+                { value: "medium", label: "Medium", color: "#AF4402" },
+                { value: "low", label: "Low", color: "#095000" },
+              ]}
+              value={formData.priority}
+              onChange={handleInputChange}
+            />
           </div>
 
+          {/* Visibility */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiUsers size={16} className={styles.cardHeaderIcon} />
+              <span>Visibility</span>
+            </div>
+            <RadioGroup
+              name="visibility"
+              label="VISIBILITY"
+              options={[
+                { value: "personal", label: "Personal" },
+                { value: "department", label: "Department" },
+                { value: "campus", label: "Campus" },
+              ]}
+              value={formData.visibility}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          {/* Assignees & Collaborators */}
           <div className={styles.row}>
             <div className={styles.card}>
               <div className={styles.cardHeader}>
-                <FiUsers size={16} className={styles.cardHeaderIcon} />
+                <FiUserPlus size={16} className={styles.cardHeaderIcon} />
                 <span>Assignees</span>
               </div>
               <button
@@ -220,10 +291,9 @@ export default function CreateTask() {
                 Add Assignees ({assigneeIds.length})
               </button>
             </div>
-
             <div className={styles.card}>
               <div className={styles.cardHeader}>
-                <FiUserPlus size={16} className={styles.cardHeaderIcon} />
+                <FiUsers size={16} className={styles.cardHeaderIcon} />
                 <span>Collaborators</span>
               </div>
               <button
@@ -236,25 +306,31 @@ export default function CreateTask() {
             </div>
           </div>
 
+          {/* Deadline */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <FiCalendar size={16} className={styles.cardHeaderIcon} />
-              <span>Date</span>
+              <span>Deadline</span>
             </div>
-
-            <div className={styles.section}>
-              <div className={styles.row}>
-                <InputField
-                  label="DEADLINE DATE"
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={handleInputChange}
-                />
-              </div>
+            <div className={styles.row}>
+              <InputField
+                label="DATE"
+                type="date"
+                name="deadlineDate"
+                value={formData.deadlineDate}
+                onChange={handleInputChange}
+              />
+              <InputField
+                label="TIME"
+                type="time"
+                name="deadlineTime"
+                value={formData.deadlineTime}
+                onChange={handleInputChange}
+              />
             </div>
           </div>
 
+          {/* Checklist */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <FiList size={16} className={styles.cardHeaderIcon} />
@@ -272,16 +348,19 @@ export default function CreateTask() {
                         <input
                           className={styles.checklistTitleInput}
                           value={card.title}
-                          onChange={(e) => handleEditChecklistTitle(card.id, e.target.value)}
+                          onChange={(e) =>
+                            handleEditChecklistTitle(card.id, e.target.value)
+                          }
                         />
-                        <span className={styles.checklistSubtitleSmall}>{card.items.length} items</span>
+                        <span className={styles.checklistSubtitleSmall}>
+                          {card.items.length} items
+                        </span>
                       </div>
                       <div className={styles.checklistActions}>
                         <button
                           type="button"
                           className={styles.deleteChecklistBtn}
                           onClick={() => handleDeleteChecklistCard(card.id)}
-                          aria-label="Delete checklist"
                         >
                           Delete
                         </button>
@@ -289,27 +368,42 @@ export default function CreateTask() {
                     </div>
 
                     <div className={styles.progressTrack}>
-                      <div className={styles.progressFill} style={{ width: `${prog}%` }} />
+                      <div
+                        className={styles.progressFill}
+                        style={{ width: `${prog}%` }}
+                      />
                     </div>
 
                     <div className={styles.checklistList}>
                       {card.items.map((item) => (
                         <div
                           key={item.id}
-                          className={`${styles.checklistItem} ${item.done ? styles.checklistItemCompleted : ""}`}
+                          className={`${styles.checklistItem} ${
+                            item.done ? styles.checklistItemCompleted : ""
+                          }`}
                         >
                           <button
                             type="button"
                             className={styles.checklistToggle}
-                            onClick={() => toggleChecklistItem(card.id, item.id)}
+                            onClick={() =>
+                              toggleChecklistItem(card.id, item.id)
+                            }
                           >
                             {item.done ? (
-                              <FaCheckSquare className={styles.checklistToggleIcon} />
+                              <FaCheckSquare
+                                className={styles.checklistToggleIcon}
+                              />
                             ) : (
-                              <FaRegSquare className={styles.checklistToggleIcon} />
+                              <FaRegSquare
+                                className={styles.checklistToggleIcon}
+                              />
                             )}
                           </button>
-                          <span className={`${styles.checklistText} ${item.done ? styles.checklistTextCompleted : ""}`}>
+                          <span
+                            className={`${styles.checklistText} ${
+                              item.done ? styles.checklistTextCompleted : ""
+                            }`}
+                          >
                             {item.text}
                           </span>
                         </div>
@@ -321,13 +415,15 @@ export default function CreateTask() {
                           className={styles.checklistAddButton}
                           onClick={() => handleAddChecklistItem(card.id)}
                         >
-                          <FiPlus className={styles.icon}/>
+                          <FiPlus className={styles.icon} />
                         </button>
                         <input
                           className={styles.checklistAddInput}
                           value={card.newItemText}
                           placeholder="Add item..."
-                          onChange={(e) => handleNewItemTextChange(card.id, e.target.value)}
+                          onChange={(e) =>
+                            handleNewItemTextChange(card.id, e.target.value)
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -342,31 +438,91 @@ export default function CreateTask() {
               })}
 
               <div className={styles.addChecklistCardRow}>
-                <button type="button" className={styles.addChecklistCardBtn} onClick={handleAddChecklistCard}>
+                <button
+                  type="button"
+                  className={styles.addChecklistCardBtn}
+                  onClick={handleAddChecklistCard}
+                >
                   + Add checklist card
                 </button>
               </div>
             </div>
           </div>
 
+          {/* Description */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <FiFileText size={16} className={styles.cardHeaderIcon} />
-              <span>Task Description</span>
+              <span>Description</span>
             </div>
-            <div className={styles.section}>
-              <InputField
-                as="textarea"
-                rows={5}
-                name="description"
-                value={formData.description}
+            <InputField
+              as="textarea"
+              rows={4}
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Add details about your task..."
+            />
+          </div>
+
+          {/* Attachments */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiPaperclip size={16} className={styles.cardHeaderIcon} />
+              <span>Attachments</span>
+            </div>
+            <FileAttachment
+              files={attachments.map(({ name, size }) => ({ name, size }))}
+              onRemove={handleRemoveFile}
+              onAdd={handleFileAdd}
+            />
+            <input
+              type="file"
+              id="taskFileInput"
+              multiple
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+          </div>
+
+          {/* Reminder */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <FiClock size={16} className={styles.cardHeaderIcon} />
+              <span>Reminder</span>
+            </div>
+            <div className={styles.row}>
+              <select
+                className={styles.select}
+                name="remind_before_minutes"
+                value={formData.remind_before_minutes}
                 onChange={handleInputChange}
-                placeholder="Add details about your task..."
-              />
+              >
+                <option value="">None</option>
+                <option value="5">5 min before</option>
+                <option value="10">10 min before</option>
+                <option value="15">15 min before</option>
+                <option value="30">30 min before</option>
+                <option value="60">1 hour before</option>
+                <option value="1440">1 day before</option>
+              </select>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  name="is_email_reminder"
+                  checked={formData.is_email_reminder}
+                  onChange={handleCheckboxChange}
+                />
+                Email Reminder
+              </label>
             </div>
           </div>
 
-          <div className={styles.section}>
+          {/* Submit */}
+          <div className={styles.submitBar}>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Create Task"}
+            </Button>
             {statusMessage && (
               <p
                 className={styles.statusMessage}
@@ -379,27 +535,16 @@ export default function CreateTask() {
                 {statusMessage}
               </p>
             )}
-
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <IoCreateOutline size={16} className={styles.cardHeaderIcon} />
-                <span>Submit Task</span>
-              </div>
-              <p className={styles.submitInfo}>
-                Once you submit, the task will be created and visible to the
-                selected assignees and collaborators.
-              </p>
-              <Button
-                className={styles.submitButton}
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? "Creating..." : "Create Task"}
-              </Button>
-            </div>
           </div>
         </div>
       </form>
+
+      <InviteAssigneeModal
+        isOpen={showAssigneeModal}
+        onClose={() => setShowAssigneeModal(false)}
+        selectedIds={assigneeIds}
+        onSave={setAssigneeIds}
+      />
 
       <InvitationModal
         isOpen={showCollaboratorModal}
@@ -408,13 +553,6 @@ export default function CreateTask() {
         onSave={setCollaboratorIds}
         title="Add Collaborators"
         type="collaborators"
-      />
-
-      <InviteAssigneeModal
-        isOpen={showAssigneeModal}
-        onClose={() => setShowAssigneeModal(false)}
-        selectedIds={assigneeIds}
-        onSave={setAssigneeIds}
       />
     </div>
   );

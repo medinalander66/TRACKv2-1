@@ -33,6 +33,7 @@ const EventCollaborator = require('./event_collaborators');
 const Task = require('./tasks');
 const TaskAssignee = require('./task_assignees');
 const TaskChecklistItem = require('./task_checklist_items');
+const TaskChecklistComment = require('./task_checklist_comment');
 const TaskCollaborator = require('./task_collaborators');
 const Attachment = require('./attachments');
 const Location = require('./locations');
@@ -183,6 +184,7 @@ module.exports = {
   EventCollaborator,
   Task,
   TaskChecklistItem,
+  TaskChecklistComment,
   TaskAssignee,
   TaskCollaborator,
   Attachment,

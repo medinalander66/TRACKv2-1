@@ -20,7 +20,7 @@ const Event = sequelize.define('events', {
     allowNull: true
   },
   link: {
-    type: DataTypes.STRING(255),
+    type: DataTypes.TEXT,
     allowNull: true
   },
   start_datetime: {

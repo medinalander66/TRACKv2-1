@@ -26,7 +26,6 @@ import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import SelectDropdown from "../../../components/common/SelectDropdown";
-import EventModalView from "../../../components/events/EventModalView";
 
 // Helper to format datea
 const formatDate = (dateStr) => {
@@ -49,23 +48,6 @@ const formatMonthDay = (dateStr) => {
 const formatTime = (dateStr) => {
   const d = new Date(dateStr);
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-};
-
-const hexToRgba = (hex, alpha = 0.18) => {
-  if (!hex) return `rgba(0,0,0,${alpha})`;
-  let clean = hex.replace("#", "").trim();
-  if (clean.length === 3) {
-    clean = clean
-      .split("")
-      .map((ch) => ch + ch)
-      .join("");
-  }
-  if (clean.length !== 6) return `rgba(0,0,0,${alpha})`;
-  const int = parseInt(clean, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 // ── Small display helpers (UI only, no data/logic changes) ──
@@ -272,7 +254,6 @@ function Home() {
   const [todayLoading, setTodayLoading] = useState(false);
   const [currentTodayIndex, setCurrentTodayIndex] = useState(0);
   const [todayTouchStartX, setTodayTouchStartX] = useState(0);
-  const [isTodayEventModalOpen, setIsTodayEventModalOpen] = useState(false);
 
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
@@ -646,14 +627,7 @@ function Home() {
       <div className={styles.featuredEventSection}>
         <div className={styles.featuredContainer}>
           <div className={styles.featuredCard}>
-            <div
-              className={styles.badgesStatus}
-              style={{
-                backgroundColor: todayEvent.color
-                  ? hexToRgba(todayEvent.color, 0.18)
-                  : "rgb(255 2 0 / 18%)",
-              }}
-            >
+            <div className={styles.badgesStatus}>
               <div className={styles.badgeRow}>
                 <div className={styles.badgePill}>
                   {todayEvent.hierarchy || "Unknown Hierarchy"}
@@ -787,11 +761,7 @@ function Home() {
               </div>
 
               <div className={styles.actionsRow}>
-                <button
-                  type="button"
-                  className={styles.viewEventButton}
-                  onClick={() => setIsTodayEventModalOpen(true)}
-                >
+                <button type="button" className={styles.viewEventButton}>
                   View Event Details
                 </button>
               </div>
@@ -1107,16 +1077,9 @@ function Home() {
               View Calendar
             </button>
           </div>
-          <div className={styles.todayContent}>
-            {renderTodayEventsCarousel()}
-          </div>
-
-          <EventModalView
-            isOpen={isTodayEventModalOpen}
-            onClose={() => setIsTodayEventModalOpen(false)}
-            event={todayEvents}
-          />
         </div>
+
+        <div className={styles.todayContent}>{renderTodayEventsCarousel()}</div>
       </div>
 
       {/* Upcoming Events */}

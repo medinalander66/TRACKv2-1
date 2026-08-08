@@ -4,6 +4,7 @@ const {
   sequelize,
   Task,
   TaskChecklistItem,
+  TaskChecklistComment,
   TaskAssignee,
   TaskCollaborator,
   User,
@@ -13,18 +14,18 @@ const {
   Position,
   Attachment,
 } = require("../models");
+const {
+  queueEmail, buildTaskAssignedEmail, buildTaskCollaboratorEmail,
+  buildTaskReminderEmail, buildTaskEditedEmail
+} = require("../services/taskEmailTemplates");
 
-// ─── Helper: get user profile ──────────────────────────
 const getUserProfileSummary = async (userId) => {
   const user = await User.findByPk(userId, {
     attributes: ["id", "username", "email"],
   });
   if (!user) return null;
   const profile = await UserProfile.findOne({ where: { user_id: user.id } });
-  let department = null,
-    office = null,
-    position = null,
-    fullName = null;
+  let department = null, office = null, position = null, fullName = null;
   if (profile) {
     fullName = profile.full_name;
     if (profile.department_id) {
@@ -51,31 +52,26 @@ const getUserProfileSummary = async (userId) => {
   };
 };
 
+const getUserContact = async (userId) => {
+  const u = await User.findByPk(userId, { attributes: ['id', 'email'] });
+  if (!u) return null;
+  const profile = await UserProfile.findOne({ where: { user_id: userId } });
+  return { email: u.email, full_name: profile?.full_name || u.email };
+};
+
 // ─── CREATE TASK ──────────────────────────────────────
 exports.createTask = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const {
-      title,
-      color,
-      priority,
-      visibility,
-      deadline_datetime,
-      department_id,
-      office_id,
-      description,
-      remind_before_minutes,
-      is_email_reminder,
-      assignee_ids,
-      collaborator_ids,
-      checklist_items,
+      title, color, priority, visibility, deadline_datetime,
+      department_id, office_id, description, remind_before_minutes,
+      assignee_ids, collaborator_ids, checklist_items,
     } = req.body;
 
     if (!title || !visibility || !deadline_datetime) {
       await t.rollback();
-      return res
-        .status(400)
-        .json({ ok: false, message: "Missing required fields." });
+      return res.status(400).json({ ok: false, message: "Missing required fields." });
     }
 
     const task = await Task.create(
@@ -91,14 +87,13 @@ exports.createTask = async (req, res) => {
         creator_id: req.userId,
         description,
         remind_before_minutes: remind_before_minutes || null,
-        is_email_reminder: !!is_email_reminder,
+        is_email_reminder: true,
         is_completed: false,
         is_archived: false,
       },
       { transaction: t },
     );
 
-    // ── Assignees (including creator as accepted) ──
     const assigneeIds = assignee_ids || [];
     const uniqueAssignees = [...new Set([req.userId, ...assigneeIds])];
     await TaskAssignee.bulkCreate(
@@ -111,25 +106,16 @@ exports.createTask = async (req, res) => {
       { transaction: t },
     );
 
-    // ── Collaborators ──
     const collaboratorIds = collaborator_ids || [];
     const uniqueCollaborators = [...new Set(collaboratorIds)];
     if (uniqueCollaborators.length > 0) {
       await TaskCollaborator.bulkCreate(
-        uniqueCollaborators.map((userId) => ({
-          task_id: task.id,
-          user_id: userId,
-        })),
+        uniqueCollaborators.map((userId) => ({ task_id: task.id, user_id: userId })),
         { transaction: t },
       );
     }
 
-    // ── Checklist items ──
-    if (
-      checklist_items &&
-      Array.isArray(checklist_items) &&
-      checklist_items.length > 0
-    ) {
+    if (checklist_items && Array.isArray(checklist_items) && checklist_items.length > 0) {
       const items = checklist_items.map((item, index) => ({
         id: uuidv4(),
         task_id: task.id,
@@ -142,13 +128,39 @@ exports.createTask = async (req, res) => {
 
     await t.commit();
 
-    // Queue emails (optional)
-    // ...
+    try {
+      const taskForEmail = {
+        title: task.title, description: task.description,
+        deadline_datetime: task.deadline_datetime, priority: task.priority,
+      };
+      const realAssigneeIds = assigneeIds.filter((id) => id !== req.userId);
+      for (const userId of realAssigneeIds) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+        await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'invitation' });
+      }
+      for (const userId of uniqueCollaborators) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskCollaboratorEmail(taskForEmail, contact.full_name);
+        await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'collaborator' });
+      }
+      if (remind_before_minutes) {
+        const reminderTime = new Date(new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000);
+        const recipientIds = [...new Set([req.userId, ...realAssigneeIds, ...uniqueCollaborators])];
+        for (const userId of recipientIds) {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskReminderEmail(taskForEmail, contact.full_name);
+          await queueEmail({ recipient_email: contact.email, subject, body, scheduled_for: reminderTime, task_id: task.id, email_type: 'reminder' });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue task emails:', emailErr);
+    }
 
-    res.status(201).json({
-      ok: true,
-      task: { id: task.id, title: task.title },
-    });
+    res.status(201).json({ ok: true, task: { id: task.id, title: task.title } });
   } catch (error) {
     await t.rollback();
     console.error("Create task error:", error);
@@ -162,22 +174,13 @@ exports.listTasks = async (req, res) => {
     const userId = req.userId;
     const { status, visibility, priority, search } = req.query;
 
-    // Get tasks where user is assignee, creator, or collaborator
-    const assigneeTasks = await TaskAssignee.findAll({
-      where: { user_id: userId },
-      attributes: ["task_id"],
-    });
+    const assigneeTasks = await TaskAssignee.findAll({ where: { user_id: userId }, attributes: ["task_id"] });
     const assigneeTaskIds = assigneeTasks.map((a) => a.task_id);
 
-    const collaboratorTasks = await TaskCollaborator.findAll({
-      where: { user_id: userId },
-      attributes: ["task_id"],
-    });
+    const collaboratorTasks = await TaskCollaborator.findAll({ where: { user_id: userId }, attributes: ["task_id"] });
     const collaboratorTaskIds = collaboratorTasks.map((c) => c.task_id);
 
-    const allTaskIds = [
-      ...new Set([...assigneeTaskIds, ...collaboratorTaskIds]),
-    ];
+    const allTaskIds = [...new Set([...assigneeTaskIds, ...collaboratorTaskIds])];
 
     const where = {
       [Op.or]: [{ creator_id: userId }, { id: { [Op.in]: allTaskIds } }],
@@ -194,43 +197,28 @@ exports.listTasks = async (req, res) => {
       where.deadline_datetime = { [Op.lt]: new Date() };
     }
 
-    if (visibility && visibility !== "all") {
-      where.visibility = visibility;
-    }
-    if (priority && priority !== "all") {
-      where.priority = priority;
-    }
-    if (search) {
-      where.title = { [Op.like]: `%${search}%` };
-    }
+    if (visibility && visibility !== "all") where.visibility = visibility;
+    if (priority && priority !== "all") where.priority = priority;
+    if (search) where.title = { [Op.like]: `%${search}%` };
 
-    const tasks = await Task.findAll({
-      where,
-      order: [["deadline_datetime", "ASC"]],
-      include: [
-        { model: User, attributes: ["id", "username", "email"] },
-        { model: Department, attributes: ["name"] },
-        { model: Office, attributes: ["name"] },
-        {
-          model: TaskChecklistItem,
-          attributes: ["id", "text", "is_completed"],
-        },
-      ],
-    });
+    const tasks = await Task.findAll({ where, order: [["deadline_datetime", "ASC"]] });
 
-    // Manually fetch assignee response for each task
     const result = [];
     for (const task of tasks) {
-      const assignees = await TaskAssignee.findAll({
-        where: { task_id: task.id },
-        include: [{ model: User, attributes: ["id", "username", "email"] }],
-      });
-      const userAssignee = assignees.find((a) => a.user_id === userId);
+      const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: task.id } });
+      const assignees = [];
+      for (const a of assigneeRecords) {
+        const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
+        if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+      }
+
+      const userAssignee = assigneeRecords.find((a) => a.user_id === userId);
       const response = userAssignee ? userAssignee.response : null;
       const isCreator = task.creator_id === userId;
       const isCollaborator = collaboratorTaskIds.includes(task.id);
-
       const creatorProfile = await getUserProfileSummary(task.creator_id);
+
+      const checklistItems = await TaskChecklistItem.findAll({ where: { task_id: task.id } });
 
       result.push({
         id: task.id,
@@ -242,16 +230,11 @@ exports.listTasks = async (req, res) => {
         description: task.description,
         is_completed: task.is_completed,
         creator: creatorProfile,
-        assignees: assignees.map((a) => ({
-          id: a.user.id,
-          username: a.user.username,
-          email: a.user.email,
-          response: a.response,
-        })),
+        assignees,
         response,
         isCreator,
         isCollaborator,
-        checklist_items: task.TaskChecklistItems || [],
+        checklist_items: checklistItems.map((c) => ({ id: c.id, text: c.text, is_completed: c.is_completed })),
       });
     }
 
@@ -269,35 +252,65 @@ exports.getTaskById = async (req, res) => {
     const userId = req.userId;
 
     const task = await Task.findByPk(id);
-    if (!task)
-      return res.status(404).json({ ok: false, message: "Task not found." });
+    if (!task) return res.status(404).json({ ok: false, message: "Task not found." });
 
-    const assignees = await TaskAssignee.findAll({
-      where: { task_id: id },
-      include: [{ model: User, attributes: ["id", "username", "email"] }],
-    });
+    const assigneeRecords = await TaskAssignee.findAll({ where: { task_id: id } });
+    const assignees = [];
+    for (const a of assigneeRecords) {
+      const u = await User.findByPk(a.user_id, { attributes: ["id", "username", "email"] });
+      if (u) assignees.push({ id: u.id, username: u.username, email: u.email, response: a.response });
+    }
 
-    const collaborators = await TaskCollaborator.findAll({
-      where: { task_id: id },
-      include: [{ model: User, attributes: ["id", "username", "email"] }],
-    });
+    const collaboratorRecords = await TaskCollaborator.findAll({ where: { task_id: id } });
+    const collaborators = [];
+    for (const c of collaboratorRecords) {
+      const u = await User.findByPk(c.user_id, { attributes: ["id", "username", "email"] });
+      if (u) collaborators.push({ id: u.id, username: u.username, email: u.email });
+    }
 
     const checklist = await TaskChecklistItem.findAll({
       where: { task_id: id },
       order: [["sort_order", "ASC"]],
-      include: [
-        {
-          model: User,
-          as: "completedBy",
-          attributes: ["id", "username", "email"],
-        },
-      ],
     });
 
-    const creatorProfile = await getUserProfileSummary(task.creator_id);
+    const checklistFormatted = [];
+    for (const item of checklist) {
+      let completedByProfile = null;
+      if (item.completed_by_user_id) {
+        completedByProfile = await getUserProfileSummary(item.completed_by_user_id);
+      }
+      const comments = await TaskChecklistComment.findAll({
+        where: { checklist_item_id: item.id },
+        order: [["created_at", "ASC"]],
+      });
+      const commentsFormatted = [];
+      for (const c of comments) {
+        const authorProfile = await getUserProfileSummary(c.user_id);
+        commentsFormatted.push({
+          id: c.id,
+          text: c.comment_text,
+          created_at: c.created_at,
+          author: authorProfile,
+        });
+      }
+      checklistFormatted.push({
+        id: item.id,
+        text: item.text,
+        is_completed: item.is_completed,
+        completed_by: completedByProfile,
+        completed_at: item.completed_at,
+        comments: commentsFormatted,
+      });
+    }
 
-    const userAssignee = assignees.find((a) => a.user_id === userId);
+    const creatorProfile = await getUserProfileSummary(task.creator_id);
+    const userAssignee = assigneeRecords.find((a) => a.user_id === userId);
     const response = userAssignee ? userAssignee.response : null;
+
+    const attachmentRecords = await Attachment.findAll({
+      where: { entity_type: 'task', entity_id: task.id },
+      attributes: ['id', 'file_name', 'file_url', 'file_size']
+    });
 
     res.json({
       ok: true,
@@ -311,32 +324,13 @@ exports.getTaskById = async (req, res) => {
         description: task.description,
         is_completed: task.is_completed,
         creator: creatorProfile,
-        assignees: assignees.map((a) => ({
-          id: a.user.id,
-          username: a.user.username,
-          email: a.user.email,
-          response: a.response,
-        })),
-        collaborators: collaborators.map((c) => ({
-          id: c.user.id,
-          username: c.user.username,
-          email: c.user.email,
-        })),
-        checklist: checklist.map((item) => ({
-          id: item.id,
-          text: item.text,
-          is_completed: item.is_completed,
-          completed_by: item.completedBy
-            ? {
-                id: item.completedBy.id,
-                username: item.completedBy.username,
-                email: item.completedBy.email,
-              }
-            : null,
-          completed_at: item.completed_at,
-          comments: item.comments,
-        })),
+        assignees,
+        collaborators,
+        checklist: checklistFormatted,
+        attachments: attachmentRecords.map(a => ({ id: a.id, file_name: a.file_name, file_url: a.file_url, file_size: a.file_size })),
         response,
+        isCreator: task.creator_id === userId,
+        isCollaborator: collaboratorRecords.some((c) => c.user_id === userId),
       },
     });
   } catch (error) {
@@ -351,19 +345,9 @@ exports.updateTask = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      title,
-      color,
-      priority,
-      visibility,
-      deadline_datetime,
-      department_id,
-      office_id,
-      description,
-      remind_before_minutes,
-      is_email_reminder,
-      assignee_ids,
-      collaborator_ids,
-      checklist_items,
+      title, color, priority, visibility, deadline_datetime,
+      department_id, office_id, description, remind_before_minutes,
+      assignee_ids, collaborator_ids, checklist_items,
     } = req.body;
 
     const task = await Task.findByPk(id);
@@ -372,114 +356,120 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Task not found." });
     }
 
-    // Check permission: creator or collaborator
     const isCreator = task.creator_id === req.userId;
-    const isCollaborator = await TaskCollaborator.findOne({
-      where: { task_id: id, user_id: req.userId },
-    });
+    const isCollaborator = await TaskCollaborator.findOne({ where: { task_id: id, user_id: req.userId } });
     if (!isCreator && !isCollaborator) {
       await t.rollback();
-      return res
-        .status(403)
-        .json({ ok: false, message: "Not authorized to edit." });
+      return res.status(403).json({ ok: false, message: "Not authorized to edit." });
     }
 
     await task.update(
       {
-        title,
-        color: color || "#3B82F6",
-        priority: priority || "medium",
-        visibility,
+        title, color: color || "#3B82F6", priority: priority || "medium", visibility,
         deadline_datetime,
         department_id: visibility === "department" ? department_id : null,
         office_id: office_id || null,
         description,
         remind_before_minutes: remind_before_minutes || null,
-        is_email_reminder: !!is_email_reminder,
+        is_email_reminder: true,
         updated_at: new Date(),
       },
       { transaction: t },
     );
 
-    // ── Update assignees ──
-    const submittedAssigneeIds = assignee_ids || [];
-    const existingAssignees = await TaskAssignee.findAll({
-      where: { task_id: id },
-      attributes: ["user_id", "response"],
-    });
+    const existingAssignees = await TaskAssignee.findAll({ where: { task_id: id }, attributes: ["user_id", "response"] });
     const existingMap = {};
-    existingAssignees.forEach((a) => {
-      existingMap[a.user_id] = a.response;
-    });
+    existingAssignees.forEach((a) => { existingMap[a.user_id] = a.response; });
 
-    // Remove assignees not in submitted list (except creator)
+    const submittedAssigneeIds = assignee_ids || [];
+
     const toRemove = existingAssignees
-      .filter(
-        (a) =>
-          a.user_id !== task.creator_id &&
-          !submittedAssigneeIds.includes(a.user_id),
-      )
+      .filter((a) => a.user_id !== task.creator_id && !submittedAssigneeIds.includes(a.user_id))
       .map((a) => a.user_id);
     if (toRemove.length > 0) {
-      await TaskAssignee.destroy({
-        where: { task_id: id, user_id: { [Op.in]: toRemove } },
-        transaction: t,
-      });
+      await TaskAssignee.destroy({ where: { task_id: id, user_id: { [Op.in]: toRemove } }, transaction: t });
     }
 
-    // Add new assignees
-    const toAdd = submittedAssigneeIds.filter(
-      (id) => id !== task.creator_id && !(id in existingMap),
-    );
+    const toAdd = submittedAssigneeIds.filter((uid) => uid !== task.creator_id && !(uid in existingMap));
     if (toAdd.length > 0) {
       await TaskAssignee.bulkCreate(
-        toAdd.map((userId) => ({
-          task_id: id,
-          user_id: userId,
-          response: "pending",
-          is_original: false,
-        })),
+        toAdd.map((userId) => ({ task_id: id, user_id: userId, response: "pending", is_original: false })),
         { transaction: t },
       );
     }
 
-    // ── Update collaborators ──
     const submittedCollabIds = collaborator_ids || [];
-    await TaskCollaborator.destroy({
-      where: { task_id: id },
-      transaction: t,
-    });
+    await TaskCollaborator.destroy({ where: { task_id: id }, transaction: t });
     if (submittedCollabIds.length > 0) {
       await TaskCollaborator.bulkCreate(
-        submittedCollabIds.map((userId) => ({
-          task_id: id,
-          user_id: userId,
-        })),
+        submittedCollabIds.map((userId) => ({ task_id: id, user_id: userId })),
         { transaction: t },
       );
     }
 
-    // ── Update checklist items ──
+    // Checklist: keep matching by text so existing item ids (and their comments) survive when unchanged
     if (checklist_items && Array.isArray(checklist_items)) {
-      // Delete existing items
-      await TaskChecklistItem.destroy({
-        where: { task_id: id },
-        transaction: t,
-      });
-      // Create new items
-      const items = checklist_items.map((item, index) => ({
-        id: uuidv4(),
-        task_id: id,
-        text: item.text,
-        sort_order: index,
-        is_completed: item.is_completed || false,
-      }));
-      if (items.length > 0) {
-        await TaskChecklistItem.bulkCreate(items, { transaction: t });
+      const existingItems = await TaskChecklistItem.findAll({ where: { task_id: id } });
+      const existingByText = {};
+      existingItems.forEach((it) => { existingByText[it.text] = it; });
+      const keepIds = [];
+
+      for (let index = 0; index < checklist_items.length; index++) {
+        const incoming = checklist_items[index];
+        const match = existingByText[incoming.text];
+        if (match) {
+          match.sort_order = index;
+          if (incoming.is_completed !== undefined) match.is_completed = incoming.is_completed;
+          await match.save({ transaction: t });
+          keepIds.push(match.id);
+        } else {
+          const created = await TaskChecklistItem.create({
+            id: uuidv4(), task_id: id, text: incoming.text, sort_order: index,
+            is_completed: incoming.is_completed || false,
+          }, { transaction: t });
+          keepIds.push(created.id);
+        }
+      }
+      const toDelete = existingItems.filter((it) => !keepIds.includes(it.id)).map((it) => it.id);
+      if (toDelete.length > 0) {
+        await TaskChecklistComment.destroy({ where: { checklist_item_id: { [Op.in]: toDelete } }, transaction: t });
+        await TaskChecklistItem.destroy({ where: { id: { [Op.in]: toDelete } }, transaction: t });
       }
     }
 
     await t.commit();
+
+    try {
+      const taskForEmail = { title: task.title, description: task.description, deadline_datetime: task.deadline_datetime, priority: task.priority };
+      const continuingIds = submittedAssigneeIds.filter((uid) => uid !== task.creator_id && uid in existingMap);
+      for (const userId of continuingIds) {
+        const priorResponse = existingMap[userId];
+        if (priorResponse === 'pending' || priorResponse === 'accepted') {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskEditedEmail(taskForEmail, contact.full_name, priorResponse);
+          await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'edited' });
+        }
+      }
+      for (const userId of toAdd) {
+        const contact = await getUserContact(userId);
+        if (!contact?.email) continue;
+        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+        await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'invitation' });
+      }
+      if (remind_before_minutes) {
+        const reminderTime = new Date(new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000);
+        const recipientIds = [...new Set([task.creator_id, ...submittedAssigneeIds, ...submittedCollabIds])];
+        for (const userId of recipientIds) {
+          const contact = await getUserContact(userId);
+          if (!contact?.email) continue;
+          const { subject, body } = buildTaskReminderEmail(taskForEmail, contact.full_name);
+          await queueEmail({ recipient_email: contact.email, subject, body, scheduled_for: reminderTime, task_id: id, email_type: 'reminder' });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to queue task update emails:', emailErr);
+    }
 
     res.json({ ok: true, message: "Task updated successfully." });
   } catch (error) {
@@ -489,42 +479,35 @@ exports.updateTask = async (req, res) => {
   }
 };
 
-// ─── TOGGLE CHECKLIST ITEM ─────────────────────────────
+// ─── TOGGLE CHECKLIST ITEM (checkbox only) ─────────────
 exports.toggleChecklistItem = async (req, res) => {
   try {
     const { itemId } = req.params;
-    const { is_completed, comments } = req.body;
+    const { is_completed } = req.body;
 
     const item = await TaskChecklistItem.findByPk(itemId);
-    if (!item)
-      return res.status(404).json({ ok: false, message: "Item not found." });
+    if (!item) return res.status(404).json({ ok: false, message: "Item not found." });
 
-    // Check if user is assignee or collaborator or creator
     const task = await Task.findByPk(item.task_id);
-    if (!task)
-      return res.status(404).json({ ok: false, message: "Task not found." });
+    if (!task) return res.status(404).json({ ok: false, message: "Task not found." });
 
-    const isAssignee = await TaskAssignee.findOne({
-      where: { task_id: task.id, user_id: req.userId },
-    });
-    const isCollaborator = await TaskCollaborator.findOne({
-      where: { task_id: task.id, user_id: req.userId },
-    });
+    const isAssignee = await TaskAssignee.findOne({ where: { task_id: task.id, user_id: req.userId } });
+    const isCollaborator = await TaskCollaborator.findOne({ where: { task_id: task.id, user_id: req.userId } });
     if (!isAssignee && !isCollaborator && task.creator_id !== req.userId) {
       return res.status(403).json({ ok: false, message: "Not authorized." });
     }
 
-    item.is_completed =
-      is_completed !== undefined ? is_completed : !item.is_completed;
+    if (is_completed === undefined) {
+      return res.status(400).json({ ok: false, message: "is_completed is required." });
+    }
+
+    item.is_completed = !!is_completed;
     if (item.is_completed) {
       item.completed_by_user_id = req.userId;
       item.completed_at = new Date();
     } else {
       item.completed_by_user_id = null;
       item.completed_at = null;
-    }
-    if (comments !== undefined) {
-      item.comments = comments;
     }
     await item.save();
 
@@ -535,7 +518,48 @@ exports.toggleChecklistItem = async (req, res) => {
   }
 };
 
-// ─── RESPOND TO TASK INVITATION ───────────────────────
+// ─── ADD CHECKLIST COMMENT (new, stacking) ─────────────
+exports.addChecklistComment = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { comment_text } = req.body;
+
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({ ok: false, message: "Comment text required." });
+    }
+
+    const item = await TaskChecklistItem.findByPk(itemId);
+    if (!item) return res.status(404).json({ ok: false, message: "Item not found." });
+
+    const task = await Task.findByPk(item.task_id);
+    if (!task) return res.status(404).json({ ok: false, message: "Task not found." });
+
+    const isAssignee = await TaskAssignee.findOne({ where: { task_id: task.id, user_id: req.userId } });
+    const isCollaborator = await TaskCollaborator.findOne({ where: { task_id: task.id, user_id: req.userId } });
+    if (!isAssignee && !isCollaborator && task.creator_id !== req.userId) {
+      return res.status(403).json({ ok: false, message: "Not authorized." });
+    }
+
+    const comment = await TaskChecklistComment.create({
+      id: uuidv4(),
+      checklist_item_id: itemId,
+      user_id: req.userId,
+      comment_text: comment_text.trim(),
+    });
+
+    const authorProfile = await getUserProfileSummary(req.userId);
+
+    res.status(201).json({
+      ok: true,
+      comment: { id: comment.id, text: comment.comment_text, created_at: comment.created_at, author: authorProfile },
+    });
+  } catch (error) {
+    console.error("Add checklist comment error:", error);
+    res.status(500).json({ ok: false, message: "Server error." });
+  }
+};
+
+// ─── RESPOND TO TASK INVITATION (any transition allowed) ──
 exports.respondToTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -545,18 +569,9 @@ exports.respondToTask = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid response." });
     }
 
-    const assignee = await TaskAssignee.findOne({
-      where: { task_id: taskId, user_id: req.userId },
-    });
+    const assignee = await TaskAssignee.findOne({ where: { task_id: taskId, user_id: req.userId } });
     if (!assignee) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "You are not assigned to this task." });
-    }
-    if (assignee.response !== "pending") {
-      return res
-        .status(400)
-        .json({ ok: false, message: "You already responded." });
+      return res.status(404).json({ ok: false, message: "You are not assigned to this task." });
     }
 
     assignee.response = response;
@@ -569,53 +584,40 @@ exports.respondToTask = async (req, res) => {
   }
 };
 
-// ─── GET INVITED TASKS (for Notifications) ────────────
+// ─── GET INVITED TASKS ─────────────────────────────────
 exports.getInvitedTasks = async (req, res) => {
   try {
     const userId = req.userId;
     const { response } = req.query;
 
     const where = { user_id: userId };
-    if (response && ["pending", "accepted", "declined"].includes(response)) {
+    if (response === "all") {
+      // no filter
+    } else if (response && ["pending", "accepted", "declined"].includes(response)) {
       where.response = response;
     } else {
       where.response = "pending";
     }
 
-    const assignees = await TaskAssignee.findAll({
-      where,
-      include: [
-        {
-          model: Task,
-          where: { is_archived: false },
-          include: [
-            { model: User, attributes: ["id", "username", "email"] },
-            { model: Department, attributes: ["name"] },
-            { model: Office, attributes: ["name"] },
-          ],
-        },
-      ],
-    });
+    const assignees = await TaskAssignee.findAll({ where });
 
-    const tasks = assignees.map((a) => {
-      const task = a.Task;
-      const creatorProfile = task.User
-        ? {
-            username: task.User.username,
-            email: task.User.email,
-          }
-        : null;
-      return {
+    const tasks = [];
+    for (const a of assignees) {
+      const task = await Task.findByPk(a.task_id);
+      if (!task || task.is_archived) continue;
+      const creatorProfile = await getUserProfileSummary(task.creator_id);
+      tasks.push({
         id: task.id,
         title: task.title,
         color: task.color,
         priority: task.priority,
         deadline_datetime: task.deadline_datetime,
         visibility: task.visibility,
+        description: task.description,
         creator: creatorProfile,
         response: a.response,
-      };
-    });
+      });
+    }
 
     res.json({ ok: true, tasks });
   } catch (error) {
@@ -629,18 +631,12 @@ exports.deleteTask = async (req, res) => {
   try {
     const { id } = req.params;
     const task = await Task.findByPk(id);
-    if (!task)
-      return res.status(404).json({ ok: false, message: "Task not found." });
-
+    if (!task) return res.status(404).json({ ok: false, message: "Task not found." });
     if (task.creator_id !== req.userId) {
-      return res
-        .status(403)
-        .json({ ok: false, message: "Only creator can delete." });
+      return res.status(403).json({ ok: false, message: "Only creator can delete." });
     }
-
     task.is_archived = true;
     await task.save();
-
     res.json({ ok: true, message: "Task archived." });
   } catch (error) {
     console.error("Delete task error:", error);
