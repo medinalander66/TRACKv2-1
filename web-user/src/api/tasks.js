@@ -35,6 +35,13 @@ export const toggleChecklistItem = async (itemId, payload) => {
   return data;
 };
 
+export const addChecklistComment = async (itemId, commentText) => {
+  const { data } = await apiClient.post(`/tasks/checklist/${itemId}/comments`, {
+    comment_text: commentText,
+  });
+  return data;
+};
+
 export const getInvitedTasks = async (params = {}) => {
   const { data } = await apiClient.get('/tasks/invited', { params });
   return data;
