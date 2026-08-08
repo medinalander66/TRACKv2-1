@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
-  FiX,
   FiChevronDown,
   FiUser,
   FiCalendar,
@@ -13,6 +12,8 @@ import {
 } from "react-icons/fi";
 import styles from "./ConflictCard.module.css";
 
+const DRAG_CLOSE_THRESHOLD = 90;
+
 const ConflictCard = ({
   conflictData,
   checking,
@@ -24,9 +25,27 @@ const ConflictCard = ({
   const [showAllRecommendations, setShowAllRecommendations] = useState(false);
   const [recommendationFilter, setRecommendationFilter] = useState("all");
 
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ startY: 0 });
+
   if (!isOpen || !conflictData) return null;
 
   const { conflicts, recommendations } = conflictData;
+
+  const handleTouchStart = (e) => {
+    dragRef.current.startY = e.touches[0].clientY;
+    setDragging(true);
+  };
+  const handleTouchMove = (e) => {
+    const delta = e.touches[0].clientY - dragRef.current.startY;
+    if (delta > 0) setDragY(delta);
+  };
+  const handleTouchEnd = () => {
+    if (dragY > DRAG_CLOSE_THRESHOLD) onClose();
+    setDragY(0);
+    setDragging(false);
+  };
 
   const getFilteredRecs = () => {
     if (!recommendations || recommendations.length === 0) return [];
@@ -66,303 +85,286 @@ const ConflictCard = ({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.handle}>
-          <FiChevronDown size={22} />
-        </div>
-        <button
-          type="button"
-          className={styles.closeBtn}
-          onClick={onClose}
-          aria-label="Close"
+      <div
+        className={styles.sheet}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          transform: `translateY(${dragY}px)`,
+          transition: dragging ? "none" : "transform 0.2s ease",
+        }}
+      >
+        <div
+          className={styles.stickyHeader}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          <FiX size={20} />
-        </button>
+          <div className={styles.handle}>
+            <FiChevronDown size={22} />
+          </div>
+          <h2 className={styles.title}>
+            <FiAlertCircle size={20} className={styles.titleIcon} />
+            Schedule Conflicts
+          </h2>
 
-        <h2 className={styles.title}>
-          <FiAlertCircle size={22} className={styles.titleIcon} />
-          Schedule Conflicts
-        </h2>
-
-        <div className={styles.tabs}>
-          {conflicts.venue.has && (
-            <button
-              type="button"
-              className={`${styles.tab} ${
-                activeTab === "venue" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("venue")}
-            >
-              <FiMapPin size={16} /> Venue
-            </button>
-          )}
-          {conflicts.attendees.has && (
-            <button
-              type="button"
-              className={`${styles.tab} ${
-                activeTab === "attendees" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("attendees")}
-            >
-              <FiUsers size={16} /> Attendees
-            </button>
-          )}
-          {conflicts.creator.has && (
-            <button
-              type="button"
-              className={`${styles.tab} ${
-                activeTab === "creator" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("creator")}
-            >
-              <FiUser size={16} /> You
-            </button>
-          )}
-        </div>
-
-        <div className={styles.tabContent}>
-          {activeTab === "venue" && conflicts.venue.has && (
-            <div>
-              <h3 className={styles.sectionSubtitle}>
-                <FiMapPin size={18} /> Venue Conflict
-              </h3>
-              {conflicts.venue.events.map((ev) => (
-                <div key={ev.id} className={styles.conflictItem}>
-                  <div className={styles.itemHeader}>
-                    <span
-                      className={styles.itemTitle}
-                      style={{ backgroundColor: ev.color || "#800000" }}
-                    >
-                      {ev.title}
-                    </span>
-                    <span className={styles.itemDate}>
-                      <FiCalendar size={14} />{" "}
-                      {formatDateTime(ev.start_datetime)}
-                      <FiArrowRight size={14} className={styles.arrowIcon} />
-                      {formatDateTime(ev.end_datetime)}
-                    </span>
-                  </div>
-                  <div className={styles.itemDetails}>
-                    <p>
-                      <FiInfo size={14} /> <strong>Type:</strong>{" "}
-                      {ev.visibility} · {ev.hierarchy}
-                    </p>
-                    <p>
-                      <strong>Description:</strong>{" "}
-                      {ev.description || "No description"}
-                    </p>
-                    <p>
-                      <strong>Creator:</strong>{" "}
-                      {ev.creator?.username || "Unknown"}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === "attendees" && conflicts.attendees.has && (
-            <div>
-              <h3 className={styles.sectionSubtitle}>
-                <FiUsers size={18} /> Attendee Conflicts
-              </h3>
-              {conflicts.attendees.users.map((u) => (
-                <div key={u.user.id} className={styles.attendeeConflict}>
-                  <div className={styles.attendeeHeader}>
-                    <FiUser size={16} /> <strong>{u.user.username}</strong>{" "}
-                    <span className={styles.attendeeEmail}>
-                      ({u.user.email})
-                    </span>
-                    <span className={styles.badge}>
-                      {u.events.length} conflicting event(s)
-                    </span>
-                  </div>
-                  {u.events.map((ev) => (
-                    <div key={ev.id} className={styles.conflictItem}>
-                      <div className={styles.itemHeader}>
-                        <span
-                          className={styles.itemTitle}
-                          style={{ backgroundColor: ev.color || "#800000" }}
-                        >
-                          {ev.title}
-                        </span>
-                        <span className={styles.itemDate}>
-                          <FiCalendar size={14} />{" "}
-                          {formatDateTime(ev.start_datetime)}
-                          <FiArrowRight
-                            size={14}
-                            className={styles.arrowIcon}
-                          />
-                          {formatDateTime(ev.end_datetime)}
-                        </span>
-                      </div>
-                      <div className={styles.itemDetails}>
-                        <p>
-                          <strong>Venue:</strong> {ev.venue || "N/A"}
-                        </p>
-                        <p>
-                          <strong>Creator:</strong>{" "}
-                          {ev.creator?.username || "Unknown"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === "creator" && conflicts.creator.has && (
-            <div>
-              <h3 className={styles.sectionSubtitle}>
-                <FiUser size={18} /> You have a conflict
-              </h3>
-              {conflicts.creator.events.map((ev) => (
-                <div key={ev.id} className={styles.conflictItem}>
-                  <div className={styles.itemHeader}>
-                    <span
-                      className={styles.itemTitle}
-                      style={{ backgroundColor: ev.color || "#800000" }}
-                    >
-                      {ev.title}
-                    </span>
-                    <span className={styles.itemDate}>
-                      <FiCalendar size={14} />{" "}
-                      {formatDateTime(ev.start_datetime)}
-                      <FiArrowRight size={14} className={styles.arrowIcon} />
-                      {formatDateTime(ev.end_datetime)}
-                    </span>
-                  </div>
-                  <div className={styles.itemDetails}>
-                    <p>
-                      <strong>Type:</strong> {ev.visibility} · {ev.hierarchy}
-                    </p>
-                    <p>
-                      <strong>Venue:</strong> {ev.venue || "Online"}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {recommendations && recommendations.length > 0 && (
-          <div className={styles.recommendations}>
-            <h3 className={styles.sectionSubtitle}>
-              <FiCheckCircle size={18} /> Recommended Schedules
-            </h3>
-            <div className={styles.filterButtons}>
+          <div className={styles.tabs}>
+            {conflicts.venue.has && (
               <button
                 type="button"
-                className={`${styles.filterBtn} ${
-                  recommendationFilter === "all" ? styles.activeFilter : ""
-                }`}
-                onClick={() => setRecommendationFilter("all")}
+                className={`${styles.tab} ${activeTab === "venue" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("venue")}
               >
-                All
+                <FiMapPin size={16} /> Venue
               </button>
+            )}
+            {conflicts.attendees.has && (
               <button
                 type="button"
-                className={`${styles.filterBtn} ${
-                  recommendationFilter === "all-free" ? styles.activeFilter : ""
-                }`}
-                onClick={() => setRecommendationFilter("all-free")}
+                className={`${styles.tab} ${activeTab === "attendees" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("attendees")}
               >
-                All Free
+                <FiUsers size={16} /> Attendees
               </button>
+            )}
+            {conflicts.creator.has && (
               <button
                 type="button"
-                className={`${styles.filterBtn} ${
-                  recommendationFilter === "creator-venue-free"
-                    ? styles.activeFilter
-                    : ""
-                }`}
-                onClick={() => setRecommendationFilter("creator-venue-free")}
+                className={`${styles.tab} ${activeTab === "creator" ? styles.activeTab : ""}`}
+                onClick={() => setActiveTab("creator")}
               >
-                Venue + You Free
-              </button>
-              <button
-                type="button"
-                className={`${styles.filterBtn} ${
-                  recommendationFilter === "creator-free"
-                    ? styles.activeFilter
-                    : ""
-                }`}
-                onClick={() => setRecommendationFilter("creator-free")}
-              >
-                You Free
-              </button>
-            </div>
-
-            <div className={styles.slotList}>
-              {displayRecs.map((slot, idx) => (
-                <div
-                  key={idx}
-                  className={styles.slotItem}
-                  onClick={() => onApplyRecommendation(slot)}
-                >
-                  <div className={styles.slotTime}>
-                    <span className={styles.slotStart}>
-                      {formatDateTime(slot.start_datetime)}
-                    </span>
-                    <FiArrowRight size={16} className={styles.slotArrow} />
-                    <span className={styles.slotEnd}>
-                      {formatDateTime(slot.end_datetime)}
-                    </span>
-                  </div>
-                  <div className={styles.slotTags}>
-                    {slot.conflict_free.venue && (
-                      <span className={styles.tagFree}>Venue Free</span>
-                    )}
-                    {slot.conflict_free.attendees && (
-                      <span className={styles.tagFree}>Attendees Free</span>
-                    )}
-                    {slot.conflict_free.creator && (
-                      <span className={styles.tagFree}>You Free</span>
-                    )}
-                    {!slot.conflict_free.venue && (
-                      <span className={styles.tagConflict}>Venue Conflict</span>
-                    )}
-                    {!slot.conflict_free.attendees && (
-                      <span className={styles.tagConflict}>
-                        Attendee Conflict
-                      </span>
-                    )}
-                    {!slot.conflict_free.creator && (
-                      <span className={styles.tagConflict}>You Conflict</span>
-                    )}
-                  </div>
-                  <button type="button" className={styles.selectSlotBtn}>
-                    Select
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {filteredRecs.length > 3 && (
-              <button
-                type="button"
-                className={styles.showMoreBtn}
-                onClick={() =>
-                  setShowAllRecommendations(!showAllRecommendations)
-                }
-              >
-                {showAllRecommendations
-                  ? "Show Less"
-                  : `Show ${filteredRecs.length - 3} More`}
+                <FiUser size={16} /> You
               </button>
             )}
           </div>
-        )}
+        </div>
 
-        <button
-          type="button"
-          className={styles.closeSheetBtn}
-          onClick={onClose}
-        >
-          Close
-        </button>
+        <div className={styles.scrollArea}>
+          <div className={styles.tabContent}>
+            {activeTab === "venue" && conflicts.venue.has && (
+              <div>
+                <h3 className={styles.sectionSubtitle}>
+                  <FiMapPin size={18} /> Venue Conflict
+                </h3>
+                {conflicts.venue.events.map((ev) => (
+                  <div key={ev.id} className={styles.conflictItem}>
+                    <div className={styles.itemHeader}>
+                      <span
+                        className={styles.itemTitle}
+                        style={{ backgroundColor: ev.color || "#800000" }}
+                      >
+                        {ev.title}
+                      </span>
+                      <span className={styles.itemDate}>
+                        <FiCalendar size={14} />{" "}
+                        {formatDateTime(ev.start_datetime)}
+                        <FiArrowRight size={14} className={styles.arrowIcon} />
+                        {formatDateTime(ev.end_datetime)}
+                      </span>
+                    </div>
+                    <div className={styles.itemDetails}>
+                      <p>
+                        <FiInfo size={14} /> <strong>Type:</strong>{" "}
+                        {ev.visibility} · {ev.hierarchy}
+                      </p>
+                      <p>
+                        <strong>Description:</strong>{" "}
+                        {ev.description || "No description"}
+                      </p>
+                      <p>
+                        <strong>Creator:</strong>{" "}
+                        {ev.creator?.username || "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "attendees" && conflicts.attendees.has && (
+              <div>
+                <h3 className={styles.sectionSubtitle}>
+                  <FiUsers size={18} /> Attendee Conflicts
+                </h3>
+                {conflicts.attendees.users.map((u) => (
+                  <div key={u.user.id} className={styles.attendeeConflict}>
+                    <div className={styles.attendeeHeader}>
+                      <FiUser size={16} /> <strong>{u.user.username}</strong>{" "}
+                      <span className={styles.attendeeEmail}>
+                        ({u.user.email})
+                      </span>
+                      <span className={styles.badge}>
+                        {u.events.length} conflicting event(s)
+                      </span>
+                    </div>
+                    {u.events.map((ev) => (
+                      <div key={ev.id} className={styles.conflictItem}>
+                        <div className={styles.itemHeader}>
+                          <span
+                            className={styles.itemTitle}
+                            style={{ backgroundColor: ev.color || "#800000" }}
+                          >
+                            {ev.title}
+                          </span>
+                          <span className={styles.itemDate}>
+                            <FiCalendar size={14} />{" "}
+                            {formatDateTime(ev.start_datetime)}
+                            <FiArrowRight
+                              size={14}
+                              className={styles.arrowIcon}
+                            />
+                            {formatDateTime(ev.end_datetime)}
+                          </span>
+                        </div>
+                        <div className={styles.itemDetails}>
+                          <p>
+                            <strong>Venue:</strong> {ev.venue || "N/A"}
+                          </p>
+                          <p>
+                            <strong>Creator:</strong>{" "}
+                            {ev.creator?.username || "Unknown"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "creator" && conflicts.creator.has && (
+              <div>
+                <h3 className={styles.sectionSubtitle}>
+                  <FiUser size={18} /> You have a conflict
+                </h3>
+                {conflicts.creator.events.map((ev) => (
+                  <div key={ev.id} className={styles.conflictItem}>
+                    <div className={styles.itemHeader}>
+                      <span
+                        className={styles.itemTitle}
+                        style={{ backgroundColor: ev.color || "#800000" }}
+                      >
+                        {ev.title}
+                      </span>
+                      <span className={styles.itemDate}>
+                        <FiCalendar size={14} />{" "}
+                        {formatDateTime(ev.start_datetime)}
+                        <FiArrowRight size={14} className={styles.arrowIcon} />
+                        {formatDateTime(ev.end_datetime)}
+                      </span>
+                    </div>
+                    <div className={styles.itemDetails}>
+                      <p>
+                        <strong>Type:</strong> {ev.visibility} · {ev.hierarchy}
+                      </p>
+                      <p>
+                        <strong>Venue:</strong> {ev.venue || "Online"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {recommendations && recommendations.length > 0 && (
+            <div className={styles.recommendations}>
+              <h3 className={styles.sectionSubtitle}>
+                <FiCheckCircle size={18} /> Recommended Schedules
+              </h3>
+              <div className={styles.filterButtons}>
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${recommendationFilter === "all" ? styles.activeFilter : ""}`}
+                  onClick={() => setRecommendationFilter("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${recommendationFilter === "all-free" ? styles.activeFilter : ""}`}
+                  onClick={() => setRecommendationFilter("all-free")}
+                >
+                  All Free
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${recommendationFilter === "creator-venue-free" ? styles.activeFilter : ""}`}
+                  onClick={() => setRecommendationFilter("creator-venue-free")}
+                >
+                  Venue + You Free
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${recommendationFilter === "creator-free" ? styles.activeFilter : ""}`}
+                  onClick={() => setRecommendationFilter("creator-free")}
+                >
+                  You Free
+                </button>
+              </div>
+
+              <div className={styles.slotList}>
+                {displayRecs.map((slot, idx) => (
+                  <div
+                    key={idx}
+                    className={styles.slotItem}
+                    onClick={() => onApplyRecommendation(slot)}
+                  >
+                    <div className={styles.slotTime}>
+                      <span className={styles.slotStart}>
+                        {formatDateTime(slot.start_datetime)}
+                      </span>
+                      <FiArrowRight size={16} className={styles.slotArrow} />
+                      <span className={styles.slotEnd}>
+                        {formatDateTime(slot.end_datetime)}
+                      </span>
+                    </div>
+                    <div className={styles.slotTags}>
+                      {slot.conflict_free.venue && (
+                        <span className={styles.tagFree}>Venue Free</span>
+                      )}
+                      {slot.conflict_free.attendees && (
+                        <span className={styles.tagFree}>Attendees Free</span>
+                      )}
+                      {slot.conflict_free.creator && (
+                        <span className={styles.tagFree}>You Free</span>
+                      )}
+                      {!slot.conflict_free.venue && (
+                        <span className={styles.tagConflict}>
+                          Venue Conflict
+                        </span>
+                      )}
+                      {!slot.conflict_free.attendees && (
+                        <span className={styles.tagConflict}>
+                          Attendee Conflict
+                        </span>
+                      )}
+                      {!slot.conflict_free.creator && (
+                        <span className={styles.tagConflict}>You Conflict</span>
+                      )}
+                    </div>
+                    <button type="button" className={styles.selectSlotBtn}>
+                      Select
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {filteredRecs.length > 3 && (
+                <button
+                  type="button"
+                  className={styles.showMoreBtn}
+                  onClick={() =>
+                    setShowAllRecommendations(!showAllRecommendations)
+                  }
+                >
+                  {showAllRecommendations
+                    ? "Show Less"
+                    : `Show ${filteredRecs.length - 3} More`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
