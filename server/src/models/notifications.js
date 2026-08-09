@@ -1,4 +1,3 @@
-// src/models/notifications.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -13,8 +12,19 @@ const Notification = sequelize.define('notifications', {
     allowNull: false
   },
   type: {
-    type: DataTypes.ENUM('event_invite','event_update','task_reminder','system'),
+    type: DataTypes.ENUM(
+      'event_invite', 'event_update', 'event_collaborator', 'event_response', 'event_reminder',
+      'task_invite', 'task_update', 'task_collaborator', 'task_response', 'task_reminder', 'system'
+    ),
     allowNull: false
+  },
+  entity_type: {
+    type: DataTypes.ENUM('event', 'task'),
+    allowNull: true
+  },
+  entity_id: {
+    type: DataTypes.UUID,
+    allowNull: true
   },
   title: {
     type: DataTypes.STRING(255),
