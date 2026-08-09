@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   FiX,
-  FiCheckCircle,
+  FiCheck,
   FiCalendar,
   FiUser,
   FiUsers,
@@ -11,6 +11,23 @@ import {
   FiSend,
 } from "react-icons/fi";
 import styles from "./TaskCardView.module.css";
+
+const AVATAR_COLORS = [
+  "#f9a825",
+  "#43a047",
+  "#1e88e5",
+  "#8e24aa",
+  "#fb8c00",
+  "#00897b",
+  "#5e35b1",
+];
+const getAvatarColor = (str) => {
+  if (!str) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++)
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
 
 export default function TaskCardView({
   isOpen,
@@ -22,6 +39,25 @@ export default function TaskCardView({
 }) {
   const [commentInputs, setCommentInputs] = useState({});
   const [showCommentInput, setShowCommentInput] = useState({});
+
+  const groupedChecklist = useMemo(() => {
+    if (!task?.checklist) return [];
+    const map = {};
+    const order = [];
+    task.checklist.forEach((item) => {
+      const cid = item.card_id || "default";
+      if (!map[cid]) {
+        map[cid] = {
+          id: cid,
+          title: item.card_title || "Checklist",
+          items: [],
+        };
+        order.push(cid);
+      }
+      map[cid].items.push(item);
+    });
+    return order.map((cid) => map[cid]);
+  }, [task]);
 
   if (!isOpen || !task) return null;
 
@@ -67,9 +103,7 @@ export default function TaskCardView({
   };
 
   const handleToggle = (itemId, currentStatus) => {
-    if (canModifyChecklist) {
-      onChecklistToggle(itemId, !currentStatus);
-    }
+    if (canModifyChecklist) onChecklistToggle(itemId, !currentStatus);
   };
 
   const handleCommentToggle = (itemId) => {
@@ -159,18 +193,44 @@ export default function TaskCardView({
               </span>
             </div>
           )}
+        </div>
+
+        {/* ── Assignees section (avatar list) ── */}
+        <div className={styles.assigneesSection}>
+          <h4 className={styles.assigneesTitle}>
+            <FiUsers size={14} /> Assignees
+          </h4>
           {task.assignees && task.assignees.length > 0 ? (
-            <div className={styles.detailRow}>
-              <FiUsers size={16} />
-              <span>
-                Assignees: {task.assignees.map((a) => a.username).join(", ")}
-              </span>
+            <div className={styles.assigneeList}>
+              {task.assignees.map((a) => {
+                const name = a.full_name || a.username || a.email || "Unknown";
+                return (
+                  <div key={a.id} className={styles.assigneeRow}>
+                    <div
+                      className={styles.assigneeAvatar}
+                      style={{ background: getAvatarColor(name) }}
+                    >
+                      {getInitials(name)}
+                    </div>
+                    <div className={styles.assigneeInfo}>
+                      <span className={styles.assigneeName}>{name}</span>
+                      {a.email && (
+                        <span className={styles.assigneeEmail}>{a.email}</span>
+                      )}
+                    </div>
+                    {a.response && (
+                      <span
+                        className={`${styles.assigneeResponseBadge} ${styles[`resp_${a.response}`]}`}
+                      >
+                        {a.response}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className={styles.detailRow}>
-              <FiUsers size={16} />
-              <span className={styles.noAssignees}>No assignees assigned.</span>
-            </div>
+            <p className={styles.noAssignees}>No assignees assigned.</p>
           )}
         </div>
 
@@ -208,134 +268,153 @@ export default function TaskCardView({
 
         <div className={styles.checklistSection}>
           <h3>Checklist</h3>
-          {task.checklist && task.checklist.length > 0 ? (
-            <div className={styles.checklist}>
-              {task.checklist.map((item) => (
-                <div key={item.id} className={styles.checklistItem}>
-                  {/* ── Top part: checkbox, title, checked by ── */}
-                  <div className={styles.checklistTop}>
-                    <button
-                      className={styles.checkToggle}
-                      onClick={() => handleToggle(item.id, item.is_completed)}
-                      disabled={!canModifyChecklist}
-                    >
-                      {item.is_completed ? (
-                        <FiCheckCircle size={22} color="#16a34a" />
-                      ) : (
-                        <span className={styles.emptyBox}>⬜</span>
-                      )}
-                    </button>
-                    <span
-                      className={
-                        item.is_completed ? styles.itemDone : styles.itemText
-                      }
-                    >
-                      {item.text}
-                    </span>
-                  </div>
-                  {item.is_completed && item.completed_by && (
-                    <div className={styles.completedByRow}>
-                      <span className={styles.completedBy}>
-                        ✓ Checked by{" "}
-                        {item.completed_by.full_name ||
-                          item.completed_by.username}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className={styles.checklistSeparator} />
-
-                  {/* ── Comments thread (stacked, newest at bottom) ── */}
-                  {item.comments && item.comments.length > 0 && (
-                    <div className={styles.commentsThread}>
-                      {item.comments.map((comment) => (
-                        <div key={comment.id} className={styles.commentDisplay}>
-                          <div className={styles.commentAvatar}>
-                            {getInitials(
-                              comment.author?.full_name ||
-                                comment.author?.username,
+          {groupedChecklist.length > 0 ? (
+            groupedChecklist.map((group) => (
+              <div key={group.id} className={styles.checklistGroup}>
+                {groupedChecklist.length > 1 && (
+                  <h4 className={styles.checklistGroupTitle}>{group.title}</h4>
+                )}
+                <div className={styles.checklist}>
+                  {group.items.map((item) => (
+                    <div key={item.id} className={styles.checklistItem}>
+                      {/* ── Top part: checkbox, title, checked by ── */}
+                      <div className={styles.checklistTop}>
+                        <button
+                          className={styles.checkToggle}
+                          onClick={() =>
+                            handleToggle(item.id, item.is_completed)
+                          }
+                          disabled={!canModifyChecklist}
+                        >
+                          <span
+                            className={`${styles.checkboxBox} ${item.is_completed ? styles.checkboxBoxChecked : ""}`}
+                          >
+                            {item.is_completed && (
+                              <FiCheck
+                                size={14}
+                                className={styles.checkboxCheckIcon}
+                              />
                             )}
+                          </span>
+                        </button>
+                        <span
+                          className={
+                            item.is_completed
+                              ? styles.itemDone
+                              : styles.itemText
+                          }
+                        >
+                          {item.text}
+                        </span>
+                      </div>
+                      {item.is_completed && item.completed_by && (
+                        <div className={styles.completedByRow}>
+                          <span className={styles.completedBy}>
+                            ✓ Checked by{" "}
+                            {item.completed_by.full_name ||
+                              item.completed_by.username}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className={styles.checklistSeparator} />
+
+                      {/* ── Comments thread ── */}
+                      {item.comments && item.comments.length > 0 && (
+                        <div className={styles.commentsThread}>
+                          {item.comments.map((comment) => (
+                            <div
+                              key={comment.id}
+                              className={styles.commentDisplay}
+                            >
+                              <div className={styles.commentAvatar}>
+                                {getInitials(
+                                  comment.author?.full_name ||
+                                    comment.author?.username,
+                                )}
+                              </div>
+                              <div className={styles.commentBubble}>
+                                <div className={styles.commentHeader}>
+                                  <span className={styles.commentAuthor}>
+                                    {comment.author?.full_name ||
+                                      comment.author?.username ||
+                                      "Unknown"}
+                                  </span>
+                                  <span className={styles.commentTime}>
+                                    {comment.created_at
+                                      ? new Date(
+                                          comment.created_at,
+                                        ).toLocaleDateString()
+                                      : ""}
+                                  </span>
+                                </div>
+                                <div className={styles.commentText}>
+                                  {comment.text}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <div className={styles.checklistSeparator} />
+                        </div>
+                      )}
+
+                      {/* ── Add comment ── */}
+                      {canModifyChecklist && !showCommentInput[item.id] && (
+                        <div className={styles.commentAction}>
+                          <button
+                            className={styles.addCommentBtn}
+                            onClick={() => handleCommentToggle(item.id)}
+                          >
+                            <FiPlus size={14} />
+                            Add comment
+                          </button>
+                        </div>
+                      )}
+
+                      {canModifyChecklist && showCommentInput[item.id] && (
+                        <div className={styles.commentInputWrapper}>
+                          <div className={styles.commentInputRow}>
+                            <textarea
+                              className={styles.commentTextarea}
+                              placeholder="Write a comment..."
+                              value={commentInputs[item.id] || ""}
+                              onChange={(e) =>
+                                handleCommentChange(item.id, e.target.value)
+                              }
+                              onKeyDown={(e) => handleKeyDown(e, item.id)}
+                              rows={2}
+                            />
                           </div>
-                          <div className={styles.commentBubble}>
-                            <div className={styles.commentHeader}>
-                              <span className={styles.commentAuthor}>
-                                {comment.author?.full_name ||
-                                  comment.author?.username ||
-                                  "Unknown"}
-                              </span>
-                              <span className={styles.commentTime}>
-                                {comment.created_at
-                                  ? new Date(
-                                      comment.created_at,
-                                    ).toLocaleDateString()
-                                  : ""}
-                              </span>
-                            </div>
-                            <div className={styles.commentText}>
-                              {comment.text}
-                            </div>
+                          <div className={styles.commentActions}>
+                            <button
+                              className={styles.cancelCommentBtn}
+                              onClick={() => {
+                                setShowCommentInput((prev) => ({
+                                  ...prev,
+                                  [item.id]: false,
+                                }));
+                                setCommentInputs((prev) => ({
+                                  ...prev,
+                                  [item.id]: "",
+                                }));
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className={styles.submitCommentBtn}
+                              onClick={() => handleCommentSubmit(item.id)}
+                            >
+                              <FiSend size={14} /> Comment
+                            </button>
                           </div>
                         </div>
-                      ))}
-                      <div className={styles.checklistSeparator} />
+                      )}
                     </div>
-                  )}
-
-                  {/* ── Add comment button/input ── */}
-                  {canModifyChecklist && !showCommentInput[item.id] && (
-                    <div className={styles.commentAction}>
-                      <button
-                        className={styles.addCommentBtn}
-                        onClick={() => handleCommentToggle(item.id)}
-                      >
-                        <FiPlus size={14} />
-                        Add comment
-                      </button>
-                    </div>
-                  )}
-
-                  {canModifyChecklist && showCommentInput[item.id] && (
-                    <div className={styles.commentInputWrapper}>
-                      <div className={styles.commentInputRow}>
-                        <textarea
-                          className={styles.commentTextarea}
-                          placeholder="Write a comment..."
-                          value={commentInputs[item.id] || ""}
-                          onChange={(e) =>
-                            handleCommentChange(item.id, e.target.value)
-                          }
-                          onKeyDown={(e) => handleKeyDown(e, item.id)}
-                          rows={2}
-                        />
-                      </div>
-                      <div className={styles.commentActions}>
-                        <button
-                          className={styles.cancelCommentBtn}
-                          onClick={() => {
-                            setShowCommentInput((prev) => ({
-                              ...prev,
-                              [item.id]: false,
-                            }));
-                            setCommentInputs((prev) => ({
-                              ...prev,
-                              [item.id]: "",
-                            }));
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className={styles.submitCommentBtn}
-                          onClick={() => handleCommentSubmit(item.id)}
-                        >
-                          <FiSend size={14} /> Comment
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           ) : (
             <p className={styles.noChecklist}>No checklist items.</p>
           )}
