@@ -208,30 +208,34 @@ export default function CalendarView() {
   }, []);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await apiClient.get("/events", {
-          params: { start: visibleRange.start, end: visibleRange.end },
-        });
-        setUserEvents(res.data.events || []);
-      } catch (err) {
-        console.error("Failed to fetch events:", err);
-      }
-    };
-    fetchEvents();
-  }, [visibleRange.start, visibleRange.end]);
+    let cancelled = false;
 
-  useEffect(() => {
-    const fetchPending = async () => {
+    const fetchCalendarData = async () => {
       try {
-        const data = await getInvitations({ response: "pending" });
-        const ids = data.events.map((ev) => ev.id);
-        setPendingEventIds(ids);
+        const [eventsRes, invitationsData] = await Promise.all([
+          apiClient.get("/events", {
+            params: { start: visibleRange.start, end: visibleRange.end },
+          }),
+          getInvitations({ response: "pending" }),
+        ]);
+
+        if (cancelled) return;
+
+        const pendingIds = (invitationsData.events || []).map((ev) => ev.id);
+        const allFetchedEvents = eventsRes.data.events || [];
+
+        setPendingEventIds(pendingIds);
+        setUserEvents(allFetchedEvents);
       } catch (err) {
-        console.error("Failed to fetch pending invitations:", err);
+        console.error("Failed to fetch calendar data:", err);
       }
     };
-    fetchPending();
+
+    fetchCalendarData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [visibleRange.start, visibleRange.end]);
 
   const allEvents = useMemo(() => {
