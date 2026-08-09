@@ -9,10 +9,9 @@ const formatDateTime = (date) => {
   });
 };
 
-// ─── Queue helper: gumagawa lang ng row sa email_queue table ───
 exports.queueEmail = async ({
   recipient_email, subject, body,
-  scheduled_for = null, event_id = null, email_type = null
+  scheduled_for = null, event_id = null, entity_type = 'event', email_type = null
 }) => {
   return EmailQueue.create({
     id: uuidv4(),
@@ -21,12 +20,12 @@ exports.queueEmail = async ({
     body,
     scheduled_for,
     event_id,
+    entity_type,
     email_type,
     status: 'pending'
   });
 };
 
-// ─── Templates ───
 exports.buildInvitationEmail = (event, recipientName) => {
   const subject = `You're invited: ${event.title}`;
   const body = `
@@ -74,7 +73,6 @@ exports.buildReminderEmail = (event, recipientName) => {
   return { subject, body };
 };
 
-// ─── Edited-event notice (only sent to pending/accepted attendees) ───
 exports.buildEventEditedEmail = (event, recipientName, status) => {
   const subject = `Event updated: ${event.title}`;
   const intro = status === 'pending'
