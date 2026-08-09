@@ -81,6 +81,7 @@
   font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  width: 100%;
 }
 
 .addButton {
