@@ -10,10 +10,10 @@ const {
   buildReminderEmail, buildEventEditedEmail
 } = require('../services/eventEmailTemplates');
 const { buildConflictMap } = require('../services/conflictService');
+const { createNotification } = require('../services/notificationService');
 
 const EMPTY_CONFLICT = { isConflicted: false, isPriority: false, conflictsWith: [], reason: null };
 
-// ─── Helper: get recipient email + display name ────────
 const getUserContact = async (userId) => {
   const u = await User.findByPk(userId, { attributes: ['id', 'email'] });
   if (!u) return null;
@@ -21,7 +21,6 @@ const getUserContact = async (userId) => {
   return { email: u.email, full_name: profile?.full_name || u.email };
 };
 
-// ─── Helper: get a user's full profile object (for creator display) ────
 const getUserProfileSummary = async (userId) => {
   const user = await User.findByPk(userId, { attributes: ['id', 'username', 'email'] });
   if (!user) return null;
@@ -52,7 +51,6 @@ const getUserProfileSummary = async (userId) => {
   };
 };
 
-// ─── Helper: hard venue-conflict check (blocks create/update) ────
 const getVenueConflict = async (venueId, start, end, excludeEventId = null) => {
   if (!venueId) return null;
   const where = {
@@ -132,7 +130,6 @@ exports.createEvent = async (req, res) => {
           }
           finalVenueId = venue.id;
 
-          // ── Hard block: venue conflicts must be resolved before creating ──
           const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT);
           if (venueConflict) {
             await t.rollback();
@@ -176,7 +173,6 @@ exports.createEvent = async (req, res) => {
       creator_id: req.userId,
       description,
       remind_before_minutes: remind_before_minutes || null,
-      // Email reminder is now always on
       is_email_reminder: true,
       is_archived: false
     }, { transaction: t });
@@ -212,7 +208,7 @@ exports.createEvent = async (req, res) => {
 
     await t.commit();
 
-    // ─── Queue notification & reminder emails (best-effort) ───
+    // ─── Queue notification & reminder emails + in-app notifications (best-effort) ───
     try {
       const eventForEmail = {
         title: event.title,
@@ -225,21 +221,39 @@ exports.createEvent = async (req, res) => {
 
       for (const userId of uniqueAttendeeIds) {
         const contact = await getUserContact(userId);
-        if (!contact?.email) continue;
-        const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
-        await queueEmail({
-          recipient_email: contact.email, subject, body,
-          event_id: event.id, email_type: 'invitation'
+        if (contact?.email) {
+          const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            event_id: event.id, entity_type: 'event', email_type: 'invitation'
+          });
+        }
+        await createNotification({
+          userId,
+          type: 'event_invite',
+          title: 'New Event Invitation',
+          message: `You've been invited to "${event.title}"`,
+          entityType: 'event',
+          entityId: event.id
         });
       }
 
       for (const userId of uniqueCollaboratorIds) {
         const contact = await getUserContact(userId);
-        if (!contact?.email) continue;
-        const { subject, body } = buildCollaboratorEmail(eventForEmail, contact.full_name);
-        await queueEmail({
-          recipient_email: contact.email, subject, body,
-          event_id: event.id, email_type: 'collaborator'
+        if (contact?.email) {
+          const { subject, body } = buildCollaboratorEmail(eventForEmail, contact.full_name);
+          await queueEmail({
+            recipient_email: contact.email, subject, body,
+            event_id: event.id, entity_type: 'event', email_type: 'collaborator'
+          });
+        }
+        await createNotification({
+          userId,
+          type: 'event_collaborator',
+          title: 'Added as Collaborator',
+          message: `You were added as a collaborator on "${event.title}"`,
+          entityType: 'event',
+          entityId: event.id
         });
       }
 
@@ -255,12 +269,12 @@ exports.createEvent = async (req, res) => {
           await queueEmail({
             recipient_email: contact.email, subject, body,
             scheduled_for: reminderTime,
-            event_id: event.id, email_type: 'reminder'
+            event_id: event.id, entity_type: 'event', email_type: 'reminder'
           });
         }
       }
     } catch (emailErr) {
-      console.error('Failed to queue event emails:', emailErr);
+      console.error('Failed to queue event emails/notifications:', emailErr);
     }
 
     res.status(201).json({
@@ -357,7 +371,6 @@ exports.updateEvent = async (req, res) => {
           }
           finalVenueId = venue.id;
 
-          // ── Hard block: venue conflicts must be resolved before saving ──
           const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT, id);
           if (venueConflict) {
             await t.rollback();
@@ -407,7 +420,6 @@ exports.updateEvent = async (req, res) => {
       office_id: req.body.office_id !== undefined ? req.body.office_id : event.office_id,
       description,
       remind_before_minutes: remind_before_minutes || null,
-      // Email reminder is now always on
       is_email_reminder: true,
       updated_at: new Date()
     }, { transaction: t });
@@ -480,26 +492,45 @@ exports.updateEvent = async (req, res) => {
       for (const record of attendeeRecordsToCreate) {
         const wasExisting = !!existingMap[record.user_id];
         const contact = await getUserContact(record.user_id);
-        if (!contact?.email) continue;
 
         if (wasExisting) {
           if (record.response === 'pending' || record.response === 'accepted') {
-            const { subject, body } = buildEventEditedEmail(eventForEmail, contact.full_name, record.response);
-            await queueEmail({
-              recipient_email: contact.email, subject, body,
-              event_id: id, email_type: 'edited'
+            if (contact?.email) {
+              const { subject, body } = buildEventEditedEmail(eventForEmail, contact.full_name, record.response);
+              await queueEmail({
+                recipient_email: contact.email, subject, body,
+                event_id: id, entity_type: 'event', email_type: 'edited'
+              });
+            }
+            await createNotification({
+              userId: record.user_id,
+              type: 'event_update',
+              title: 'Event Updated',
+              message: `"${event.title}" has been updated`,
+              entityType: 'event',
+              entityId: id
             });
           }
         } else {
-          const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
-          await queueEmail({
-            recipient_email: contact.email, subject, body,
-            event_id: id, email_type: 'invitation'
+          if (contact?.email) {
+            const { subject, body } = buildInvitationEmail(eventForEmail, contact.full_name);
+            await queueEmail({
+              recipient_email: contact.email, subject, body,
+              event_id: id, entity_type: 'event', email_type: 'invitation'
+            });
+          }
+          await createNotification({
+            userId: record.user_id,
+            type: 'event_invite',
+            title: 'New Event Invitation',
+            message: `You've been invited to "${event.title}"`,
+            entityType: 'event',
+            entityId: id
           });
         }
       }
     } catch (emailErr) {
-      console.error('Failed to queue update emails:', emailErr);
+      console.error('Failed to queue update emails/notifications:', emailErr);
     }
 
     res.json({
@@ -636,13 +667,11 @@ exports.getEventById = async (req, res) => {
     });
     if (viewerAttendee) viewerResponse = viewerAttendee.response;
 
-    // ── Attachments ──
     const attachmentRecords = await Attachment.findAll({
       where: { entity_type: 'event', entity_id: event.id },
       attributes: ['id', 'file_name', 'file_url', 'file_size']
     });
 
-    // ── Conflict info (relative to the requesting viewer's own schedule) ──
     const conflictMap = await buildConflictMap(req.userId);
     const conflict = conflictMap[event.id] || EMPTY_CONFLICT;
 
@@ -691,7 +720,7 @@ exports.getEventById = async (req, res) => {
   }
 };
 
-// ─── LIST EVENTS (scoped to creator or invited attendee only) ────────
+// ─── LIST EVENTS ──────────────────────────────────────
 exports.listEvents = async (req, res) => {
   try {
     const { start, end } = req.query;
@@ -725,7 +754,6 @@ exports.listEvents = async (req, res) => {
     const myResponseMap = {};
     myAttendances.forEach(a => { myResponseMap[a.event_id] = a.response; });
 
-    // ── Compute conflicts once for this user ──
     const conflictMap = await buildConflictMap(req.userId);
 
     const result = [];
@@ -877,7 +905,7 @@ exports.getEventStats = async (req, res) => {
   }
 };
 
-// ─── GET TODAY'S EVENTS (ALL, WITH PARTICIPANTS) ─────────────
+// ─── GET TODAY'S EVENTS ─────────────
 exports.getTodayEvent = async (req, res) => {
   try {
     const userId = req.userId;
