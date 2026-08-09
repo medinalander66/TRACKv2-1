@@ -35,6 +35,7 @@ import SelectDropdown from "../../../components/common/SelectDropdown";
 import EventCardView from "../../../components/events/EventCardView";
 import AttendeesModal from "../../../components/events/AttendeesModal";
 import ConflictCardEvent from "../../../components/events/ConflictCardEvent";
+import TaskCardView from "../../../components/tasks/TaskCardView";
 import {
   getEventStatus,
   EVENT_STATUS_CONFIG,
@@ -81,9 +82,8 @@ const AVATAR_COLORS = [
 const getAvatarColor = (str) => {
   if (!str) return AVATAR_COLORS[0];
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
+  for (let i = 0; i < str.length; i++)
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
@@ -208,6 +208,9 @@ function Home() {
   const [conflictEvent, setConflictEvent] = useState(null);
   const [showConflictModal, setShowConflictModal] = useState(false);
 
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+
   // ── Quick Stats fetch ──
   const fetchQuickStats = useCallback(async (type, range = "week") => {
     setStatsLoading(true);
@@ -251,9 +254,7 @@ function Home() {
       if (res.data.ok) {
         setTodayEvents(res.data.events || []);
         setCurrentTodayIndex(0);
-      } else {
-        setTodayEvents([]);
-      }
+      } else setTodayEvents([]);
     } catch (err) {
       console.error("Failed to fetch today's events:", err);
       setTodayEvents([]);
@@ -325,9 +326,7 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleStatsRangeChange = (range) => {
-    setStatsRange(range);
-  };
+  const handleStatsRangeChange = (range) => setStatsRange(range);
 
   const handleShowMoreEvents = () => fetchUpcomingEvents(false);
   const handleShowMoreTasks = () => setUpcomingTasksLimit((prev) => prev + 4);
@@ -336,17 +335,14 @@ function Home() {
   const gotoAnalytics = () => navigate("/analytics");
   const gotoTaskLists = () => navigate("/tasks");
 
-  // ── Today's Events carousel handlers ──
-  const handleTodayPrev = () => {
+  const handleTodayPrev = () =>
     setCurrentTodayIndex((prev) =>
       prev === 0 ? todayEvents.length - 1 : prev - 1,
     );
-  };
-  const handleTodayNext = () => {
+  const handleTodayNext = () =>
     setCurrentTodayIndex((prev) =>
       prev === todayEvents.length - 1 ? 0 : prev + 1,
     );
-  };
   const handleTodayTouchStart = (e) =>
     setTodayTouchStartX(e.touches[0].clientX);
   const handleTodayTouchEnd = (e) => {
@@ -369,7 +365,6 @@ function Home() {
       .catch(() => {});
   };
 
-  // ── View handlers (Today's Event + Upcoming Events) ──
   const handleViewEventDetails = async (event) => {
     try {
       const res = await apiClient.get(`/events/${event.id}`);
@@ -391,6 +386,49 @@ function Home() {
   const handleShowConflict = (event) => {
     setConflictEvent(event);
     setShowConflictModal(true);
+  };
+
+  // ── Ongoing Task click → TaskCardView modal ──
+  const handleViewTask = async (task) => {
+    try {
+      const res = await apiClient.get(`/tasks/${task.id}`);
+      if (res.data.ok) setSelectedTask(res.data.task);
+      else setSelectedTask(task);
+    } catch (err) {
+      console.error("Failed to fetch task details:", err);
+      setSelectedTask(task);
+    } finally {
+      setShowTaskModal(true);
+    }
+  };
+
+  const handleTaskChecklistToggle = async (itemId, isCompleted) => {
+    try {
+      await apiClient.put(`/tasks/checklist/${itemId}`, {
+        is_completed: isCompleted,
+      });
+      if (selectedTask) {
+        const res = await apiClient.get(`/tasks/${selectedTask.id}`);
+        if (res.data.ok) setSelectedTask(res.data.task);
+      }
+      fetchOngoingTasks();
+    } catch (err) {
+      console.error("Failed to toggle checklist:", err);
+    }
+  };
+
+  const handleTaskAddComment = async (itemId, commentText) => {
+    try {
+      await apiClient.post(`/tasks/checklist/${itemId}/comments`, {
+        comment_text: commentText,
+      });
+      if (selectedTask) {
+        const res = await apiClient.get(`/tasks/${selectedTask.id}`);
+        if (res.data.ok) setSelectedTask(res.data.task);
+      }
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    }
   };
 
   const displayUser = fullUser || user || {};
@@ -537,7 +575,7 @@ function Home() {
     );
   };
 
-  // ── Render a single Today's Event (same design as Events.jsx) ──
+  // ── Render a single Today's Event ──
   const renderTodayEvent = (todayEvent) => {
     if (!todayEvent) return null;
 
@@ -755,11 +793,7 @@ function Home() {
               {conflict.isConflicted && (
                 <button
                   type="button"
-                  className={`${styles.conflictBtn} ${
-                    conflict.isPriority
-                      ? styles.conflictBtnPriority
-                      : styles.conflictBtnWarning
-                  }`}
+                  className={`${styles.conflictBtn} ${conflict.isPriority ? styles.conflictBtnPriority : styles.conflictBtnWarning}`}
                   onClick={() => handleShowConflict(todayEvent)}
                 >
                   <FiAlertTriangle size={13} />
@@ -835,14 +869,12 @@ function Home() {
     );
   };
 
-  // ── Render upcoming events list (clickable) ──
   const renderUpcomingEvents = () => {
     let filtered = filterEventsByType(upcomingEvents, eventTypeFilter);
     filtered = filterEventsByDuration(filtered, eventDurationFilter);
 
-    if (filtered.length === 0 && !upcomingEventsLoading) {
+    if (filtered.length === 0 && !upcomingEventsLoading)
       return <p className={styles.noData}>No upcoming events</p>;
-    }
     return (
       <div className={styles.upcomingList}>
         {filtered.map((ev) => (
@@ -906,7 +938,6 @@ function Home() {
     );
   };
 
-  // ── Render ongoing tasks (real data) ──
   const renderUpcomingTasks = () => {
     let filtered = filterTasksByType(allOngoingTasks, taskTypeFilter);
     filtered = filterTasksByDuration(filtered, taskDurationFilter);
@@ -914,9 +945,8 @@ function Home() {
     const visible = filtered.slice(0, upcomingTasksLimit);
     const hasMore = filtered.length > upcomingTasksLimit;
 
-    if (visible.length === 0 && !upcomingTasksLoading) {
+    if (visible.length === 0 && !upcomingTasksLoading)
       return <p className={styles.noData}>No ongoing tasks</p>;
-    }
 
     return (
       <div className={styles.upcomingList}>
@@ -929,6 +959,8 @@ function Home() {
             <div
               key={task.id}
               className={`${styles.taskCard} ${getPriorityClass(task.priority)}`}
+              onClick={() => handleViewTask(task)}
+              style={{ cursor: "pointer" }}
             >
               <div className={styles.taskCardTop}>
                 <span className={styles.taskCheckbox} />
@@ -1058,7 +1090,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Filter pills instead of arrows */}
         <div className={styles.filterRow}>
           {STAT_TYPE_OPTIONS.map((opt) => (
             <button
@@ -1211,6 +1242,18 @@ function Home() {
           setConflictEvent(null);
         }}
         event={conflictEvent}
+      />
+
+      <TaskCardView
+        isOpen={showTaskModal}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedTask(null);
+        }}
+        task={selectedTask}
+        onChecklistToggle={handleTaskChecklistToggle}
+        onAddComment={handleTaskAddComment}
+        currentUserId={user?.id}
       />
     </div>
   );
