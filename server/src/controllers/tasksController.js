@@ -19,6 +19,7 @@ const {
   queueEmail, buildTaskAssignedEmail, buildTaskCollaboratorEmail,
   buildTaskReminderEmail, buildTaskEditedEmail
 } = require("../services/taskEmailTemplates");
+const { createNotification } = require("../services/notificationService");
 
 const getUserProfileSummary = async (userId) => {
   const user = await User.findByPk(userId, {
@@ -151,18 +152,39 @@ exports.createTask = async (req, res) => {
         deadline_datetime: task.deadline_datetime, priority: task.priority,
       };
       const realAssigneeIds = assigneeIds.filter((id) => id !== req.userId);
+
       for (const userId of realAssigneeIds) {
         const contact = await getUserContact(userId);
-        if (!contact?.email) continue;
-        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
-        await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'invitation' });
+        if (contact?.email) {
+          const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+          await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'invitation' });
+        }
+        await createNotification({
+          userId,
+          type: 'task_invite',
+          title: 'New Task Assigned',
+          message: `You've been assigned to "${task.title}"`,
+          entityType: 'task',
+          entityId: task.id,
+        });
       }
+
       for (const userId of uniqueCollaborators) {
         const contact = await getUserContact(userId);
-        if (!contact?.email) continue;
-        const { subject, body } = buildTaskCollaboratorEmail(taskForEmail, contact.full_name);
-        await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'collaborator' });
+        if (contact?.email) {
+          const { subject, body } = buildTaskCollaboratorEmail(taskForEmail, contact.full_name);
+          await queueEmail({ recipient_email: contact.email, subject, body, task_id: task.id, email_type: 'collaborator' });
+        }
+        await createNotification({
+          userId,
+          type: 'task_collaborator',
+          title: 'Added as Collaborator',
+          message: `You were added as a collaborator on task "${task.title}"`,
+          entityType: 'task',
+          entityId: task.id,
+        });
       }
+
       if (remind_before_minutes) {
         const reminderTime = new Date(new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000);
         const recipientIds = [...new Set([req.userId, ...realAssigneeIds, ...uniqueCollaborators])];
@@ -174,7 +196,7 @@ exports.createTask = async (req, res) => {
         }
       }
     } catch (emailErr) {
-      console.error('Failed to queue task emails:', emailErr);
+      console.error('Failed to queue task emails/notifications:', emailErr);
     }
 
     res.status(201).json({ ok: true, task: { id: task.id, title: task.title } });
@@ -457,9 +479,6 @@ exports.updateTask = async (req, res) => {
       );
     }
 
-    // ── Checklist: match by (card_id + text) so unchanged items keep their
-    // id (and therefore their comments/checked-by history). Items no longer
-    // submitted (per card) get deleted along with their comments. ──
     if (checklist_items && Array.isArray(checklist_items)) {
       const existingItems = await TaskChecklistItem.findAll({ where: { task_id: id } });
       const keyOf = (cardId, text) => `${cardId}||${text}`;
@@ -500,20 +519,39 @@ exports.updateTask = async (req, res) => {
     try {
       const taskForEmail = { title: task.title, description: task.description, deadline_datetime: task.deadline_datetime, priority: task.priority };
       const continuingIds = submittedAssigneeIds.filter((uid) => uid !== task.creator_id && uid in existingMap);
+
       for (const userId of continuingIds) {
         const priorResponse = existingMap[userId];
         if (priorResponse === 'pending' || priorResponse === 'accepted') {
           const contact = await getUserContact(userId);
-          if (!contact?.email) continue;
-          const { subject, body } = buildTaskEditedEmail(taskForEmail, contact.full_name, priorResponse);
-          await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'edited' });
+          if (contact?.email) {
+            const { subject, body } = buildTaskEditedEmail(taskForEmail, contact.full_name, priorResponse);
+            await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'edited' });
+          }
+          await createNotification({
+            userId,
+            type: 'task_update',
+            title: 'Task Updated',
+            message: `"${task.title}" has been updated`,
+            entityType: 'task',
+            entityId: id,
+          });
         }
       }
       for (const userId of toAdd) {
         const contact = await getUserContact(userId);
-        if (!contact?.email) continue;
-        const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
-        await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'invitation' });
+        if (contact?.email) {
+          const { subject, body } = buildTaskAssignedEmail(taskForEmail, contact.full_name);
+          await queueEmail({ recipient_email: contact.email, subject, body, task_id: id, email_type: 'invitation' });
+        }
+        await createNotification({
+          userId,
+          type: 'task_invite',
+          title: 'New Task Assigned',
+          message: `You've been assigned to "${task.title}"`,
+          entityType: 'task',
+          entityId: id,
+        });
       }
       if (remind_before_minutes) {
         const reminderTime = new Date(new Date(task.deadline_datetime).getTime() - Number(remind_before_minutes) * 60000);
@@ -526,7 +564,7 @@ exports.updateTask = async (req, res) => {
         }
       }
     } catch (emailErr) {
-      console.error('Failed to queue task update emails:', emailErr);
+      console.error('Failed to queue task update emails/notifications:', emailErr);
     }
 
     res.json({ ok: true, message: "Task updated successfully." });
@@ -537,7 +575,7 @@ exports.updateTask = async (req, res) => {
   }
 };
 
-// ─── TOGGLE CHECKLIST ITEM (checkbox only) ─────────────
+// ─── TOGGLE CHECKLIST ITEM ─────────────
 exports.toggleChecklistItem = async (req, res) => {
   try {
     const { itemId } = req.params;
@@ -576,7 +614,7 @@ exports.toggleChecklistItem = async (req, res) => {
   }
 };
 
-// ─── ADD CHECKLIST COMMENT (stacking) ──────────────────
+// ─── ADD CHECKLIST COMMENT ──────────────────
 exports.addChecklistComment = async (req, res) => {
   try {
     const { itemId } = req.params;
@@ -617,7 +655,7 @@ exports.addChecklistComment = async (req, res) => {
   }
 };
 
-// ─── RESPOND TO TASK INVITATION ────────────────────────
+// ─── RESPOND TO TASK INVITATION (notifies creator) ──────
 exports.respondToTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -634,6 +672,23 @@ exports.respondToTask = async (req, res) => {
 
     assignee.response = response;
     await assignee.save();
+
+    try {
+      const task = await Task.findByPk(taskId);
+      if (task && task.creator_id !== req.userId) {
+        const responderProfile = await getUserProfileSummary(req.userId);
+        await createNotification({
+          userId: task.creator_id,
+          type: 'task_response',
+          title: 'Task Response',
+          message: `${responderProfile?.full_name || 'Someone'} ${response} the task "${task.title}"`,
+          entityType: 'task',
+          entityId: task.id,
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to create response notification:', notifErr);
+    }
 
     res.json({ ok: true, message: `Task ${response}.` });
   } catch (error) {
