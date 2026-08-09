@@ -373,3 +373,36 @@
   text-align: center;
   padding: 0 1rem;
 }
+
+.staticVisibility {
+  padding: 0.5rem 0;
+}
+
+.checklistTitleInputWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checklistTitleInput {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed #9ca3af;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 2px 4px 2px 0;
+  color: #111827;
+  outline: none;
+  min-width: 80px;
+}
+
+.checklistTitleInput:focus {
+  border-bottom-color: var(--primary-color, #800000);
+  border-bottom-style: solid;
+}
+
+.checklistTitleEditIcon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}

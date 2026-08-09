@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import apiClient from "../../../api/client";
@@ -23,6 +23,7 @@ import {
   FiUsers,
   FiFileText,
   FiPaperclip,
+  FiEdit2,
 } from "react-icons/fi";
 import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
 import styles from "./CreateTask.module.css";
@@ -31,11 +32,17 @@ export default function CreateTask() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const role = user?.role || "faculty";
+  const hasDepartment = !!user?.department;
+
+  const [currentProfile, setCurrentProfile] = useState(null);
+
   const [formData, setFormData] = useState({
     title: "",
     color: "#3B82F6",
     priority: "medium",
     visibility: "personal",
+    department_id: "",
     deadlineDate: "",
     deadlineTime: "",
     description: "",
@@ -56,6 +63,24 @@ export default function CreateTask() {
   const [feedback, setFeedback] = useState({ message: "", type: "success" });
   const showFeedback = (msg, type = "success") =>
     setFeedback({ message: msg, type });
+
+  useEffect(() => {
+    apiClient
+      .get("/auth/me")
+      .then((res) => {
+        if (res.data.ok) setCurrentProfile(res.data.user);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (formData.visibility === "department" && currentProfile?.department_id) {
+      setFormData((prev) => ({
+        ...prev,
+        department_id: currentProfile.department_id,
+      }));
+    }
+  }, [formData.visibility, currentProfile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -101,9 +126,12 @@ export default function CreateTask() {
   };
 
   const handleAddChecklistCard = () => {
+    const nextNumber = checklistCards.length + 1;
+    const title =
+      checklistCards.length === 0 ? "Checklist" : `Checklist_${nextNumber}`;
     setChecklistCards((prev) => [
       ...prev,
-      { id: Date.now(), title: "Checklist", items: [], newItemText: "" },
+      { id: Date.now(), title, items: [], newItemText: "" },
     ]);
   };
 
@@ -137,6 +165,28 @@ export default function CreateTask() {
     setAttachments((prev) => prev.filter((f) => f !== fileToRemove));
   };
 
+  // ── Auto-add any text still sitting in an "Add item..." input before
+  // building the payload, so unconfirmed typed items never get silently
+  // dropped just because the user forgot to press + or Enter. ──
+  const flushPendingChecklistItems = (cards) => {
+    return cards.map((card) => {
+      const pendingText = card.newItemText?.trim();
+      if (!pendingText) return card;
+      return {
+        ...card,
+        items: [
+          ...card.items,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            text: pendingText,
+            done: false,
+          },
+        ],
+        newItemText: "",
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -160,10 +210,18 @@ export default function CreateTask() {
       formData.deadlineTime,
     );
 
+    const finalCards = flushPendingChecklistItems(checklistCards);
+    setChecklistCards(finalCards);
+
     const checklistItems = [];
-    checklistCards.forEach((card) => {
+    finalCards.forEach((card) => {
       card.items.forEach((item) => {
-        checklistItems.push({ text: item.text });
+        checklistItems.push({
+          text: item.text,
+          card_id: String(card.id),
+          card_title: card.title,
+          is_completed: item.done,
+        });
       });
     });
 
@@ -172,6 +230,10 @@ export default function CreateTask() {
       color: formData.color,
       priority: formData.priority,
       visibility: formData.visibility,
+      department_id:
+        formData.visibility === "department"
+          ? formData.department_id
+          : undefined,
       deadline_datetime,
       description: formData.description.trim(),
       remind_before_minutes: formData.remind_before_minutes || null,
@@ -255,11 +317,6 @@ export default function CreateTask() {
             <RadioGroup
               name="priority"
               label="PRIORITY"
-              groupClassName={styles.labelGroup}
-              optionsClassName={styles.labelOptions}
-              radioLabelClassName={styles.labelRadioLabel}
-              labelClassName={styles.labelLabel}
-              optionContentClassName={styles.labelOptionContent}
               options={[
                 { value: "high", label: "High", color: "#800000" },
                 { value: "medium", label: "Medium", color: "#AF4402" },
@@ -276,17 +333,25 @@ export default function CreateTask() {
               <FiUsers size={16} className={styles.cardHeaderIcon} />
               <span>Visibility</span>
             </div>
-            <RadioGroup
-              name="visibility"
-              label="VISIBILITY"
-              options={[
-                { value: "personal", label: "Personal" },
-                { value: "department", label: "Department" },
-                { value: "campus", label: "Campus" },
-              ]}
-              value={formData.visibility}
-              onChange={handleInputChange}
-            />
+            {role === "officials" ? (
+              <RadioGroup
+                name="visibility"
+                label="VISIBILITY"
+                options={[
+                  { value: "personal", label: "Personal" },
+                  ...(hasDepartment
+                    ? [{ value: "department", label: "Department" }]
+                    : []),
+                  { value: "campus", label: "Campus" },
+                ]}
+                value={formData.visibility}
+                onChange={handleInputChange}
+              />
+            ) : (
+              <div className={styles.staticVisibility}>
+                <span className={styles.label}>VISIBILITY: Personal</span>
+              </div>
+            )}
           </div>
 
           {/* Assignees & Collaborators */}
@@ -329,6 +394,7 @@ export default function CreateTask() {
               <InputField
                 label="DATE"
                 type="date"
+                autoComplete="off"
                 name="deadlineDate"
                 value={formData.deadlineDate}
                 onChange={handleInputChange}
@@ -336,6 +402,7 @@ export default function CreateTask() {
               <InputField
                 label="TIME"
                 type="time"
+                autoComplete="off"
                 name="deadlineTime"
                 value={formData.deadlineTime}
                 onChange={handleInputChange}
@@ -358,13 +425,19 @@ export default function CreateTask() {
                   <div key={card.id} className={styles.checklistCardMulti}>
                     <div className={styles.checklistHeaderRow}>
                       <div className={styles.checklistTitleBlockRow}>
-                        <input
-                          className={styles.checklistTitleInput}
-                          value={card.title}
-                          onChange={(e) =>
-                            handleEditChecklistTitle(card.id, e.target.value)
-                          }
-                        />
+                        <div className={styles.checklistTitleInputWrapper}>
+                          <input
+                            className={styles.checklistTitleInput}
+                            value={card.title}
+                            onChange={(e) =>
+                              handleEditChecklistTitle(card.id, e.target.value)
+                            }
+                          />
+                          <FiEdit2
+                            size={12}
+                            className={styles.checklistTitleEditIcon}
+                          />
+                        </div>
                         <span className={styles.checklistSubtitleSmall}>
                           {card.items.length} items
                         </span>
