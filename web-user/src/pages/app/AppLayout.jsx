@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import apiClient from "../../api/client";
+import { getUnreadCount } from "../../api/notifications";
 import {
   FiMenu,
   FiBell,
@@ -42,6 +43,7 @@ export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -56,6 +58,20 @@ export default function AppLayout() {
     };
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await getUnreadCount();
+        if (res.ok) setUnreadCount(res.count);
+      } catch (err) {
+        // silent fail
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [location.pathname]);
 
   const isFocused = FOCUSED_ROUTES.some((route) =>
     location.pathname.startsWith(route),
@@ -165,8 +181,32 @@ export default function AppLayout() {
                     <button
                       onClick={() => navigate("/notifications")}
                       className={styles.iconBtn}
+                      style={{ position: "relative" }}
                     >
                       <FiBell size={22} />
+                      {unreadCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -2,
+                            right: -2,
+                            background: "#dc2626",
+                            color: "#fff",
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            borderRadius: "999px",
+                            minWidth: "16px",
+                            height: "16px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "0 3px",
+                            border: "2px solid #fff",
+                          }}
+                        >
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={() => navigate("/profile")}
