@@ -9,6 +9,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
 }
 
 .button:hover {
