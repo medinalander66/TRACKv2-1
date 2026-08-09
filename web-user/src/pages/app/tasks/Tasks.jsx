@@ -232,9 +232,6 @@ export default function Tasks() {
     const isDeclined = task.response === "declined";
     const missed = isMissedTaskInvitation(task);
 
-    // ── Response-first click routing: an assignee's OWN response decides
-    // where the click goes, regardless of creator/collaborator status
-    // (creator's own response is always "accepted", collaborators have none). ──
     const handleCardClick = () => {
       if (isPending) {
         handleViewInvitation(task, "invite");
@@ -247,7 +244,6 @@ export default function Tasks() {
       handleViewTask(task);
     };
 
-    // Edit icon only ever shows on Created and Collaboration tabs.
     const showEditIcon =
       (variant === "created" || variant === "collaboration") &&
       (isCreator || isCollaborator);
