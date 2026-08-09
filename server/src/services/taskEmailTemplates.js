@@ -19,7 +19,8 @@ exports.queueEmail = async ({
     subject,
     body,
     scheduled_for,
-    event_id: task_id, // reused column, holds task_id for task-related emails
+    event_id: task_id,
+    entity_type: 'task',
     email_type,
     status: 'pending'
   });
