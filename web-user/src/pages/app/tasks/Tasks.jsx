@@ -230,18 +230,27 @@ export default function Tasks() {
     const isCollaborator = task.isCollaborator;
     const isPending = task.response === "pending";
     const isDeclined = task.response === "declined";
-    const canEdit = isCreator || isCollaborator;
     const missed = isMissedTaskInvitation(task);
 
+    // ── Response-first click routing: an assignee's OWN response decides
+    // where the click goes, regardless of creator/collaborator status
+    // (creator's own response is always "accepted", collaborators have none). ──
     const handleCardClick = () => {
-      if (isCreator || isCollaborator) {
-        handleViewTask(task);
+      if (isPending) {
+        handleViewInvitation(task, "invite");
         return;
       }
-      if (isPending) handleViewInvitation(task, "invite");
-      else if (isDeclined) handleViewInvitation(task, "revert");
-      else handleViewTask(task);
+      if (isDeclined) {
+        handleViewInvitation(task, "revert");
+        return;
+      }
+      handleViewTask(task);
     };
+
+    // Edit icon only ever shows on Created and Collaboration tabs.
+    const showEditIcon =
+      (variant === "created" || variant === "collaboration") &&
+      (isCreator || isCollaborator);
 
     const status = getTaskStatus(task);
     const statusCfg = TASK_STATUS_CONFIG[status];
@@ -253,7 +262,7 @@ export default function Tasks() {
         onClick={handleCardClick}
         style={{ borderLeftColor: task.color || "#3B82F6" }}
       >
-        {canEdit && (
+        {showEditIcon && (
           <button
             type="button"
             className={styles.editIconBtn}
@@ -299,15 +308,18 @@ export default function Tasks() {
           <div className={styles.assigneeBlock}>
             <FiUsers size={14} />
             <div className={styles.assigneeAvatars}>
-              {task.assignees.slice(0, 3).map((a) => (
-                <span
-                  key={a.id}
-                  className={styles.avatarSmall}
-                  style={{ background: getAvatarColor(a.username) }}
-                >
-                  {getInitials(a.username)}
-                </span>
-              ))}
+              {task.assignees.slice(0, 3).map((a) => {
+                const name = a.full_name || a.username || "?";
+                return (
+                  <span
+                    key={a.id}
+                    className={styles.avatarSmall}
+                    style={{ background: getAvatarColor(name) }}
+                  >
+                    {getInitials(name)}
+                  </span>
+                );
+              })}
               {task.assignees.length > 3 && (
                 <span className={styles.avatarMore}>
                   +{task.assignees.length - 3}
