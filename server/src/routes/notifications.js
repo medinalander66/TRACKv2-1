@@ -4,9 +4,11 @@ const { authenticate } = require('../middleware/auth');
 const {
   Event, EventAttendee, Venue, Location,
   User, UserProfile, Department, Office, Position,
-  Attachment
+  Attachment, Notification
 } = require('../models');
+const { createNotification } = require('../services/notificationService');
 
+// ─── Event invitation listing (existing) ───────────────
 router.get('/invitations', authenticate, async (req, res) => {
   try {
     const { response, type } = req.query;
@@ -133,7 +135,7 @@ router.get('/invitations', authenticate, async (req, res) => {
   }
 });
 
-// PUT /api/notifications/:eventId/respond — pwede na ang kahit anong transition (kasama declined -> accepted)
+// PUT /api/notifications/:eventId/respond — event invitation response (notifies creator)
 router.put('/:eventId/respond', authenticate, async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -153,9 +155,91 @@ router.put('/:eventId/respond', authenticate, async (req, res) => {
     attendee.response = response;
     await attendee.save();
 
+    try {
+      const event = await Event.findByPk(eventId);
+      if (event && event.creator_id !== req.userId) {
+        const responderProfile = await UserProfile.findOne({ where: { user_id: req.userId } });
+        const responderUser = await User.findByPk(req.userId, { attributes: ['username', 'email'] });
+        const responderName = responderProfile?.full_name || responderUser?.username || 'Someone';
+        await createNotification({
+          userId: event.creator_id,
+          type: 'event_response',
+          title: 'Invitation Response',
+          message: `${responderName} ${response} your invitation to "${event.title}"`,
+          entityType: 'event',
+          entityId: event.id,
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to create response notification:', notifErr);
+    }
+
     res.json({ ok: true, message: `Invitation ${response}.` });
   } catch (error) {
     console.error('Respond to invitation error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+});
+
+// ─── General notification feed ─────────────────────────
+router.get('/feed', authenticate, async (req, res) => {
+  try {
+    const { filter = 'all', limit = 20, offset = 0 } = req.query;
+    const where = { user_id: req.userId };
+    if (filter === 'unread') where.is_read = false;
+
+    const notifications = await Notification.findAll({
+      where,
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+    const unreadCount = await Notification.count({ where: { user_id: req.userId, is_read: false } });
+
+    res.json({
+      ok: true,
+      notifications,
+      unreadCount,
+      hasMore: notifications.length === parseInt(limit),
+    });
+  } catch (error) {
+    console.error('Get notifications feed error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+});
+
+router.get('/unread-count', authenticate, async (req, res) => {
+  try {
+    const count = await Notification.count({ where: { user_id: req.userId, is_read: false } });
+    res.json({ ok: true, count });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+});
+
+router.put('/:id/read', authenticate, async (req, res) => {
+  try {
+    const notif = await Notification.findOne({ where: { id: req.params.id, user_id: req.userId } });
+    if (!notif) return res.status(404).json({ ok: false, message: 'Not found.' });
+    notif.is_read = true;
+    await notif.save();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+});
+
+router.put('/read-all', authenticate, async (req, res) => {
+  try {
+    await Notification.update(
+      { is_read: true },
+      { where: { user_id: req.userId, is_read: false } }
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 });
