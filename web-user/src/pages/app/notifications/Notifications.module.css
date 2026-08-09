@@ -2,36 +2,45 @@
   padding: 16px;
   max-width: 480px;
   margin: 0 auto;
+  padding-bottom: 60px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pageTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.markAllBtn {
+  background: none;
+  border: none;
+  color: var(--primary-color, #800000);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .filterContainer {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.typeContainer select {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  font-size: 14px;
-  background: white;
-  color: #374151;
-}
-
-.btnContainer {
-  display: flex;
   gap: 8px;
+  margin-bottom: 16px;
 }
 
 .filterBtn {
-  padding: 6px 14px;
+  padding: 6px 16px;
   border: 1px solid #d1d5db;
   border-radius: 20px;
   background: white;
   font-size: 13px;
+  font-weight: 600;
   color: #374151;
   cursor: pointer;
   transition: all 0.2s;
@@ -42,62 +51,178 @@
 }
 
 .activeBtn {
-  background: var(--primary-color);
+  background: var(--primary-color, #800000);
   color: white;
-  border-color: var(--primary-color);
+  border-color: var(--primary-color, #800000);
 }
 
 .mainContent {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.eventCard {
+.loading,
+.error {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px 0;
+}
+
+.error {
+  color: #dc2626;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 56px 24px;
+  text-align: center;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px dashed #e5e7eb;
+}
+
+.emptyIcon {
+  color: #d1d5db;
+  margin-bottom: 4px;
+}
+
+.emptyText {
+  font-size: 15px;
+  font-weight: 700;
+  color: #374151;
+  margin: 0;
+}
+
+.emptySubtext {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.notifCard {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 14px;
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, background 0.2s;
 }
 
-.eventCard:hover {
+.notifCard:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.notifUnread {
+  background: #fef9f9;
+  border-color: #fde2e2;
 }
 
-.eventTitle {
-  font-weight: 600;
-  font-size: 16px;
+.notifIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconEvent {
+  background: rgba(128, 0, 0, 0.1);
+  color: var(--primary-color, #800000);
+}
+
+.iconTask {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.iconResponse {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.iconReminder {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.iconSystem {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.notifBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.notifTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notifTitle {
+  font-weight: 700;
+  font-size: 14px;
   color: #111827;
 }
 
-.eventVisibility {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: #fef2f2;
-  color: var(--primary-color);
-  text-transform: capitalize;
+.notifTime {
+  font-size: 11px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.cardDetails {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.notifMessage {
   font-size: 13px;
   color: #4b5563;
+  margin: 3px 0 0;
+  line-height: 1.4;
 }
 
-.cardDetails span {
+.unreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color, #800000);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.showMoreWrapper {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.showMoreBtn {
+  padding: 10px 28px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #5c0000, #800000);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(128, 0, 0, 0.3);
+}
+
+.showMoreBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
