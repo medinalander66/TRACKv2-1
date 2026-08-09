@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import InputField from "../common/InputField";
 import Button from "../common/Button";
 import RadioGroup from "../common/RadioGroup";
@@ -26,18 +27,25 @@ import {
   FiFileText,
   FiPaperclip,
   FiX,
+  FiEdit2,
 } from "react-icons/fi";
 import { FaRegSquare, FaCheckSquare } from "react-icons/fa";
 import styles from "../../pages/app/tasks/CreateTask.module.css";
 
 export default function EditTask() {
   const { id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  const role = user?.role || "faculty";
+  const hasDepartment = !!user?.department;
 
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+
+  const [isTaskCreator, setIsTaskCreator] = useState(false);
 
   const [feedback, setFeedback] = useState({ message: "", type: "success" });
   const showFeedback = (msg, type = "success") =>
@@ -48,6 +56,7 @@ export default function EditTask() {
     color: "#3B82F6",
     priority: "medium",
     visibility: "personal",
+    department_id: "",
     deadlineDate: "",
     deadlineTime: "",
     description: "",
@@ -85,6 +94,7 @@ export default function EditTask() {
             color: task.color || "#3B82F6",
             priority: task.priority || "medium",
             visibility: task.visibility || "personal",
+            department_id: task.department_id || "",
             deadlineDate,
             deadlineTime,
             description: task.description || "",
@@ -93,16 +103,34 @@ export default function EditTask() {
 
           setAssigneeIds((task.assignees || []).map((a) => a.id));
           setCollaboratorIds((task.collaborators || []).map((c) => c.id));
+          setIsTaskCreator(!!task.isCreator);
 
           if (task.checklist && task.checklist.length > 0) {
-            const items = task.checklist.map((item) => ({
-              id: item.id,
-              text: item.text,
-              done: item.is_completed,
-            }));
-            setChecklistCards([
-              { id: 1, title: "Checklist", items, newItemText: "" },
-            ]);
+            const grouped = {};
+            const order = [];
+            task.checklist.forEach((item) => {
+              const cid = item.card_id || "default";
+              if (!grouped[cid]) {
+                grouped[cid] = {
+                  id: cid,
+                  title: item.card_title || "Checklist",
+                  items: [],
+                  newItemText: "",
+                };
+                order.push(cid);
+              }
+              grouped[cid].items.push({
+                id: item.id,
+                text: item.text,
+                done: item.is_completed,
+              });
+            });
+            const cards = order.map((cid) => grouped[cid]);
+            setChecklistCards(
+              cards.length > 0
+                ? cards
+                : [{ id: 1, title: "Checklist", items: [], newItemText: "" }],
+            );
           }
 
           if (task.attachments) setExistingAttachments(task.attachments);
@@ -167,9 +195,12 @@ export default function EditTask() {
   };
 
   const handleAddChecklistCard = () => {
+    const nextNumber = checklistCards.length + 1;
+    const title =
+      checklistCards.length === 0 ? "Checklist" : `Checklist_${nextNumber}`;
     setChecklistCards((prev) => [
       ...prev,
-      { id: Date.now(), title: "Checklist", items: [], newItemText: "" },
+      { id: Date.now(), title, items: [], newItemText: "" },
     ]);
   };
 
@@ -200,6 +231,28 @@ export default function EditTask() {
   const handleRemoveExistingFile = (fileId) =>
     setExistingAttachments((prev) => prev.filter((f) => f.id !== fileId));
 
+  // ── Auto-add any text still sitting in an "Add item..." input before
+  // building the payload, so unconfirmed typed items never get silently
+  // dropped just because the user forgot to press + or Enter. ──
+  const flushPendingChecklistItems = (cards) => {
+    return cards.map((card) => {
+      const pendingText = card.newItemText?.trim();
+      if (!pendingText) return card;
+      return {
+        ...card,
+        items: [
+          ...card.items,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            text: pendingText,
+            done: false,
+          },
+        ],
+        newItemText: "",
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -223,11 +276,19 @@ export default function EditTask() {
       formData.deadlineTime,
     );
 
+    const finalCards = flushPendingChecklistItems(checklistCards);
+    setChecklistCards(finalCards);
+
     const checklistItems = [];
-    checklistCards.forEach((card) => {
-      card.items.forEach((item) =>
-        checklistItems.push({ text: item.text, is_completed: item.done }),
-      );
+    finalCards.forEach((card) => {
+      card.items.forEach((item) => {
+        checklistItems.push({
+          text: item.text,
+          card_id: String(card.id),
+          card_title: card.title,
+          is_completed: item.done,
+        });
+      });
     });
 
     const payload = {
@@ -235,6 +296,10 @@ export default function EditTask() {
       color: formData.color,
       priority: formData.priority,
       visibility: formData.visibility,
+      department_id:
+        formData.visibility === "department"
+          ? formData.department_id
+          : undefined,
       deadline_datetime,
       description: formData.description.trim(),
       remind_before_minutes: formData.remind_before_minutes || null,
@@ -359,17 +424,29 @@ export default function EditTask() {
               <FiUsers size={16} className={styles.cardHeaderIcon} />
               <span>Visibility</span>
             </div>
-            <RadioGroup
-              name="visibility"
-              label="VISIBILITY"
-              options={[
-                { value: "personal", label: "Personal" },
-                { value: "department", label: "Department" },
-                { value: "campus", label: "Campus" },
-              ]}
-              value={formData.visibility}
-              onChange={handleInputChange}
-            />
+            {role === "officials" && isTaskCreator ? (
+              <RadioGroup
+                name="visibility"
+                label="VISIBILITY"
+                options={[
+                  { value: "personal", label: "Personal" },
+                  ...(hasDepartment
+                    ? [{ value: "department", label: "Department" }]
+                    : []),
+                  { value: "campus", label: "Campus" },
+                ]}
+                value={formData.visibility}
+                onChange={handleInputChange}
+              />
+            ) : (
+              <div className={styles.staticVisibility}>
+                <span className={styles.label}>
+                  VISIBILITY:{" "}
+                  {formData.visibility.charAt(0).toUpperCase() +
+                    formData.visibility.slice(1)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Assignees & Collaborators */}
@@ -443,13 +520,19 @@ export default function EditTask() {
                   <div key={card.id} className={styles.checklistCardMulti}>
                     <div className={styles.checklistHeaderRow}>
                       <div className={styles.checklistTitleBlockRow}>
-                        <input
-                          className={styles.checklistTitleInput}
-                          value={card.title}
-                          onChange={(e) =>
-                            handleEditChecklistTitle(card.id, e.target.value)
-                          }
-                        />
+                        <div className={styles.checklistTitleInputWrapper}>
+                          <input
+                            className={styles.checklistTitleInput}
+                            value={card.title}
+                            onChange={(e) =>
+                              handleEditChecklistTitle(card.id, e.target.value)
+                            }
+                          />
+                          <FiEdit2
+                            size={12}
+                            className={styles.checklistTitleEditIcon}
+                          />
+                        </div>
                         <span className={styles.checklistSubtitleSmall}>
                           {card.items.length} items · {completed} done
                         </span>
