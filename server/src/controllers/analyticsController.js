@@ -95,7 +95,7 @@ async function buildVisibilityStats(events, userId, startDate, now) {
   return { total, pending, declined, missed, chart: buckets.map(b => ({ label: b.label, count: b.count })) };
 }
 
-// ─── 1. Campus + Office Events KPI ─────────────────────
+// ─── 1. Campus + Department + Office Events KPI ────────
 exports.getCampusOfficeStats = async (req, res) => {
   try {
     const { range = 30 } = req.query;
@@ -103,6 +103,7 @@ exports.getCampusOfficeStats = async (req, res) => {
     const startDate = getRangeStart(range);
     const now = new Date();
 
+    // ── Campus ──
     const campusEvents = await Event.findAll({
       where: { visibility: 'campus', is_archived: false, start_datetime: { [Op.gte]: startDate } },
       order: [['start_datetime', 'ASC']]
@@ -110,6 +111,21 @@ exports.getCampusOfficeStats = async (req, res) => {
     const campusStats = await buildVisibilityStats(campusEvents, userId, startDate, now);
 
     const profile = await UserProfile.findOne({ where: { user_id: userId } });
+
+    // ── Department (parehong logic ng dating getEventStats type='department') ──
+    let departmentEvents = [];
+    if (profile?.department_id) {
+      departmentEvents = await Event.findAll({
+        where: {
+          visibility: 'department', department_id: profile.department_id,
+          is_archived: false, start_datetime: { [Op.gte]: startDate }
+        },
+        order: [['start_datetime', 'ASC']]
+      });
+    }
+    const departmentStats = await buildVisibilityStats(departmentEvents, userId, startDate, now);
+
+    // ── Office (walang 'office' visibility, kaya base sa attendee/creator affiliation) ──
     let officeEvents = [];
     if (profile?.office_id) {
       const candidateEvents = await Event.findAll({
@@ -121,7 +137,7 @@ exports.getCampusOfficeStats = async (req, res) => {
     }
     const officeStats = await buildVisibilityStats(officeEvents, userId, startDate, now);
 
-    res.json({ ok: true, campus: campusStats, office: officeStats });
+    res.json({ ok: true, campus: campusStats, department: departmentStats, office: officeStats });
   } catch (error) {
     console.error('Campus/Office stats error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
