@@ -105,3 +105,13 @@
   color: #ef4444;
   margin-top: 8px;
 }
+
+a {
+  color: var(--primary-color, #a80202);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
