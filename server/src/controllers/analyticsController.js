@@ -112,7 +112,7 @@ exports.getCampusOfficeStats = async (req, res) => {
 
     const profile = await UserProfile.findOne({ where: { user_id: userId } });
 
-    // ── Department (parehong logic ng dating getEventStats type='department') ──
+    // ── Department (getEventStats type='department') ──
     let departmentEvents = [];
     if (profile?.department_id) {
       departmentEvents = await Event.findAll({
@@ -125,7 +125,7 @@ exports.getCampusOfficeStats = async (req, res) => {
     }
     const departmentStats = await buildVisibilityStats(departmentEvents, userId, startDate, now);
 
-    // ── Office (walang 'office' visibility, kaya base sa attendee/creator affiliation) ──
+    // ── Office ──
     let officeEvents = [];
     if (profile?.office_id) {
       const candidateEvents = await Event.findAll({
