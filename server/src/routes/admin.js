@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { requireAdmin } = require('../middleware/auth');
+const { adminRegisterLimiter } = require('../middleware/rateLimiter');
+const { registerAdmin } = require('../controllers/adminAuthController');
 const { generateAccountCode, listCodes } = require('../controllers/generateCodeController');
 const {
   listDepartments,
@@ -28,8 +30,8 @@ const {
   delete: deletePosition,
   available: availablePositions,
   reorder: reorderPositions,
-  update: updatePosition,       
-  combine: combinePositions 
+  update: updatePosition,
+  combine: combinePositions
 } = require('../controllers/positionsController');
 const {
   listAssignments,
@@ -38,6 +40,9 @@ const {
 
 // ─── User Management ────────────────────────────
 const { getAllUsers } = require('../controllers/adminUserController');
+
+// --- Admin Registration (public — gated by account code + rate limit, no token required) ---
+router.post('/register', adminRegisterLimiter, registerAdmin);
 
 // --- Test ---
 router.get('/me', requireAdmin, (req, res) => {
