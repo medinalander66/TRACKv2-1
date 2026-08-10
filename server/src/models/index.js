@@ -21,6 +21,7 @@ const AllowedDomain = require('./allowed_domain');
 const LoginAttempt = require('./login_attempts');
 const AuditLog = require('./audit_logs');
 const DailyMetric = require('./daily_metrics');
+const VenueConflictLog = require('./venue_conflict_log');
 
 // Requests
 const AccountCodeRequest = require('./account_code_requests');
@@ -192,5 +193,6 @@ module.exports = {
   FeedbackRating,
   FeedbackKeyword,
   Notification,
+  VenueConflictLog,
   EmailQueue
 };
