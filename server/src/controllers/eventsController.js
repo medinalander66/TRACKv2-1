@@ -11,6 +11,7 @@ const {
 } = require('../services/eventEmailTemplates');
 const { buildConflictMap } = require('../services/conflictService');
 const { createNotification } = require('../services/notificationService');
+const { logVenueConflictAttempt } = require('../services/analyticsService');
 
 const EMPTY_CONFLICT = { isConflicted: false, isPriority: false, conflictsWith: [], reason: null };
 
@@ -133,6 +134,10 @@ exports.createEvent = async (req, res) => {
           const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT);
           if (venueConflict) {
             await t.rollback();
+            await logVenueConflictAttempt({
+              venueId: finalVenueId, start: startDT, end: endDT,
+              blockedByEventId: venueConflict.id, userId: req.userId
+            });
             return res.status(409).json({
               ok: false,
               message: `Venue is already booked for this time by "${venueConflict.title}". Please choose a different venue, date, or time.`,
@@ -374,6 +379,10 @@ exports.updateEvent = async (req, res) => {
           const venueConflict = await getVenueConflict(finalVenueId, startDT, endDT, id);
           if (venueConflict) {
             await t.rollback();
+            await logVenueConflictAttempt({
+              venueId: finalVenueId, start: startDT, end: endDT,
+              blockedByEventId: venueConflict.id, userId: req.userId
+            });
             return res.status(409).json({
               ok: false,
               message: `Venue is already booked for this time by "${venueConflict.title}". Please choose a different venue, date, or time.`,
