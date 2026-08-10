@@ -1302,7 +1302,6 @@ export default function Declaration() {
                     <thead>
                       <tr>
                         <th>Position</th>
-                        <th>User</th>
                         <th>Email</th>
                         <th>Status</th>
                       </tr>
@@ -1318,7 +1317,6 @@ export default function Declaration() {
                         assignments.map((ass) => (
                           <tr key={ass.id}>
                             <td>{ass.Position?.name || "—"}</td>
-                            <td>{getUserDisplay(ass.User)}</td>
                             <td>{ass.User?.email || "—"}</td>
                             <td>
                               <span className={styles.badgeActive}>Active</span>
