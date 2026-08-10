@@ -1,13 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import RequireAuth from './components/RequireAuth';
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import AccountCodes from './pages/AccountCodes';
-import Declaration from './pages/Declaration';
-import "./App.css"
-import ManageUsers from './pages/ManageUser';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import RequireAuth from "./components/RequireAuth";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import AccountCodes from "./pages/AccountCodes";
+import Declaration from "./pages/Declaration";
+import "./App.css";
+import ManageUsers from "./pages/ManageUser";
 
 export default function App() {
   return (
@@ -15,19 +16,20 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route
             path="/*"
             element={
               // <RequireAuth>
-                <Layout>
-                  <Routes>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/account-codes" element={<AccountCodes />} />
-                    <Route path="/declaration" element={<Declaration />} />
-                    <Route path="/users" element={<ManageUsers />} />
-                    <Route path="*" element={<Navigate to="/login" />} />
-                  </Routes>
-                </Layout>
+              <Layout>
+                <Routes>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/account-codes" element={<AccountCodes />} />
+                  <Route path="/declaration" element={<Declaration />} />
+                  <Route path="/users" element={<ManageUsers />} />
+                  <Route path="*" element={<Navigate to="/login" />} />
+                </Routes>
+              </Layout>
               // </RequireAuth>
             }
           />
