@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Footer from "../components/login/Footer";
 import BrandHeader from "../components/login/BrandHeader";
 import styles from "./Login.module.css";
@@ -9,6 +9,7 @@ export default function Login() {
   const { login, loading, error, token } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   if (token) return <Navigate to="/dashboard" replace />;
 
@@ -50,6 +51,15 @@ export default function Login() {
             <button type="submit" disabled={loading} className={styles.button}>
               {loading ? "Logging in..." : "Login"}
             </button>
+            <p
+              style={{
+                textAlign: "center",
+                marginTop: "16px",
+                fontFamily: "sans-serif",
+              }}
+            >
+              Don't have an account? <Link to="/register">Register here</Link>
+            </p>
           </form>
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
