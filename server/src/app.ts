@@ -45,6 +45,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/events', conflictRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/profile', require('./routes/profile'));
 
 // ─── Static files ───
 const uploadsPath = path.join(__dirname, '..', 'uploads');
