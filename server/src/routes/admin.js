@@ -41,6 +41,13 @@ const {
 // ─── User Management ────────────────────────────
 const { getAllUsers } = require('../controllers/adminUserController');
 
+// ─── Profile Change Requests ─────────────────────
+const {
+  listChangeRequests,
+  approveChangeRequest,
+  rejectChangeRequest,
+} = require('../controllers/adminProfileRequestsController');
+
 // --- Admin Registration (public — gated by account code + rate limit, no token required) ---
 router.post('/register', adminRegisterLimiter, registerAdmin);
 
@@ -91,5 +98,10 @@ router.put('/position-assignments/:id/remove', requireAdmin, removeAssignment);
 
 // ─── User Management Routes ─────────────────────
 router.get('/users', requireAdmin, getAllUsers);
+
+// ─── Profile Change Requests Routes ──────────────
+router.get('/profile-change-requests', requireAdmin, listChangeRequests);
+router.put('/profile-change-requests/:id/approve', requireAdmin, approveChangeRequest);
+router.put('/profile-change-requests/:id/reject', requireAdmin, rejectChangeRequest);
 
 module.exports = router;
