@@ -311,6 +311,72 @@
   margin-bottom: 4px;
 }
 
+.checkboxGroupLabel {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxItem input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: #800000;
+  margin-top: 2px;
+}
+
+.checkboxItem span {
+  font-size: 15px;
+  color: #111827;
+  margin-top: -2px;
+}
+
+.nestedFormGroup {
+  margin: 6px 0 8px 30px;
+}
+
+.nestedFormGroup label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.nestedFormGroup select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: border 0.2s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.nestedFormGroup select:focus {
+  border-color: #800000;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
+}
+
 .formGroup input {
   width: 100%;
   padding: 10px 14px;
@@ -325,6 +391,31 @@
   border-color: #800000;
   outline: none;
   box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
+}
+
+.formGroup select,
+.formGroup textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: border 0.2s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.formGroup select:focus,
+.formGroup textarea:focus {
+  border-color: #800000;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
+}
+
+.formGroup textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
 }
 
 .modalError {
@@ -380,59 +471,548 @@
   margin-top: 20px;
 }
 
-/* ─── Google Modal Styles ─── */
-.googleModalContent {
+/* ═══════════════════════════════════════════════════════ */
+/* ─── Analytics & Performance section (below Logout) ─── */
+/* ═══════════════════════════════════════════════════════ */
+
+.profileSeparator {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 24px 0;
+}
+
+.analyticsRoot {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.analyticsHeaderRow {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 16px 0 8px;
+}
+
+.analyticsMainTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.analyticsMainIcon {
+  color: #800000;
+  flex-shrink: 0;
+}
+
+/* ── Sticky range filter — stays pinned top-right while scrolling ── */
+.stickyFilterWrap {
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -46px;
+  margin-bottom: 34px;
+  pointer-events: none;
+}
+
+.stickyFilterWrap>* {
+  pointer-events: auto;
+}
+
+.rangeSelect,
+.filterSelect {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+}
+
+.filterRow {
+  display: flex;
+  gap: 8px;
+}
+
+.filterSelect {
+  flex: 1;
+  box-shadow: none;
+}
+
+/* ── KPI Cards ── */
+.kpiCard {
+  background: #fce8e6;
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpiFlowLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #16a34a;
+  text-transform: uppercase;
+}
+
+.kpiTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 8px;
+}
+
+.kpiStatBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpiStatLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+}
+
+.kpiStatValue {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.kpiGold {
+  color: #b8860b;
+}
+
+.kpiMaroon {
+  color: #7c0a02;
+}
+
+.chartWrapper {
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 6px 2px;
+  margin-top: 4px;
+}
+
+.loadingText,
+.noData {
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 12px 0;
   text-align: center;
 }
 
-.googleModalIcon {
-  color: #4285f4;
-  margin-bottom: 16px;
-}
-
-.googleModalTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 8px;
-}
-
-.googleModalDesc {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 20px;
+.emptyNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #92400e;
+  font-size: 13px;
   line-height: 1.5;
-  max-width: 340px;
 }
 
-.googleLinkBtn {
+.emptyNotice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sectionHeaderBlock {
+  margin-top: 4px;
+}
+
+.analyticsSectionTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+}
+
+.analyticsSectionSubtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 2px 0 0;
+}
+
+.analyticsCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardHeaderRow {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  flex: 1;
-  padding: 12px;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  background: #4285f4;
-  color: #fff;
-  transition: background 0.2s;
 }
 
-.googleLinkBtn:hover {
-  background: #3367d6;
+.cardHeaderIcon {
+  color: #800000;
+  flex-shrink: 0;
 }
 
-.googleModalActions {
+.cardHeaderTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+}
+
+.cardHeaderSubtitle {
+  font-size: 12.5px;
+  color: #9ca3af;
+  margin: -6px 0 0;
+}
+
+.legendRow {
   display: flex;
-  gap: 12px;
-  width: 100%;
+  justify-content: center;
+  gap: 16px;
   margin-top: 4px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.legendDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.insightGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 12px;
+}
+
+.insightBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.insightLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.04em;
+}
+
+.insightValue {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.insightRed {
+  color: #b91c1c;
+}
+
+.insightSub {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.highRiskAlert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pieWrapper {
+  position: relative;
+}
+
+.pieCenterLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pieCenterValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #7c0a02;
+}
+
+.pieCenterSub {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.pieLegendList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pieLegendRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.pieLegendLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.pieLegendPercent {
+  color: #7c0a02;
+  font-weight: 700;
+}
+
+.velocityStatsRow {
+  display: flex;
+  gap: 24px;
+}
+
+.velocityStatsRow>div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.velocityValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.velocityGreen {
+  color: #16a34a;
+}
+
+.velocityRed {
+  color: #b91c1c;
+}
+
+.velocityLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.04em;
+}
+
+.perfTabs {
+  display: flex;
+  gap: 8px;
+}
+
+.perfTab {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.perfTabActive {
+  background: #800000;
+  color: #fff;
+  border-color: #800000;
+}
+
+.perfList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perfRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.perfRowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.perfName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.perfCount {
+  font-size: 13px;
+  font-weight: 800;
+  color: #800000;
+}
+
+.perfBarTrack {
+  width: 100%;
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.perfBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #800000, #b91c1c);
+  border-radius: 8px;
+}
+
+.overlapsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlapItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  border-left: 4px solid #ccc;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.overlapCampus {
+  border-left-color: #16a34a;
+}
+
+.overlapDepartment {
+  border-left-color: #2563eb;
+}
+
+.overlapPrivate {
+  border-left-color: #9ca3af;
+}
+
+.overlapLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.overlapValue {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #7c0a02;
+}
+
+.ringWrapper {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 8px auto;
+}
+
+.ringSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.ringCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ringValue {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.ringLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.03em;
+}
+
+.personalStatsRow {
+  display: flex;
+  gap: 10px;
+}
+
+.personalStatBox {
+  flex: 1;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.personalStatValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.personalStatLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.03em;
 }
