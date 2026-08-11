@@ -18,7 +18,6 @@ import FacultyHome from "./pages/app/faculty/Home";
 
 // Feature pages
 import CalendarView from "./pages/app/calendar/CalendarView";
-import UserAnalytics from "./pages/app/analytics/UserAnalytics";
 import VenuesList from "./pages/app/venues/VenuesList";
 import Notifications from "./pages/app/notifications/Notifications";
 import Profile from "./pages/app/profile/Profile";
@@ -63,7 +62,6 @@ export default function App() {
             <Route path="/faculty/home" element={<FacultyHome />} />
             <Route path="/calendar" element={<CalendarView />} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/analytics" element={<UserAnalytics />} />
             <Route path="/venues" element={<VenuesList />} />
             <Route path="/events" element={<Events />} />
             <Route path="/notifications" element={<Notifications />} />
