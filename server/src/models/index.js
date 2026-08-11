@@ -25,6 +25,7 @@ const VenueConflictLog = require('./venue_conflict_log');
 
 // Requests
 const AccountCodeRequest = require('./account_code_requests');
+const ProfileChangeRequest = require('./profile_change_request');
 
 // User side
 const Venue = require('./venues');
@@ -179,6 +180,7 @@ module.exports = {
   AuditLog,
   DailyMetric,
   AccountCodeRequest,
+  ProfileChangeRequest,
   Venue,
   Event,
   EventAttendee,
