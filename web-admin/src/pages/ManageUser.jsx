@@ -1,264 +1,398 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { FiSearch, FiUser, FiX } from "react-icons/fi";
-import apiClient from "../api/client";
-import styles from "./ManageUsers.module.css";
+import { useState, useEffect, useCallback } from "react";
+import { getAllUsers } from "../api/adminUsers";
+import {
+  getChangeRequests,
+  approveChangeRequest,
+  rejectChangeRequest,
+} from "../api/profileRequests";
+import styles from "./ManageUser.module.css";
+
+const STATUS_TABS = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "all", label: "All" },
+];
 
 export default function ManageUsers() {
+  const [activeTab, setActiveTab] = useState("users"); // "users" | "requests"
+
+  // ── Users table state ──
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [officeFilter, setOfficeFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
+  // ── Profile Change Requests state ──
+  const [reqStatus, setReqStatus] = useState("pending");
+  const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [requestsError, setRequestsError] = useState("");
+  const [processingId, setProcessingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
-  // Lookup data for filters
-  const [departments, setDepartments] = useState([]);
-  const [offices, setOffices] = useState([]);
-  const [roles, setRoles] = useState([]);
-
-  // ─── Debounce search ──────────────────────────────────
-  const debounceTimer = useRef(null);
-
-  useEffect(() => {
-    clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 400);
-    return () => clearTimeout(debounceTimer.current);
-  }, [search]);
-
-  // ─── Fetch users (depends on debounced search + filters) ──
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
+  // ─── Fetch users ───
+  const fetchUsers = useCallback(async (term) => {
+    setUsersLoading(true);
+    setUsersError("");
     try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.append("search", debouncedSearch);
-      if (statusFilter) params.append("status", statusFilter);
-      if (departmentFilter) params.append("department_id", departmentFilter);
-      if (officeFilter) params.append("office_id", officeFilter);
-      if (roleFilter) params.append("role_id", roleFilter);
-
-      const res = await apiClient.get(`/admin/users?${params.toString()}`);
-      if (res.data.ok) {
-        setUsers(res.data.users);
-      }
+      const res = await getAllUsers(term);
+      if (res.ok) setUsers(res.users || []);
+      else setUsersError("Failed to load users.");
     } catch (err) {
       console.error("Failed to fetch users:", err);
+      setUsersError("Unable to load users.");
     } finally {
-      setLoading(false);
-    }
-  }, [
-    debouncedSearch,
-    statusFilter,
-    departmentFilter,
-    officeFilter,
-    roleFilter,
-  ]);
-
-  // ─── Fetch lookups (only once) ──────────────────────
-  const fetchLookups = useCallback(async () => {
-    try {
-      const [deptRes, officeRes, roleRes] = await Promise.all([
-        apiClient.get("/lookups/departments"),
-        apiClient.get("/lookups/offices"),
-        apiClient.get("/lookups/roles"),
-      ]);
-      setDepartments(deptRes.data.items || []);
-      setOffices(officeRes.data.items || []);
-      setRoles(roleRes.data.items || []);
-    } catch (err) {
-      console.error("Failed to fetch lookups:", err);
+      setUsersLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchLookups();
-  }, [fetchLookups]);
+    if (activeTab === "users") fetchUsers("");
+  }, [activeTab, fetchUsers]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("");
-    setDepartmentFilter("");
-    setOfficeFilter("");
-    setRoleFilter("");
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchUsers(search);
   };
 
-  // ─── useMemo for filter options (static after fetch) ──
-  const departmentOptions = useMemo(() => departments, [departments]);
-  const officeOptions = useMemo(() => offices, [offices]);
-  const roleOptions = useMemo(() => roles, [roles]);
-
-  // ─── useMemo for user count / summary ──────────────
-  const userCount = useMemo(() => users.length, [users]);
-
-  // ─── Memoized status badge renderer ────────────────
-  const getStatusBadge = useCallback((status) => {
-    const statusMap = {
-      active: { class: styles.badgeActive, label: "Active" },
-      blocked: { class: styles.badgeBlocked, label: "Blocked" },
-      suspended: { class: styles.badgeSuspended, label: "Suspended" },
-      pending: { class: styles.badgePending, label: "Pending" },
-    };
-    const s = statusMap[status] || statusMap.pending;
-    return <span className={s.class}>{s.label}</span>;
+  // ─── Fetch profile change requests ───
+  const fetchRequests = useCallback(async (currentStatus) => {
+    setRequestsLoading(true);
+    setRequestsError("");
+    try {
+      const res = await getChangeRequests(currentStatus);
+      if (res.ok) setRequests(res.requests || []);
+      else setRequestsError("Failed to load requests.");
+    } catch (err) {
+      console.error("Failed to fetch profile change requests:", err);
+      setRequestsError("Unable to load requests.");
+    } finally {
+      setRequestsLoading(false);
+    }
   }, []);
 
-  // ─── Memoized table rows ────────────────────────────
-  const userRows = useMemo(() => {
-    if (users.length === 0) {
-      return (
-        <tr>
-          <td colSpan="7" className={styles.noData}>
-            No users found
-          </td>
-        </tr>
-      );
+  useEffect(() => {
+    if (activeTab === "requests") fetchRequests(reqStatus);
+  }, [activeTab, reqStatus, fetchRequests]);
+
+  const handleApprove = async (id) => {
+    if (
+      !window.confirm(
+        "Approve this profile change request? This will immediately apply the changes to the user's account.",
+      )
+    )
+      return;
+    setProcessingId(id);
+    try {
+      const res = await approveChangeRequest(id);
+      if (res.ok) {
+        setRequests((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        alert(res.message || "Failed to approve request.");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Server error.");
+    } finally {
+      setProcessingId(null);
     }
-    return users.map((u) => (
-      <tr key={u.id}>
-        <td>
-          <div className={styles.userCell}>
-            <span className={styles.avatar}>
-              {u.display_picture ? (
-                <img src={u.display_picture} alt={u.username} />
-              ) : (
-                <FiUser />
-              )}
-            </span>
-            <span className={styles.userName}>
-              {u.full_name || u.username || "—"}
-            </span>
-          </div>
-        </td>
-        <td>{u.email}</td>
-        <td>{getStatusBadge(u.status)}</td>
-        <td>{u.department || "—"}</td>
-        <td>{u.office || "—"}</td>
-        <td>{u.role || "—"}</td>
-        <td className={styles.joinedDate}>
-          {new Date(u.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </td>
-      </tr>
-    ));
-  }, [users, getStatusBadge]);
+  };
+
+  const handleRejectConfirm = async (id) => {
+    setProcessingId(id);
+    try {
+      const res = await rejectChangeRequest(id, rejectReason);
+      if (res.ok) {
+        setRequests((prev) => prev.filter((r) => r.id !== id));
+        setRejectingId(null);
+        setRejectReason("");
+      } else {
+        alert(res.message || "Failed to reject request.");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Server error.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0]?.slice(0, 2).toUpperCase() || "?";
+  };
+
+  const renderChangeRow = (label, current, requested) => (
+    <div className={styles.changeRow}>
+      <span className={styles.changeLabel}>{label}</span>
+      <div className={styles.changeValues}>
+        <span className={styles.currentValue}>{current || "—"}</span>
+        <span className={styles.arrow}>→</span>
+        <span className={styles.requestedValue}>{requested || "—"}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Manage Users</h1>
-        <span className={styles.userCount}>{userCount} users</span>
+      <div className={styles.headerRow}>
+        <h1 className={styles.title}>User Management</h1>
       </div>
 
-      {/* ─── Search & Filters ─── */}
-      <div className={styles.filterSection}>
-        <div className={styles.searchBar}>
-          <FiSearch className={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Search by username, email, or full name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.searchInput}
-          />
-          {search && (
-            <button className={styles.clearBtn} onClick={() => setSearch("")}>
-              <FiX />
-            </button>
-          )}
-        </div>
-
-        <div className={styles.filterRow}>
-          <select
-            className={styles.filterSelect}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="blocked">Blocked</option>
-            <option value="suspended">Suspended</option>
-            <option value="pending">Pending</option>
-          </select>
-
-          <select
-            className={styles.filterSelect}
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-          >
-            <option value="">All Departments</option>
-            {departmentOptions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className={styles.filterSelect}
-            value={officeFilter}
-            onChange={(e) => setOfficeFilter(e.target.value)}
-          >
-            <option value="">All Offices</option>
-            {officeOptions.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className={styles.filterSelect}
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-          >
-            <option value="">All Roles</option>
-            {roleOptions.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-
-          {(statusFilter || departmentFilter || officeFilter || roleFilter) && (
-            <button className={styles.clearFiltersBtn} onClick={clearFilters}>
-              Clear Filters
-            </button>
-          )}
-        </div>
+      {/* ── Main section tabs ── */}
+      <div className={styles.mainTabs}>
+        <button
+          className={`${styles.mainTab} ${activeTab === "users" ? styles.activeMainTab : ""}`}
+          onClick={() => setActiveTab("users")}
+        >
+          Users
+        </button>
+        <button
+          className={`${styles.mainTab} ${activeTab === "requests" ? styles.activeMainTab : ""}`}
+          onClick={() => setActiveTab("requests")}
+        >
+          Profile Change Requests
+        </button>
       </div>
 
-      {/* ─── Table ─── */}
-      {loading ? (
-        <p className={styles.loading}>Loading users...</p>
-      ) : (
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Department</th>
-                <th>Office</th>
-                <th>Role</th>
-                <th>Joined</th>
-              </tr>
-            </thead>
-            <tbody>{userRows}</tbody>
-          </table>
-        </div>
+      {/* ═══════════════════════ USERS TAB ═══════════════════════ */}
+      {activeTab === "users" && (
+        <>
+          <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search by username or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="submit" className={styles.searchBtn}>
+              Search
+            </button>
+          </form>
+
+          {usersLoading ? (
+            <p className={styles.loadingText}>Loading users...</p>
+          ) : usersError ? (
+            <p className={styles.errorText}>{usersError}</p>
+          ) : users.length === 0 ? (
+            <div className={styles.emptyState}>No users found.</div>
+          ) : (
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Office</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className={styles.userCell}>
+                          <div className={styles.avatar}>
+                            {u.display_picture ? (
+                              <img
+                                src={u.display_picture}
+                                alt={u.full_name || u.username}
+                              />
+                            ) : (
+                              <span>
+                                {getInitials(u.full_name || u.username)}
+                              </span>
+                            )}
+                          </div>
+                          <div className={styles.userInfo}>
+                            <span className={styles.userName}>
+                              {u.full_name || u.username || "—"}
+                            </span>
+                            <span className={styles.username}>
+                              @{u.username || "unknown"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{u.email}</td>
+                      <td>
+                        {u.department || <span className={styles.dim}>—</span>}
+                      </td>
+                      <td>
+                        {u.office || <span className={styles.dim}>—</span>}
+                      </td>
+                      <td>{u.role || <span className={styles.dim}>—</span>}</td>
+                      <td>
+                        <span
+                          className={`${styles.statusBadge} ${styles[`status_${u.status}`] || ""}`}
+                        >
+                          {u.status}
+                        </span>
+                      </td>
+                      <td>
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══════════════════ PROFILE REQUESTS TAB ═══════════════════ */}
+      {activeTab === "requests" && (
+        <>
+          <div className={styles.subTabs}>
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                className={`${styles.subTab} ${reqStatus === tab.value ? styles.activeSubTab : ""}`}
+                onClick={() => setReqStatus(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {requestsLoading ? (
+            <p className={styles.loadingText}>Loading requests...</p>
+          ) : requestsError ? (
+            <p className={styles.errorText}>{requestsError}</p>
+          ) : requests.length === 0 ? (
+            <div className={styles.emptyState}>
+              No {reqStatus !== "all" ? reqStatus : ""} requests found.
+            </div>
+          ) : (
+            <div className={styles.requestList}>
+              {requests.map((req) => (
+                <div key={req.id} className={styles.requestCard}>
+                  <div className={styles.requestHeader}>
+                    <div>
+                      <span className={styles.requesterName}>
+                        {req.user.full_name}
+                      </span>
+                      <span className={styles.requesterEmail}>
+                        {req.user.email}
+                      </span>
+                    </div>
+                    <span className={styles.requestDate}>
+                      {new Date(req.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className={styles.changesBlock}>
+                    {req.changes.includes("department_change") &&
+                      renderChangeRow(
+                        "Department",
+                        req.current.department,
+                        req.requested.department,
+                      )}
+                    {req.changes.includes("office_change") &&
+                      renderChangeRow(
+                        "Office",
+                        req.current.office,
+                        req.requested.office,
+                      )}
+                    {req.changes.includes("role_update") &&
+                      renderChangeRow(
+                        "Role",
+                        req.current.role,
+                        req.requested.role,
+                      )}
+                    {req.changes.includes("position_update") &&
+                      renderChangeRow(
+                        "Position",
+                        req.current.position,
+                        req.requested.position,
+                      )}
+                  </div>
+
+                  {req.details && (
+                    <div className={styles.detailsBlock}>
+                      <span className={styles.detailsLabel}>Details</span>
+                      <p className={styles.detailsText}>{req.details}</p>
+                    </div>
+                  )}
+
+                  {req.status === "pending" ? (
+                    rejectingId === req.id ? (
+                      <div className={styles.rejectForm}>
+                        <textarea
+                          className={styles.rejectTextarea}
+                          placeholder="Reason for rejection (optional)..."
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          rows={2}
+                        />
+                        <div className={styles.rejectActions}>
+                          <button
+                            className={styles.cancelBtn}
+                            onClick={() => {
+                              setRejectingId(null);
+                              setRejectReason("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className={styles.confirmRejectBtn}
+                            onClick={() => handleRejectConfirm(req.id)}
+                            disabled={processingId === req.id}
+                          >
+                            {processingId === req.id
+                              ? "Rejecting..."
+                              : "Confirm Reject"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={styles.actionsRow}>
+                        <button
+                          className={styles.rejectBtn}
+                          onClick={() => setRejectingId(req.id)}
+                          disabled={processingId === req.id}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          className={styles.approveBtn}
+                          onClick={() => handleApprove(req.id)}
+                          disabled={processingId === req.id}
+                        >
+                          {processingId === req.id ? "Approving..." : "Approve"}
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className={styles.reviewedRow}>
+                      <span
+                        className={`${styles.statusBadge} ${styles[`status_${req.status}`]}`}
+                      >
+                        {req.status}
+                      </span>
+                      {req.reviewed_by && (
+                        <span className={styles.reviewedBy}>
+                          by {req.reviewed_by} on{" "}
+                          {new Date(req.reviewed_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
