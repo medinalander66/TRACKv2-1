@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { login, register } = require('../controllers/authController');
 const { loginAdmin, registerAdmin } = require('../controllers/adminAuthController');
-const { adminRegisterLimiter } = require('../middleware/rateLimiter');
+const { adminRegisterLimiter, adminLoginLimiter } = require('../middleware/rateLimiter');
 const {
   googleLoginUrl,
   googleCallback,
