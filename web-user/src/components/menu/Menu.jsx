@@ -436,7 +436,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
               className={styles.listBtn}
               onClick={() => {
                 onCloseDrawer();
-                navigate("/analytics");
+                navigate("/profile");
               }}
             >
               <span className={styles.listIcon}>
