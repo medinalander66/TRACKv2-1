@@ -38,10 +38,8 @@ const {
   removeAssignment
 } = require('../controllers/positionAssignmentsController');
 
-// ─── User Management ────────────────────────────
-const { getAllUsers } = require('../controllers/adminUserController');
+const { getAllUsers, toggleBlockUser, deleteUser } = require('../controllers/adminUserController');
 
-// ─── Profile Change Requests ─────────────────────
 const {
   listChangeRequests,
   approveChangeRequest,
@@ -96,10 +94,12 @@ router.post('/positions/:id/combine', requireAdmin, combinePositions);
 router.get('/position-assignments', requireAdmin, listAssignments);
 router.put('/position-assignments/:id/remove', requireAdmin, removeAssignment);
 
-// ─── User Management Routes ─────────────────────
+// ─── User Management ─────────────────────────────
 router.get('/users', requireAdmin, getAllUsers);
+router.put('/users/:id/toggle-block', requireAdmin, toggleBlockUser);
+router.delete('/users/:id', requireAdmin, deleteUser);
 
-// ─── Profile Change Requests Routes ──────────────
+// ─── Profile Change Requests ──────────────────────
 router.get('/profile-change-requests', requireAdmin, listChangeRequests);
 router.put('/profile-change-requests/:id/approve', requireAdmin, approveChangeRequest);
 router.put('/profile-change-requests/:id/reject', requireAdmin, rejectChangeRequest);
