@@ -1,18 +1,21 @@
 const { Op } = require('sequelize');
-const { User, UserProfile, Department, Office, Role } = require('../models');
+const {
+  sequelize, User, UserProfile, Department, Office, Role,
+  EventAttendee, EventCollaborator, TaskAssignee, TaskCollaborator,
+  TaskChecklistComment, TaskChecklistItem, PositionAssignment,
+  Notification, AccountCode, Admin, UserSession,
+} = require('../models');
 
 // ─── GET ALL USERS WITH FILTERS ──────────────────────
 exports.getAllUsers = async (req, res) => {
   try {
     const { search, status, department_id, office_id, role_id } = req.query;
 
-    // Build where clause for users
     const userWhere = {};
     if (status) {
       userWhere.status = status;
     }
 
-    // If search is provided, find users by username or email
     let userIds = null;
     if (search) {
       const searchUsers = await User.findAll({
@@ -32,14 +35,12 @@ exports.getAllUsers = async (req, res) => {
       userWhere.id = { [Op.in]: userIds };
     }
 
-    // Get all users with filters
     const users = await User.findAll({
       where: userWhere,
       attributes: ['id', 'email', 'username', 'status', 'created_at'],
       order: [['created_at', 'DESC']]
     });
 
-    // Manually fetch profile data for each user
     const result = [];
     for (const user of users) {
       const profile = await UserProfile.findOne({
@@ -71,7 +72,6 @@ exports.getAllUsers = async (req, res) => {
         }
       }
 
-      // Apply filters on profile fields
       if (department_id && departmentId !== department_id) continue;
       if (office_id && officeId !== office_id) continue;
       if (role_id && roleId !== role_id) continue;
@@ -96,6 +96,99 @@ exports.getAllUsers = async (req, res) => {
     res.json({ ok: true, users: result });
   } catch (error) {
     console.error('Get all users error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── BLOCK / UNBLOCK USER (toggle) ────────────────────
+// Setting status to 'blocked' prevents login (loginAdmin/user login controller
+// checks this). Also revokes any active sessions so the block is effective
+// immediately, not just on the next login attempt.
+exports.toggleBlockUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ ok: false, message: 'User not found.' });
+
+    if (user.status === 'blocked') {
+      user.status = 'active';
+      await user.save();
+      return res.json({ ok: true, message: 'User has been unblocked.', status: 'active' });
+    }
+
+    user.status = 'blocked';
+    await user.save();
+
+    try {
+      await UserSession.update(
+        { status: 'revoked' },
+        { where: { user_id: id, status: 'active' } }
+      );
+    } catch (sessionErr) {
+      console.error('Failed to revoke sessions on block (non-fatal):', sessionErr);
+    }
+
+    res.json({ ok: true, message: 'User has been blocked.', status: 'blocked' });
+  } catch (error) {
+    console.error('Toggle block user error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── DELETE USER (cascading — removes their own records) ──
+// Events/tasks the user CREATED are intentionally left in place (deleting
+// them would wipe other attendees' calendars too) — creator_id becomes an
+// orphaned reference, handled gracefully elsewhere ("Unknown" fallback).
+// Position assignment is deleted outright, so a single-occupancy position
+// becomes available again for other users immediately.
+exports.deleteUser = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({ ok: false, message: 'User not found.' });
+    }
+
+    // ── If these Event/Task models don't exist in this backend's models/index.js,
+    // remove this block — the rest of the deletion (below) still works fine. ──
+    if (EventAttendee) await EventAttendee.destroy({ where: { user_id: id }, transaction: t });
+    if (EventCollaborator) await EventCollaborator.destroy({ where: { user_id: id }, transaction: t });
+    if (TaskAssignee) await TaskAssignee.destroy({ where: { user_id: id }, transaction: t });
+    if (TaskCollaborator) await TaskCollaborator.destroy({ where: { user_id: id }, transaction: t });
+    if (TaskChecklistComment) await TaskChecklistComment.destroy({ where: { user_id: id }, transaction: t });
+    if (TaskChecklistItem) {
+      await TaskChecklistItem.update(
+        { completed_by_user_id: null, completed_at: null },
+        { where: { completed_by_user_id: id }, transaction: t }
+      );
+    }
+    if (PositionAssignment) await PositionAssignment.destroy({ where: { user_id: id }, transaction: t });
+    if (Notification) await Notification.destroy({ where: { user_id: id }, transaction: t });
+    if (AccountCode) {
+      await AccountCode.update(
+        { used_by_user_id: null },
+        { where: { used_by_user_id: id }, transaction: t }
+      );
+    }
+    if (Admin) await Admin.destroy({ where: { user_id: id }, transaction: t });
+    if (UserSession) {
+      try {
+        await UserSession.destroy({ where: { user_id: id }, transaction: t });
+      } catch (sessionErr) {
+        console.error('Failed to clear sessions on delete (non-fatal):', sessionErr);
+      }
+    }
+
+    await UserProfile.destroy({ where: { user_id: id }, transaction: t });
+    await user.destroy({ transaction: t });
+
+    await t.commit();
+    res.json({ ok: true, message: 'User and all their records have been permanently deleted.' });
+  } catch (error) {
+    await t.rollback();
+    console.error('Delete user error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
