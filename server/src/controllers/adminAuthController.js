@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcryptjs'); // ⚠️ palitan ng 'bcrypt' kung yun ang gamit mo na sa ibang parte ng app
-const { sequelize, User, Admin, AccountCode } = require('../models');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { sequelize, User, Admin, AccountCode, UserSession } = require('../models');
 
 exports.registerAdmin = async (req, res) => {
   const t = await sequelize.transaction();
@@ -22,7 +23,6 @@ exports.registerAdmin = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'Password must be at least 8 characters.' });
     }
 
-    // ── 1. Validate account code ──
     const codeRecord = await AccountCode.findOne({ where: { code: account_code.trim() }, transaction: t });
     if (!codeRecord) {
       await t.rollback();
@@ -41,21 +41,13 @@ exports.registerAdmin = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'This account code has expired.' });
     }
 
-    // ── 2. Username uniqueness (users.username is unique but nullable — check explicitly) ──
     const existingUser = await User.findOne({ where: { username: trimmedUsername }, transaction: t });
     if (existingUser) {
       await t.rollback();
       return res.status(409).json({ ok: false, message: 'Username is already taken.' });
     }
 
-    // ── 3. Hash password ──
     const password_hash = await bcrypt.hash(password, 10);
-
-    // ── 4. Create the user account ──
-    // NOTE: users.email is NOT NULL/unique in the schema, but admins log in with
-    // username+password only (no SSO/email). We synthesize a unique placeholder
-    // email derived from the username so the column constraint is satisfied
-    // without actually using email anywhere in the admin login flow.
     const placeholderEmail = `${trimmedUsername.toLowerCase()}@admin.local`;
 
     const newUser = await User.create({
@@ -67,7 +59,6 @@ exports.registerAdmin = async (req, res) => {
       status: 'active',
     }, { transaction: t });
 
-    // ── 5. Link the user as an admin ──
     const admin = await Admin.create({
       id: uuidv4(),
       user_id: newUser.id,
@@ -75,7 +66,6 @@ exports.registerAdmin = async (req, res) => {
       is_active: true,
     }, { transaction: t });
 
-    // ── 6. Mark the account code as used ──
     codeRecord.status = 'used';
     codeRecord.used_at = new Date();
     codeRecord.used_by_user_id = newUser.id;
@@ -91,6 +81,58 @@ exports.registerAdmin = async (req, res) => {
   } catch (error) {
     await t.rollback();
     console.error('Admin register error:', error);
+    res.status(500).json({ ok: false, message: 'Server error.' });
+  }
+};
+
+// ─── LOGIN ADMIN ────────────────────────────────────────
+// Response shape (`token`, `user`) matches what AuthContext.jsx expects:
+// `localStorage.setItem('admin_token', result.token); setUser(result.user);`
+exports.loginAdmin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ ok: false, message: 'Username and password are required.' });
+    }
+
+    const user = await User.findOne({ where: { username: username.trim() } });
+    if (!user) {
+      return res.status(404).json({ ok: false, message: "Can't find your account or your account has been deleted." });
+    }
+
+    const admin = await Admin.findOne({ where: { user_id: user.id, is_active: true } });
+    if (!admin) {
+      return res.status(404).json({ ok: false, message: "Can't find your account or your account has been deleted." });
+    }
+
+    if (user.status === 'blocked') {
+      return res.status(403).json({ ok: false, message: 'Your account has been blocked. Please contact the admin office for restoring your account.' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ ok: false, message: 'Invalid username or password.' });
+    }
+
+    const token = jwt.sign({ userId: user.id, isAdmin: true }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await UserSession.create({
+      id: uuidv4(),
+      user_id: user.id,
+      token,
+      status: 'active',
+      expires_at,
+    });
+
+    res.json({
+      ok: true,
+      token,
+      user: { id: admin.id, user_id: user.id, username: user.username },
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
     res.status(500).json({ ok: false, message: 'Server error.' });
   }
 };
