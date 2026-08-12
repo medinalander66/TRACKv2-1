@@ -1016,3 +1016,22 @@
   color: #9ca3af;
   letter-spacing: 0.03em;
 }
+
+.currentValueNote {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  cursor: pointer;
+}
+
+.radioOption input[type="radio"] {
+  accent-color: #800000;
+  cursor: pointer;
+}
