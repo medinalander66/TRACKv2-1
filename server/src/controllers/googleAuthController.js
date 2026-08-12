@@ -13,13 +13,13 @@ const client = new OAuth2Client(
 exports.googleLoginUrl = (req, res) => {
   const { redirect, mode } = req.query;
   const state = mode || 'login'; // 'login' or 'request'
-  
+
   const url = client.generateAuthUrl({
     access_type: 'offline',
     scope: ['email', 'profile'],
     state: state, // ← Pass mode as state
   });
-  
+
   res.json({ url });
 };
 
@@ -27,7 +27,7 @@ exports.googleLoginUrl = (req, res) => {
 exports.googleCallback = async (req, res) => {
   const { code, state } = req.query;
   const mode = state || 'login';
-  
+
   if (!code) {
     return res.redirect(`${process.env.FRONTEND_URL}/login?error=missing_code`);
   }
@@ -55,19 +55,19 @@ exports.googleCallback = async (req, res) => {
     }
 
     let user = await User.findOne({ where: { email } });
-    
+
     // ─── Existing User ──────────────────────────────
     if (user) {
       if (user.status === 'blocked' || user.status === 'suspended') {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=blocked`);
       }
-      
+
       const token = jwt.sign(
         { userId: user.id, isAdmin: false },
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
-      
+
       await UserSession.create({
         id: uuidv4(),
         user_id: user.id,
@@ -80,6 +80,12 @@ exports.googleCallback = async (req, res) => {
         return res.redirect(
           `${process.env.FRONTEND_URL}/request-account-code?token=${token}`
         );
+      }
+      if (!user) {
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent("Can't find your account or your account has been deleted.")}`);
+      }
+      if (user.status === 'blocked') {
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent("Your account has been blocked. Please contact the admin office for restoring your account.")}`);
       }
       return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
     }
@@ -156,7 +162,7 @@ exports.completeGoogleRegistration = async (req, res) => {
         office_id: code.office_id,
         role_id: code.role_id,
         position_id: code.position_id,
-        full_name: name || email  
+        full_name: name || email
       }, { transaction: t });
 
       if (code.position_id) {
@@ -180,7 +186,7 @@ exports.completeGoogleRegistration = async (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
-      
+
       await UserSession.create({
         id: uuidv4(),
         user_id: user.id,
