@@ -43,6 +43,7 @@ import {
   getPersonalEvents,
   getTaskStats,
 } from "../../../api/analytics";
+import FeedbackModal from "../../../components/common/FeedbackModal";
 import styles from "./Profile.module.css";
 
 const PIE_COLORS = [
@@ -77,12 +78,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Modals
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [changeProfileRequestOpen, setChangeProfileRequestOpen] =
     useState(false);
 
-  // Change Profile Request form
   const [requestChanges, setRequestChanges] = useState({
     department_change: false,
     office_change: false,
@@ -97,18 +96,22 @@ export default function Profile() {
   const [selectedOffice, setSelectedOffice] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedPosition, setSelectedPosition] = useState("");
+  const [removeDepartment, setRemoveDepartment] = useState(false);
+  const [removeOffice, setRemoveOffice] = useState(false);
   const [requestDetails, setRequestDetails] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
 
-  // Edit form
   const [editName, setEditName] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMessage, setEditMessage] = useState("");
 
-  // Profile picture
   const fileInputRef = useRef(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
 
   // ══════════════════════════════════════════════════════
   // ── Analytics state ──
@@ -162,24 +165,18 @@ export default function Profile() {
     const fetchLookups = async () => {
       try {
         const deptRes = await apiClient.get("/lookups/departments");
-        if (deptRes.data.ok && deptRes.data.items) {
+        if (deptRes.data.ok && deptRes.data.items)
           setDepartments(deptRes.data.items);
-        }
 
         const offRes = await apiClient.get("/lookups/offices");
-        if (offRes.data.ok && offRes.data.items) {
-          setOffices(offRes.data.items);
-        }
+        if (offRes.data.ok && offRes.data.items) setOffices(offRes.data.items);
 
         const roleRes = await apiClient.get("/lookups/roles");
-        if (roleRes.data.ok && roleRes.data.items) {
-          setRoles(roleRes.data.items);
-        }
+        if (roleRes.data.ok && roleRes.data.items) setRoles(roleRes.data.items);
 
         const posRes = await apiClient.get("/lookups/available-positions");
-        if (posRes.data.ok && posRes.data.positions) {
+        if (posRes.data.ok && posRes.data.positions)
           setPositions(posRes.data.positions);
-        }
       } catch (err) {
         console.error("Lookup fetch error:", err);
       }
@@ -201,11 +198,15 @@ export default function Profile() {
       if (data.ok) {
         setProfile((prev) => ({ ...prev, full_name: editName }));
         setEditModalOpen(false);
+        showFeedback("Profile updated successfully!", "success");
       } else {
         setEditMessage(data.message || "Update failed.");
+        showFeedback(data.message || "Update failed.", "error");
       }
     } catch (err) {
-      setEditMessage(err.response?.data?.message || "Server error.");
+      const msg = err.response?.data?.message || "Server error.";
+      setEditMessage(msg);
+      showFeedback(msg, "error");
     } finally {
       setEditSubmitting(false);
     }
@@ -216,11 +217,11 @@ export default function Profile() {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB.");
+      showFeedback("Image must be less than 5MB.", "error");
       return;
     }
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      alert("Only JPG, PNG, and WEBP images are allowed.");
+      showFeedback("Only JPG, PNG, and WEBP images are allowed.", "error");
       return;
     }
     setUploadingPhoto(true);
@@ -233,50 +234,105 @@ export default function Profile() {
         });
         if (data.ok) {
           setProfile((prev) => ({ ...prev, display_picture: base64 }));
+          showFeedback("Profile picture updated!", "success");
         } else {
-          alert("Failed to update profile picture.");
+          showFeedback("Failed to update profile picture.", "error");
         }
         setUploadingPhoto(false);
       };
       reader.readAsDataURL(file);
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Error uploading image.");
+      showFeedback("Error uploading image.", "error");
       setUploadingPhoto(false);
     }
     e.target.value = "";
   };
 
   // ── Change Profile Request ───
+  const handleChangeCheckbox = (key) => {
+    setRequestChanges((prev) => ({ ...prev, [key]: !prev[key] }));
+    if (!requestChanges[key]) {
+      if (key === "department_change") {
+        setSelectedDepartment("");
+        setRemoveDepartment(false);
+      }
+      if (key === "office_change") {
+        setSelectedOffice("");
+        setRemoveOffice(false);
+      }
+      if (key === "role_update") setSelectedRole("");
+      if (key === "position_update") setSelectedPosition("");
+    }
+  };
+
   const handleChangeProfileSubmit = async (e) => {
     e.preventDefault();
     setRequestSubmitting(true);
     setRequestMessage("");
+
     const selectedChanges = Object.keys(requestChanges).filter(
       (key) => requestChanges[key],
     );
     if (selectedChanges.length === 0) {
-      setRequestMessage("Please select at least one change type.");
+      const msg = "Please select at least one change type.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
-    if (requestChanges.department_change && !selectedDepartment) {
-      setRequestMessage("Please select a department.");
+
+    if (
+      requestChanges.department_change &&
+      !removeDepartment &&
+      !selectedDepartment
+    ) {
+      const msg =
+        "Please select a department, or choose to remove your current department.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
-    if (requestChanges.office_change && !selectedOffice) {
-      setRequestMessage("Please select an office.");
+    if (requestChanges.office_change && !removeOffice && !selectedOffice) {
+      const msg =
+        "Please select an office, or choose to remove your current office.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
     if (requestChanges.role_update && !selectedRole) {
-      setRequestMessage("Please select a role.");
+      const msg = "Please select a role.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
     if (requestChanges.position_update && !selectedPosition) {
-      setRequestMessage("Please select a position.");
+      const msg = "Please select a position.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
+      setRequestSubmitting(false);
+      return;
+    }
+
+    const finalDepartmentId = requestChanges.department_change
+      ? removeDepartment
+        ? null
+        : selectedDepartment
+      : profile?.department_id || null;
+    const finalOfficeId = requestChanges.office_change
+      ? removeOffice
+        ? null
+        : selectedOffice
+      : profile?.office_id || null;
+
+    if (!finalDepartmentId && !finalOfficeId) {
+      const msg =
+        "You must keep at least one of Department or Office set — you cannot remove both.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
@@ -284,27 +340,27 @@ export default function Profile() {
     let hasActualChanges = false;
     if (
       requestChanges.department_change &&
-      selectedDepartment !== profile?.department_id
-    ) {
+      finalDepartmentId !== (profile?.department_id || null)
+    )
       hasActualChanges = true;
-    }
-    if (requestChanges.office_change && selectedOffice !== profile?.office_id) {
+    if (
+      requestChanges.office_change &&
+      finalOfficeId !== (profile?.office_id || null)
+    )
       hasActualChanges = true;
-    }
-    if (requestChanges.role_update && selectedRole !== profile?.role_id) {
+    if (requestChanges.role_update && selectedRole !== profile?.role_id)
       hasActualChanges = true;
-    }
     if (
       requestChanges.position_update &&
       selectedPosition !== profile?.position_id
-    ) {
+    )
       hasActualChanges = true;
-    }
 
     if (!hasActualChanges) {
-      setRequestMessage(
-        "The selected values are the same as your current profile. Please select different values to submit a change request.",
-      );
+      const msg =
+        "The selected values are the same as your current profile. Please select different values to submit a change request.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
       setRequestSubmitting(false);
       return;
     }
@@ -313,9 +369,9 @@ export default function Profile() {
       const { data } = await apiClient.post("/profile/change-request", {
         changes: selectedChanges,
         department_id: requestChanges.department_change
-          ? selectedDepartment
+          ? finalDepartmentId
           : null,
-        office_id: requestChanges.office_change ? selectedOffice : null,
+        office_id: requestChanges.office_change ? finalOfficeId : null,
         role_id: requestChanges.role_update ? selectedRole : null,
         position_id: requestChanges.position_update ? selectedPosition : null,
         details: requestDetails,
@@ -331,31 +387,22 @@ export default function Profile() {
         setSelectedOffice("");
         setSelectedRole("");
         setSelectedPosition("");
+        setRemoveDepartment(false);
+        setRemoveOffice(false);
         setRequestDetails("");
         setChangeProfileRequestOpen(false);
-        setRequestMessage("Request submitted successfully!");
+        showFeedback("Request submitted successfully!", "success");
       } else {
         setRequestMessage(data.message || "Request submission failed.");
+        showFeedback(data.message || "Request submission failed.", "error");
       }
     } catch (err) {
-      setRequestMessage(
-        err.response?.data?.message || "Server error. Please try again.",
-      );
+      const msg =
+        err.response?.data?.message || "Server error. Please try again.";
+      setRequestMessage(msg);
+      showFeedback(msg, "error");
     } finally {
       setRequestSubmitting(false);
-    }
-  };
-
-  const handleChangeCheckbox = (key) => {
-    setRequestChanges((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-    if (!requestChanges[key]) {
-      if (key === "department_change") setSelectedDepartment("");
-      if (key === "office_change") setSelectedOffice("");
-      if (key === "role_update") setSelectedRole("");
-      if (key === "position_update") setSelectedPosition("");
     }
   };
 
@@ -672,7 +719,6 @@ export default function Profile() {
           </select>
         </div>
 
-        {/* ── Campus / Department / Office Events KPI ── */}
         {campusOfficeLoading ? (
           <p className={styles.loadingText}>Loading institutional flow...</p>
         ) : (
@@ -683,7 +729,6 @@ export default function Profile() {
           </>
         )}
 
-        {/* ── Conflict Forecast ── */}
         <div className={styles.sectionHeaderBlock}>
           <h3 className={styles.analyticsSectionTitle}>Conflict Forecast</h3>
           <p className={styles.analyticsSectionSubtitle}>
@@ -868,7 +913,6 @@ export default function Profile() {
           </>
         )}
 
-        {/* ── Venue Pie Chart ── */}
         <div className={styles.analyticsCard}>
           <div className={styles.cardHeaderRow}>
             <FiPieChart size={16} className={styles.cardHeaderIcon} />
@@ -935,7 +979,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ── Task Velocity ── */}
         <div className={styles.analyticsCard}>
           <div className={styles.cardHeaderRow}>
             <FiCheckSquare size={16} className={styles.cardHeaderIcon} />
@@ -1006,7 +1049,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ── Department / Office Performance ── */}
         <div className={styles.analyticsCard}>
           <div className={styles.cardHeaderRow}>
             <FiActivity size={16} className={styles.cardHeaderIcon} />
@@ -1077,7 +1119,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ── Scheduling Conflicts ── */}
         <div className={styles.analyticsCard}>
           <div className={styles.cardHeaderRow}>
             <FiAlertTriangle size={16} className={styles.cardHeaderIcon} />
@@ -1113,7 +1154,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ── Personal Events ── */}
         <div className={styles.analyticsCard}>
           <div className={styles.cardHeaderRow}>
             <FiUser size={16} className={styles.cardHeaderIcon} />
@@ -1252,6 +1292,7 @@ export default function Profile() {
                   What to Change *
                 </label>
                 <div className={styles.checkboxGroup}>
+                  {/* ── Department Change ── */}
                   <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -1262,21 +1303,54 @@ export default function Profile() {
                   </label>
                   {requestChanges.department_change && (
                     <div className={styles.nestedFormGroup}>
-                      <select
-                        value={selectedDepartment}
-                        onChange={(e) => setSelectedDepartment(e.target.value)}
-                        required={requestChanges.department_change}
-                      >
-                        <option value="">Choose a department</option>
-                        {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </select>
+                      <p className={styles.currentValueNote}>
+                        Current department:{" "}
+                        <strong>{profile?.department || "None"}</strong>
+                      </p>
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="departmentAction"
+                          checked={!removeDepartment}
+                          onChange={() => setRemoveDepartment(false)}
+                        />
+                        <span>Change to a different department</span>
+                      </label>
+                      {!removeDepartment && (
+                        <select
+                          value={selectedDepartment}
+                          onChange={(e) =>
+                            setSelectedDepartment(e.target.value)
+                          }
+                          required={
+                            requestChanges.department_change &&
+                            !removeDepartment
+                          }
+                        >
+                          <option value="">Choose a department</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="departmentAction"
+                          checked={removeDepartment}
+                          onChange={() => {
+                            setRemoveDepartment(true);
+                            setSelectedDepartment("");
+                          }}
+                        />
+                        <span>Remove my current department</span>
+                      </label>
                     </div>
                   )}
 
+                  {/* ── Office Change ── */}
                   <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -1287,21 +1361,51 @@ export default function Profile() {
                   </label>
                   {requestChanges.office_change && (
                     <div className={styles.nestedFormGroup}>
-                      <select
-                        value={selectedOffice}
-                        onChange={(e) => setSelectedOffice(e.target.value)}
-                        required={requestChanges.office_change}
-                      >
-                        <option value="">Choose an office</option>
-                        {offices.map((office) => (
-                          <option key={office.id} value={office.id}>
-                            {office.name}
-                          </option>
-                        ))}
-                      </select>
+                      <p className={styles.currentValueNote}>
+                        Current office:{" "}
+                        <strong>{profile?.office || "None"}</strong>
+                      </p>
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="officeAction"
+                          checked={!removeOffice}
+                          onChange={() => setRemoveOffice(false)}
+                        />
+                        <span>Change to a different office</span>
+                      </label>
+                      {!removeOffice && (
+                        <select
+                          value={selectedOffice}
+                          onChange={(e) => setSelectedOffice(e.target.value)}
+                          required={
+                            requestChanges.office_change && !removeOffice
+                          }
+                        >
+                          <option value="">Choose an office</option>
+                          {offices.map((office) => (
+                            <option key={office.id} value={office.id}>
+                              {office.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <label className={styles.radioOption}>
+                        <input
+                          type="radio"
+                          name="officeAction"
+                          checked={removeOffice}
+                          onChange={() => {
+                            setRemoveOffice(true);
+                            setSelectedOffice("");
+                          }}
+                        />
+                        <span>Remove my current office</span>
+                      </label>
                     </div>
                   )}
 
+                  {/* ── Role Update ── */}
                   <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -1312,6 +1416,9 @@ export default function Profile() {
                   </label>
                   {requestChanges.role_update && (
                     <div className={styles.nestedFormGroup}>
+                      <p className={styles.currentValueNote}>
+                        Current role: <strong>{profile?.role || "None"}</strong>
+                      </p>
                       <select
                         value={selectedRole}
                         onChange={(e) => setSelectedRole(e.target.value)}
@@ -1327,6 +1434,7 @@ export default function Profile() {
                     </div>
                   )}
 
+                  {/* ── Position Update ── */}
                   <label className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -1337,6 +1445,10 @@ export default function Profile() {
                   </label>
                   {requestChanges.position_update && (
                     <div className={styles.nestedFormGroup}>
+                      <p className={styles.currentValueNote}>
+                        Current position:{" "}
+                        <strong>{profile?.position || "None"}</strong>
+                      </p>
                       <select
                         value={selectedPosition}
                         onChange={(e) => setSelectedPosition(e.target.value)}
@@ -1387,6 +1499,12 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
+      />
     </div>
   );
 }
