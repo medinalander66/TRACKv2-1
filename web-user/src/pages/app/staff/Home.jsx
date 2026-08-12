@@ -332,7 +332,7 @@ function Home() {
   const handleShowMoreTasks = () => setUpcomingTasksLimit((prev) => prev + 4);
 
   const gotoCalendar = () => navigate("/calendar");
-  const gotoAnalytics = () => navigate("/analytics");
+  const gotoAnalytics = () => navigate("/profile");
   const gotoTaskLists = () => navigate("/tasks");
 
   const handleTodayPrev = () =>
