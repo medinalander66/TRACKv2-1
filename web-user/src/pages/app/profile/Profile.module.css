@@ -241,7 +241,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -251,12 +252,21 @@
 
 .modal {
   background: #fff;
-  border-radius: 24px;
-  padding: 24px;
-  max-width: 420px;
+  border-radius: 20px;
+  padding: 0;
+  max-width: 440px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
   animation: modalIn 0.2s ease;
+  overflow: hidden;
+}
+
+.modal form {
+  overflow-y: auto;
+  padding: 22px 24px 24px;
 }
 
 @keyframes modalIn {
@@ -275,28 +285,37 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f1f3;
+  flex-shrink: 0;
 }
 
 .modalHeader h3 {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: #111827;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .modalClose {
-  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
   border: none;
   cursor: pointer;
   color: #6b7280;
-  padding: 4px;
-  border-radius: 8px;
-  transition: background 0.2s;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
 }
 
 .modalClose:hover {
-  background: #f3f4f6;
+  background: #e5e7eb;
+  color: #111827;
 }
 
 .formGroup {
@@ -304,7 +323,7 @@
 }
 
 .formGroup label {
-  display: block;
+  /* display: block; */
   font-size: 14px;
   font-weight: 500;
   color: #374151;
@@ -313,59 +332,88 @@
 
 .checkboxGroupLabel {
   display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
 }
 
 .checkboxGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+
+/* Card wrapper for each change option */
+.changeCard {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.changeCard:hover {
+  border-color: #d1c0c0;
+}
+
+.changeCardActive {
+  border-color: #800000;
+  background: #fdf6f6;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.06);
 }
 
 .checkboxItem {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
   user-select: none;
 }
 
 .checkboxItem input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
   cursor: pointer;
   flex-shrink: 0;
   accent-color: #800000;
-  margin-top: 2px;
+  border-radius: 5px;
+  margin: 0;
 }
 
 .checkboxItem span {
-  font-size: 15px;
+  font-size: 14.5px;
+  font-weight: 500;
   color: #111827;
-  margin-top: -2px;
+  line-height: 1.3;
 }
 
 .nestedFormGroup {
-  margin: 6px 0 8px 30px;
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px dashed #e3d5d5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .nestedFormGroup label {
-  display: block;
+  /* display: block; */
   font-size: 14px;
   font-weight: 500;
   color: #374151;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .nestedFormGroup select {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid #d1d5db;
-  border-radius: 12px;
-  font-size: 16px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  background: #fff;
   transition: border 0.2s;
   box-sizing: border-box;
   font-family: inherit;
@@ -399,7 +447,7 @@
   padding: 10px 14px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 14.5px;
   transition: border 0.2s;
   box-sizing: border-box;
   font-family: inherit;
@@ -420,14 +468,20 @@
 
 .modalError {
   color: #dc2626;
-  font-size: 14px;
+  font-size: 13.5px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 9px 12px;
   margin: 8px 0 16px;
 }
 
 .modalActions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f1f3;
 }
 
 .cancelBtn,
@@ -435,28 +489,31 @@
   flex: 1;
   padding: 12px;
   border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
   border: 1px solid #d1d5db;
   background: #fff;
   color: #374151;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .saveBtn {
   background: #800000;
   color: #fff;
   border: 1px solid #800000;
+  box-shadow: 0 4px 12px rgba(128, 0, 0, 0.25);
 }
 
 .saveBtn:hover:not(:disabled) {
   background: #660000;
   border-color: #660000;
+  box-shadow: 0 6px 16px rgba(128, 0, 0, 0.3);
 }
 
 .cancelBtn:hover:not(:disabled) {
   background: #f3f4f6;
+  border-color: #b9bfc7;
 }
 
 .saveBtn:disabled,
@@ -1018,20 +1075,59 @@
 }
 
 .currentValueNote {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
   color: #6b7280;
-  margin: 0 0 8px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin: 0;
+  width: fit-content;
+}
+
+.currentValueNote strong {
+  color: #111827;
 }
 
 .radioOption {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 6px 0;
+  gap: 10px;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.radioOption:hover {
+  border-color: #c9b3b3;
+}
+
+.radioOption span {
+  font-size: 14px;
+  color: #374151;
+}
+
+.radioOptionSelected {
+  border-color: #800000;
+  background: #fdf6f6;
+}
+
+.radioOptionSelected span {
+  color: #800000;
+  font-weight: 600;
 }
 
 .radioOption input[type="radio"] {
   accent-color: #800000;
   cursor: pointer;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  margin: 0;
 }

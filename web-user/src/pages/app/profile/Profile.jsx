@@ -1293,176 +1293,225 @@ export default function Profile() {
                 </label>
                 <div className={styles.checkboxGroup}>
                   {/* ── Department Change ── */}
-                  <label className={styles.checkboxItem}>
-                    <input
-                      type="checkbox"
-                      checked={requestChanges.department_change}
-                      onChange={() => handleChangeCheckbox("department_change")}
-                    />
-                    <span>Department Change</span>
-                  </label>
-                  {requestChanges.department_change && (
-                    <div className={styles.nestedFormGroup}>
-                      <p className={styles.currentValueNote}>
-                        Current department:{" "}
-                        <strong>{profile?.department || "None"}</strong>
-                      </p>
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="departmentAction"
-                          checked={!removeDepartment}
-                          onChange={() => setRemoveDepartment(false)}
-                        />
-                        <span>Change to a different department</span>
-                      </label>
-                      {!removeDepartment && (
-                        <select
-                          value={selectedDepartment}
-                          onChange={(e) =>
-                            setSelectedDepartment(e.target.value)
-                          }
-                          required={
-                            requestChanges.department_change &&
-                            !removeDepartment
-                          }
+                  <div
+                    className={`${styles.changeCard} ${
+                      requestChanges.department_change
+                        ? styles.changeCardActive
+                        : ""
+                    }`}
+                  >
+                    <label className={styles.checkboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={requestChanges.department_change}
+                        onChange={() =>
+                          handleChangeCheckbox("department_change")
+                        }
+                      />
+                      <span>Department Change</span>
+                    </label>
+                    {requestChanges.department_change && (
+                      <div className={styles.nestedFormGroup}>
+                        <p className={styles.currentValueNote}>
+                          Current department:{" "}
+                          <strong>{profile?.department || "None"}</strong>
+                        </p>
+                        <label
+                          className={`${styles.radioOption} ${
+                            !removeDepartment ? styles.radioOptionSelected : ""
+                          }`}
                         >
-                          <option value="">Choose a department</option>
-                          {departments.map((dept) => (
-                            <option key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="departmentAction"
-                          checked={removeDepartment}
-                          onChange={() => {
-                            setRemoveDepartment(true);
-                            setSelectedDepartment("");
-                          }}
-                        />
-                        <span>Remove my current department</span>
-                      </label>
-                    </div>
-                  )}
+                          <input
+                            type="radio"
+                            name="departmentAction"
+                            checked={!removeDepartment}
+                            onChange={() => setRemoveDepartment(false)}
+                          />
+                          <span>Change to a different department</span>
+                        </label>
+                        {!removeDepartment && (
+                          <select
+                            value={selectedDepartment}
+                            onChange={(e) =>
+                              setSelectedDepartment(e.target.value)
+                            }
+                            required={
+                              requestChanges.department_change &&
+                              !removeDepartment
+                            }
+                          >
+                            <option value="">Choose a department</option>
+                            {departments.map((dept) => (
+                              <option key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <label
+                          className={`${styles.radioOption} ${
+                            removeDepartment ? styles.radioOptionSelected : ""
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="departmentAction"
+                            checked={removeDepartment}
+                            onChange={() => {
+                              setRemoveDepartment(true);
+                              setSelectedDepartment("");
+                            }}
+                          />
+                          <span>Remove my current department</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
 
                   {/* ── Office Change ── */}
-                  <label className={styles.checkboxItem}>
-                    <input
-                      type="checkbox"
-                      checked={requestChanges.office_change}
-                      onChange={() => handleChangeCheckbox("office_change")}
-                    />
-                    <span>Office Change</span>
-                  </label>
-                  {requestChanges.office_change && (
-                    <div className={styles.nestedFormGroup}>
-                      <p className={styles.currentValueNote}>
-                        Current office:{" "}
-                        <strong>{profile?.office || "None"}</strong>
-                      </p>
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="officeAction"
-                          checked={!removeOffice}
-                          onChange={() => setRemoveOffice(false)}
-                        />
-                        <span>Change to a different office</span>
-                      </label>
-                      {!removeOffice && (
-                        <select
-                          value={selectedOffice}
-                          onChange={(e) => setSelectedOffice(e.target.value)}
-                          required={
-                            requestChanges.office_change && !removeOffice
-                          }
+                  <div
+                    className={`${styles.changeCard} ${
+                      requestChanges.office_change
+                        ? styles.changeCardActive
+                        : ""
+                    }`}
+                  >
+                    <label className={styles.checkboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={requestChanges.office_change}
+                        onChange={() => handleChangeCheckbox("office_change")}
+                      />
+                      <span>Office Change</span>
+                    </label>
+                    {requestChanges.office_change && (
+                      <div className={styles.nestedFormGroup}>
+                        <p className={styles.currentValueNote}>
+                          Current office:{" "}
+                          <strong>{profile?.office || "None"}</strong>
+                        </p>
+                        <label
+                          className={`${styles.radioOption} ${
+                            !removeOffice ? styles.radioOptionSelected : ""
+                          }`}
                         >
-                          <option value="">Choose an office</option>
-                          {offices.map((office) => (
-                            <option key={office.id} value={office.id}>
-                              {office.name}
+                          <input
+                            type="radio"
+                            name="officeAction"
+                            checked={!removeOffice}
+                            onChange={() => setRemoveOffice(false)}
+                          />
+                          <span>Change to a different office</span>
+                        </label>
+                        {!removeOffice && (
+                          <select
+                            value={selectedOffice}
+                            onChange={(e) => setSelectedOffice(e.target.value)}
+                            required={
+                              requestChanges.office_change && !removeOffice
+                            }
+                          >
+                            <option value="">Choose an office</option>
+                            {offices.map((office) => (
+                              <option key={office.id} value={office.id}>
+                                {office.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <label
+                          className={`${styles.radioOption} ${
+                            removeOffice ? styles.radioOptionSelected : ""
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="officeAction"
+                            checked={removeOffice}
+                            onChange={() => {
+                              setRemoveOffice(true);
+                              setSelectedOffice("");
+                            }}
+                          />
+                          <span>Remove my current office</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Role Update ── */}
+                  <div
+                    className={`${styles.changeCard} ${
+                      requestChanges.role_update ? styles.changeCardActive : ""
+                    }`}
+                  >
+                    <label className={styles.checkboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={requestChanges.role_update}
+                        onChange={() => handleChangeCheckbox("role_update")}
+                      />
+                      <span>Role Update</span>
+                    </label>
+                    {requestChanges.role_update && (
+                      <div className={styles.nestedFormGroup}>
+                        <p className={styles.currentValueNote}>
+                          Current role:{" "}
+                          <strong>{profile?.role || "None"}</strong>
+                        </p>
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          required={requestChanges.role_update}
+                        >
+                          <option value="">Choose a role</option>
+                          {roles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
                             </option>
                           ))}
                         </select>
-                      )}
-                      <label className={styles.radioOption}>
-                        <input
-                          type="radio"
-                          name="officeAction"
-                          checked={removeOffice}
-                          onChange={() => {
-                            setRemoveOffice(true);
-                            setSelectedOffice("");
-                          }}
-                        />
-                        <span>Remove my current office</span>
-                      </label>
-                    </div>
-                  )}
-
-                  {/* ── Role Update ── */}
-                  <label className={styles.checkboxItem}>
-                    <input
-                      type="checkbox"
-                      checked={requestChanges.role_update}
-                      onChange={() => handleChangeCheckbox("role_update")}
-                    />
-                    <span>Role Update</span>
-                  </label>
-                  {requestChanges.role_update && (
-                    <div className={styles.nestedFormGroup}>
-                      <p className={styles.currentValueNote}>
-                        Current role: <strong>{profile?.role || "None"}</strong>
-                      </p>
-                      <select
-                        value={selectedRole}
-                        onChange={(e) => setSelectedRole(e.target.value)}
-                        required={requestChanges.role_update}
-                      >
-                        <option value="">Choose a role</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* ── Position Update ── */}
-                  <label className={styles.checkboxItem}>
-                    <input
-                      type="checkbox"
-                      checked={requestChanges.position_update}
-                      onChange={() => handleChangeCheckbox("position_update")}
-                    />
-                    <span>Position Update</span>
-                  </label>
-                  {requestChanges.position_update && (
-                    <div className={styles.nestedFormGroup}>
-                      <p className={styles.currentValueNote}>
-                        Current position:{" "}
-                        <strong>{profile?.position || "None"}</strong>
-                      </p>
-                      <select
-                        value={selectedPosition}
-                        onChange={(e) => setSelectedPosition(e.target.value)}
-                        required={requestChanges.position_update}
-                      >
-                        <option value="">Choose a position</option>
-                        {positions.map((position) => (
-                          <option key={position.id} value={position.id}>
-                            {position.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div
+                    className={`${styles.changeCard} ${
+                      requestChanges.position_update
+                        ? styles.changeCardActive
+                        : ""
+                    }`}
+                  >
+                    <label className={styles.checkboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={requestChanges.position_update}
+                        onChange={() => handleChangeCheckbox("position_update")}
+                      />
+                      <span>Position Update</span>
+                    </label>
+                    {requestChanges.position_update && (
+                      <div className={styles.nestedFormGroup}>
+                        <p className={styles.currentValueNote}>
+                          Current position:{" "}
+                          <strong>{profile?.position || "None"}</strong>
+                        </p>
+                        <select
+                          value={selectedPosition}
+                          onChange={(e) => setSelectedPosition(e.target.value)}
+                          required={requestChanges.position_update}
+                        >
+                          <option value="">Choose a position</option>
+                          {positions.map((position) => (
+                            <option key={position.id} value={position.id}>
+                              {position.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
