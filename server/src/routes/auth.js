@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { login, register } = require('../controllers/authController');
+const { loginAdmin, registerAdmin } = require('../controllers/adminAuthController');
+const { adminRegisterLimiter } = require('../middleware/rateLimiter');
 const {
   googleLoginUrl,
   googleCallback,
@@ -13,8 +15,10 @@ const { User, UserProfile, Department, Office, Role, Admin, Position } = require
 const { Op } = require('sequelize');
 
 // ─── Local auth ───
-router.post('/login', login);
-router.post('/register', register);
+router.post('/login', adminLoginLimiter, loginAdmin);
+router.post('/register', adminRegisterLimiter, registerAdmin);
+// router.post('/login', login);
+// router.post('/register', register);
 
 // ─── Google SSO ───
 router.get('/google', googleLoginUrl);
