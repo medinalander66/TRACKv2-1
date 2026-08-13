@@ -163,7 +163,9 @@ export default function AppLayout() {
                     <FiArrowLeft size={24} />
                   </button>
                   <span className={styles.title}>
-                    {pathToTitle(location.pathname)}
+                    {location.pathname == "/profile"
+                      ? "Profile & Analytics"
+                      : pathToTitle(location.pathname)}
                   </span>
                   <div className={styles.topActions} />
                 </>
