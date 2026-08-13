@@ -219,10 +219,8 @@
   color: #c2c6cc;
 }
 
-.activeCell {
-  border-color: var(--primary-color, #800000);
-  box-shadow: inset 0 0 0 2px var(--primary-color, #800000);
-}
+/* NOTE: the "active/selected" border on month-view day cells was removed on
+   request — selecting a day no longer outlines the cell. */
 
 .dayNumber {
   font-size: 13px;
@@ -277,6 +275,25 @@
   box-sizing: border-box;
 }
 
+/* ── Day view: all-day events row (sits above the hourly timeline) ── */
+.allDayRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 4px 8px 58px;
+}
+
+.allDayPill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .timelineWrapper {
   position: relative;
   width: 100%;
@@ -315,21 +332,30 @@
   border-left: 1px solid #e5e7eb;
 }
 
-.timelineEvent {
+/* Establishes the positioning context for event cards, inset past the hour
+   labels — lets each card's left/width be expressed cleanly in %. */
+.timelineEventsLayer {
   position: absolute;
+  top: 0;
+  bottom: 0;
   left: 54px;
   right: 4px;
+}
+
+.timelineEvent {
+  position: absolute;
   border-radius: 8px;
   padding: 4px 8px;
-  color: white;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  font-size: 12px;
+  /* bumped up from 12px so day-view cards read more clearly */
+  font-size: 13px;
   z-index: 2;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .eventTitle {
@@ -340,7 +366,8 @@
 }
 
 .eventTime {
-  font-size: 10px;
+  /* bumped up from 10px to match the larger day-view card text */
+  font-size: 11px;
   opacity: 0.9;
 }
 
@@ -393,48 +420,93 @@
   color: var(--primary-color, #800000);
 }
 
-.weekTimeline {
+/* ── Week view timeline: mirrors the day view — each day is a column with
+   events absolutely positioned by actual start/end time, instead of a
+   fixed-height cell per hour bucket. ── */
+.weekTimelineBody {
+  display: flex;
   width: 100%;
 }
 
-.weekHourRow {
-  display: grid;
-  grid-template-columns: 50px repeat(7, 1fr);
-  border-bottom: 1px solid #f3f4f6;
-  min-height: 48px;
-}
-
-.weekHourLabel {
-  padding: 4px;
-  font-size: 11px;
-  color: #6b7280;
-  text-align: right;
+.weekHourLabelsCol {
+  width: 50px;
+  flex-shrink: 0;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   box-sizing: border-box;
 }
 
-.weekCell {
+.weekHourLabelCell {
+  height: 64px;
+  font-size: 11px;
+  color: #6b7280;
+  text-align: right;
+  padding: 4px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.weekDayCol {
   position: relative;
+  flex: 1;
+  min-width: 0;
   border-right: 1px solid #f3f4f6;
-  min-height: 48px;
   box-sizing: border-box;
 }
 
-.weekCell:last-child {
+.weekDayCol:last-child {
   border-right: none;
 }
 
 .weekCellToday {
-  background: #f3f4f6;
+  background: #f9fafb;
+}
+
+.weekHourGridLine {
+  height: 64px;
+  border-bottom: 1px solid #f3f4f6;
+  box-sizing: border-box;
+}
+
+.weekEventsLayer {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  right: 2px;
+  bottom: 0;
 }
 
 .weekEvent {
+  position: absolute;
+  border-radius: 6px;
+  padding: 2px 5px;
   font-size: 11px;
-  padding: 2px 4px;
+  font-weight: 600;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.weekAllDayRow {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weekAllDayPill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
   border-radius: 4px;
-  color: white;
-  margin: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -535,8 +607,9 @@
   padding-bottom: 14px;
 }
 
+/* Background now uses the event's own color (see inline style), filling the
+   whole header instead of just a left border. */
 .sheetCardHeader {
-  border-left: 5px solid var(--primary-color, #800000);
   padding: 14px 16px 4px;
   display: flex;
   flex-direction: column;
