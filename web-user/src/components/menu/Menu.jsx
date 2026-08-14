@@ -482,7 +482,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
           </div>
 
           <button className={styles.createEventBtn} onClick={handleCreateEvent}>
-            + Create Event
+            <FiPlus size={18} /> Create Event
           </button>
 
           <div className={styles.miniCalendar}>
