@@ -6,3 +6,13 @@ export const getAllUsers = async (search = "") => {
   });
   return data;
 };
+
+export const toggleBlockUser = async (id) => {
+  const { data } = await apiClient.put(`/admin/users/${id}/toggle-block`);
+  return data;
+};
+
+export const deleteUser = async (id) => {
+  const { data } = await apiClient.delete(`/admin/users/${id}`);
+  return data;
+};

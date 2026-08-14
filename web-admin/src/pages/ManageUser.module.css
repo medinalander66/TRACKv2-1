@@ -421,3 +421,54 @@
   font-size: 12px;
   color: #9ca3af;
 }
+
+.actionsCell {
+  display: flex;
+  gap: 6px;
+}
+
+.blockBtn,
+.unblockBtn,
+.deleteBtn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.blockBtn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.blockBtn:hover {
+  background: #fde68a;
+}
+
+.unblockBtn {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.unblockBtn:hover {
+  background: #a7f3d0;
+}
+
+.deleteBtn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.deleteBtn:hover {
+  background: #fecaca;
+}
+
+.blockBtn:disabled,
+.unblockBtn:disabled,
+.deleteBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
