@@ -1040,7 +1040,7 @@ export default function Events() {
                   className={styles.createBtn}
                   onClick={() => navigate("/create-event")}
                 >
-                  Create Event
+                  <FiPlus size={18} /> Create Event
                 </button>
               </div>
             ) : (

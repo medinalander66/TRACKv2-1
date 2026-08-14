@@ -22,6 +22,8 @@ import {
   TASK_STATUS_SORT_ORDER,
 } from "../../../utils/taskStatus";
 
+import eventsPageStyles from "../events/Events.module.css";
+
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -384,7 +386,7 @@ export default function Tasks() {
           </div>
           <div className={styles.taskList}>
             {filteredTasks.length === 0 ? (
-              <div className={styles.emptyState}>
+              <div className={eventsPageStyles.emptyStateBox}>
                 <FiPlus size={40} />
                 <p>No {invitedSubTab} task invitations.</p>
               </div>
@@ -424,7 +426,7 @@ export default function Tasks() {
         )}
 
         {filteredTasks.length === 0 ? (
-          <div className={styles.emptyState}>
+          <div className={eventsPageStyles.emptyStateBox}>
             <FiPlus size={40} />
             <p>No tasks found.</p>
             <button
