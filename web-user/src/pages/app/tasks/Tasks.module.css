@@ -35,6 +35,11 @@
   font-size: 14px;
 }
 
+.createBtn svg *{
+  color: #fff;
+}
+
+
 /* ─── Search Bar ───────────────────────────────────────── */
 .searchBar {
   position: relative;

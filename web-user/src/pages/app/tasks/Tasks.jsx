@@ -22,7 +22,12 @@ import {
   TASK_STATUS_SORT_ORDER,
 } from "../../../utils/taskStatus";
 
+
 import eventsPageStyles from "../events/Events.module.css";
+
+import { FaRegClipboard } from "react-icons/fa";
+import { LuClipboardPlus  } from "react-icons/lu";
+
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
@@ -387,7 +392,7 @@ export default function Tasks() {
           <div className={styles.taskList}>
             {filteredTasks.length === 0 ? (
               <div className={eventsPageStyles.emptyStateBox}>
-                <FiPlus size={40} />
+                <LuClipboardPlus  size={40} />
                 <p>No {invitedSubTab} task invitations.</p>
               </div>
             ) : (
@@ -427,13 +432,13 @@ export default function Tasks() {
 
         {filteredTasks.length === 0 ? (
           <div className={eventsPageStyles.emptyStateBox}>
-            <FiPlus size={40} />
+            <FaRegClipboard size={40} />
             <p>No tasks found.</p>
             <button
               className={styles.createBtn}
               onClick={() => navigate("/create-task")}
             >
-              Create Task
+              <FiPlus size={18}/> Create Task
             </button>
           </div>
         ) : (

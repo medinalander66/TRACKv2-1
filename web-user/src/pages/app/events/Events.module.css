@@ -586,6 +586,10 @@
   cursor: pointer;
 }
 
+.createBtn svg *{
+  color: #fff;
+}
+
 /* ─── Loading / Error ────────────────────────────────── */
 .loading {
   text-align: center;
