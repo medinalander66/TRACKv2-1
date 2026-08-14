@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { getAllUsers } from "../api/adminUsers";
+import { getAllUsers, toggleBlockUser, deleteUser } from "../api/adminUsers";
 import {
   getChangeRequests,
   approveChangeRequest,
   rejectChangeRequest,
 } from "../api/profileRequests";
+import FeedbackModal from "../components/common/FeedbackModal";
 import styles from "./ManageUser.module.css";
 
 const STATUS_TABS = [
@@ -15,15 +16,14 @@ const STATUS_TABS = [
 ];
 
 export default function ManageUsers() {
-  const [activeTab, setActiveTab] = useState("users"); // "users" | "requests"
+  const [activeTab, setActiveTab] = useState("users");
 
-  // ── Users table state ──
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
   const [search, setSearch] = useState("");
+  const [actioningUserId, setActioningUserId] = useState(null);
 
-  // ── Profile Change Requests state ──
   const [reqStatus, setReqStatus] = useState("pending");
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
@@ -32,7 +32,10 @@ export default function ManageUsers() {
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  // ─── Fetch users ───
+  const [feedback, setFeedback] = useState({ message: "", type: "success" });
+  const showFeedback = (msg, type = "success") =>
+    setFeedback({ message: msg, type });
+
   const fetchUsers = useCallback(async (term) => {
     setUsersLoading(true);
     setUsersError("");
@@ -49,7 +52,8 @@ export default function ManageUsers() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "users") fetchUsers("");
+    if (activeTab === "users") fetchUsers(search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, fetchUsers]);
 
   const handleSearchSubmit = (e) => {
@@ -57,7 +61,54 @@ export default function ManageUsers() {
     fetchUsers(search);
   };
 
-  // ─── Fetch profile change requests ───
+  const handleToggleBlock = async (user) => {
+    const action = user.status === "blocked" ? "unblock" : "block";
+    if (
+      !window.confirm(
+        `Are you sure you want to ${action} ${user.username || user.email}?`,
+      )
+    )
+      return;
+    setActioningUserId(user.id);
+    try {
+      const res = await toggleBlockUser(user.id);
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === user.id ? { ...u, status: res.status } : u,
+          ),
+        );
+        showFeedback(res.message, "success");
+      } else {
+        showFeedback(res.message || "Failed to update user status.", "error");
+      }
+    } catch (err) {
+      showFeedback(err.response?.data?.message || "Server error.", "error");
+    } finally {
+      setActioningUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    const confirmText = `Type "DELETE" to permanently remove ${user.username || user.email} and all their records. This cannot be undone.`;
+    const typed = window.prompt(confirmText);
+    if (typed !== "DELETE") return;
+    setActioningUserId(user.id);
+    try {
+      const res = await deleteUser(user.id);
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== user.id));
+        showFeedback(res.message, "success");
+      } else {
+        showFeedback(res.message || "Failed to delete user.", "error");
+      }
+    } catch (err) {
+      showFeedback(err.response?.data?.message || "Server error.", "error");
+    } finally {
+      setActioningUserId(null);
+    }
+  };
+
   const fetchRequests = useCallback(async (currentStatus) => {
     setRequestsLoading(true);
     setRequestsError("");
@@ -89,11 +140,12 @@ export default function ManageUsers() {
       const res = await approveChangeRequest(id);
       if (res.ok) {
         setRequests((prev) => prev.filter((r) => r.id !== id));
+        showFeedback(res.message || "Request approved.", "success");
       } else {
-        alert(res.message || "Failed to approve request.");
+        showFeedback(res.message || "Failed to approve request.", "error");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Server error.");
+      showFeedback(err.response?.data?.message || "Server error.", "error");
     } finally {
       setProcessingId(null);
     }
@@ -107,11 +159,12 @@ export default function ManageUsers() {
         setRequests((prev) => prev.filter((r) => r.id !== id));
         setRejectingId(null);
         setRejectReason("");
+        showFeedback(res.message || "Request rejected.", "success");
       } else {
-        alert(res.message || "Failed to reject request.");
+        showFeedback(res.message || "Failed to reject request.", "error");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Server error.");
+      showFeedback(err.response?.data?.message || "Server error.", "error");
     } finally {
       setProcessingId(null);
     }
@@ -130,7 +183,9 @@ export default function ManageUsers() {
       <div className={styles.changeValues}>
         <span className={styles.currentValue}>{current || "—"}</span>
         <span className={styles.arrow}>→</span>
-        <span className={styles.requestedValue}>{requested || "—"}</span>
+        <span className={styles.requestedValue}>
+          {requested || "None (removed)"}
+        </span>
       </div>
     </div>
   );
@@ -141,7 +196,6 @@ export default function ManageUsers() {
         <h1 className={styles.title}>User Management</h1>
       </div>
 
-      {/* ── Main section tabs ── */}
       <div className={styles.mainTabs}>
         <button
           className={`${styles.mainTab} ${activeTab === "users" ? styles.activeMainTab : ""}`}
@@ -157,7 +211,6 @@ export default function ManageUsers() {
         </button>
       </div>
 
-      {/* ═══════════════════════ USERS TAB ═══════════════════════ */}
       {activeTab === "users" && (
         <>
           <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
@@ -191,6 +244,7 @@ export default function ManageUsers() {
                     <th>Role</th>
                     <th>Status</th>
                     <th>Joined</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,7 +269,7 @@ export default function ManageUsers() {
                               {u.full_name || u.username || "—"}
                             </span>
                             <span className={styles.username}>
-                              @{u.username || "unknown"}
+                              @{u.username || u.full_name || "unknown"}
                             </span>
                           </div>
                         </div>
@@ -240,6 +294,30 @@ export default function ManageUsers() {
                           ? new Date(u.created_at).toLocaleDateString()
                           : "—"}
                       </td>
+                      <td>
+                        <div className={styles.actionsCell}>
+                          <button
+                            type="button"
+                            className={
+                              u.status === "blocked"
+                                ? styles.unblockBtn
+                                : styles.blockBtn
+                            }
+                            onClick={() => handleToggleBlock(u)}
+                            disabled={actioningUserId === u.id}
+                          >
+                            {u.status === "blocked" ? "Unblock" : "Block"}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.deleteBtn}
+                            onClick={() => handleDeleteUser(u)}
+                            disabled={actioningUserId === u.id}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -249,7 +327,6 @@ export default function ManageUsers() {
         </>
       )}
 
-      {/* ═══════════════════ PROFILE REQUESTS TAB ═══════════════════ */}
       {activeTab === "requests" && (
         <>
           <div className={styles.subTabs}>
@@ -394,6 +471,12 @@ export default function ManageUsers() {
           )}
         </>
       )}
+
+      <FeedbackModal
+        message={feedback.message}
+        type={feedback.type}
+        onClose={() => setFeedback({ message: "", type: "success" })}
+      />
     </div>
   );
 }
