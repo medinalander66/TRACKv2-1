@@ -10,6 +10,7 @@ import {
   FiCalendar,
   FiUser,
   FiUsers,
+  FiEye,
 } from "react-icons/fi";
 import styles from "./Tasks.module.css";
 import FeedbackModal from "../../../components/common/FeedbackModal";
@@ -457,25 +458,25 @@ export default function Tasks() {
           className={`${styles.tab} ${activeTab === "all" ? styles.activeTab : ""}`}
           onClick={() => setActiveTab("all")}
         >
-          All
+          <FiEye size={16}/> All
         </button>
         <button
           className={`${styles.tab} ${activeTab === "invited" ? styles.activeTab : ""}`}
           onClick={() => setActiveTab("invited")}
         >
-          Invited
+          <FiCalendar size={16}/> Invited
         </button>
         <button
           className={`${styles.tab} ${activeTab === "created" ? styles.activeTab : ""}`}
           onClick={() => setActiveTab("created")}
         >
-          Created
+          <FiEdit size={16} /> Created
         </button>
         <button
           className={`${styles.tab} ${activeTab === "collaboration" ? styles.activeTab : ""}`}
           onClick={() => setActiveTab("collaboration")}
         >
-          Collaboration
+          <FiUsers size={16} />Collaboration
         </button>
       </div>
 
