@@ -394,7 +394,10 @@ export default function Menu({ activePath, onCloseDrawer }) {
                 navigate("/create-event");
               }}
             >
-              <FiPlus size={18} /> Create Event
+              <span>
+                <FiPlus size={18} />
+              </span>{" "}
+              Create Event
             </button>
             <button
               className={styles.homeLinkBtn}
@@ -403,7 +406,8 @@ export default function Menu({ activePath, onCloseDrawer }) {
                 navigate("/create-task");
               }}
             >
-              <FiPlus size={18} /> Create Task
+              <span><FiPlus size={18} /></span>
+               Create Task
             </button>
           </div>
 
@@ -563,7 +567,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
           </div>
 
           <button className={styles.createEventBtn} onClick={handleCreateEvent}>
-            + Create Event
+            <FiPlus size={18} /> Create Event
           </button>
 
           <div className={styles.listGroup}>
@@ -613,7 +617,7 @@ export default function Menu({ activePath, onCloseDrawer }) {
           </div>
 
           <button className={styles.createEventBtn} onClick={handleCreateTask}>
-            + New Task
+            <FiPlus size={18} /> New Task
           </button>
 
           <div className={styles.listGroup}>
